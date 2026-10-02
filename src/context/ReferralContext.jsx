@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext } from 'react';
-import { demoReferrals } from '../data/demoReferral';
+import React, { createContext, useContext, useState } from "react";
+import { demoReferrals } from "../data/demoReferral";
 
 const ReferralContext = createContext();
 
@@ -10,32 +10,52 @@ export const useReferrals = () => {
 export const ReferralProvider = ({ children }) => {
   const [referrals, setReferrals] = useState(demoReferrals);
 
+  // Create a new referral
   const addReferral = (newReferral) => {
-    setReferrals([newReferral, ...referrals]);
+    setReferrals((currentReferrals) => [
+      newReferral,
+      ...currentReferrals,
+    ]);
   };
 
+  // Update referral status and add an event to its timeline
   const updateReferralStatus = (id, newStatus, note = "") => {
-    setReferrals(referrals.map(ref => {
-      if (ref.id === id) {
+    setReferrals((currentReferrals) =>
+      currentReferrals.map((referral) => {
+        if (referral.id !== id) {
+          return referral;
+        }
+
         return {
-          ...ref,
+          ...referral,
           status: newStatus,
           timeline: [
-            ...ref.timeline,
-            { status: newStatus, date: new Date().toISOString(), notes: note }
-          ]
+            ...referral.timeline,
+            {
+              status: newStatus,
+              date: new Date().toISOString(),
+              notes: note,
+            },
+          ],
         };
-      }
-      return ref;
-    }));
+      })
+    );
   };
 
+  // Find one referral
   const getReferralById = (id) => {
-    return referrals.find(ref => ref.id === id);
+    return referrals.find((referral) => referral.id === id);
   };
 
   return (
-    <ReferralContext.Provider value={{ referrals, addReferral, updateReferralStatus, getReferralById }}>
+    <ReferralContext.Provider
+      value={{
+        referrals,
+        addReferral,
+        updateReferralStatus,
+        getReferralById,
+      }}
+    >
       {children}
     </ReferralContext.Provider>
   );
