@@ -1,26 +1,31 @@
 import React from "react";
-import { useReferrals } from "../context/ReferralContext";
+import { useReferrals } from "../context/ReferralContext.jsx";
 
 const JOURNEY_STEPS = [
   {
     key: "CREATED",
-    label: "Referral Created",
+    label: "Created",
+    shortLabel: "Referral created",
   },
   {
     key: "SENT",
-    label: "Referral Sent",
+    label: "Sent",
+    shortLabel: "Referral sent",
   },
   {
     key: "ACKNOWLEDGED",
-    label: "Facility Acknowledged",
+    label: "Acknowledged",
+    shortLabel: "Facility acknowledged",
   },
   {
     key: "ARRIVAL_CONFIRMED",
-    label: "Patient Arrival Confirmed",
+    label: "Arrival",
+    shortLabel: "Arrival confirmed",
   },
   {
     key: "COMPLETED",
-    label: "Referral Completed",
+    label: "Completed",
+    shortLabel: "Care completed",
   },
 ];
 
@@ -61,41 +66,6 @@ const getStatusLabel = (status) => {
   }
 };
 
-const getStatusColors = (status) => {
-  switch (status) {
-    case "FOLLOW_UP_REQUIRED":
-      return {
-        background: "#FDECEC",
-        color: "#B42318",
-      };
-
-    case "COMPLETED":
-      return {
-        background: "#DFF5E8",
-        color: "#146C43",
-      };
-
-    case "ACKNOWLEDGED":
-    case "ARRIVAL_CONFIRMED":
-      return {
-        background: "#E6F7EF",
-        color: "#177245",
-      };
-
-    case "SENT":
-      return {
-        background: "#FFF4D6",
-        color: "#9A6700",
-      };
-
-    default:
-      return {
-        background: "#EAF3F8",
-        color: "#1769AA",
-      };
-  }
-};
-
 const getStatusMessage = (status) => {
   switch (status) {
     case "CREATED":
@@ -105,13 +75,13 @@ const getStatusMessage = (status) => {
       return "Your referral has been sent. We are waiting for the receiving facility to acknowledge it.";
 
     case "ACKNOWLEDGED":
-      return "The receiving facility has acknowledged your referral. Please follow the next step provided by your care team.";
+      return "The receiving facility has acknowledged your referral. Follow the next instruction from your care team.";
 
     case "ARRIVAL_CONFIRMED":
-      return "Your arrival at the receiving facility has been confirmed.";
+      return "Your arrival at the receiving facility has been confirmed. Your referral remains active until the required service is completed.";
 
     case "FOLLOW_UP_REQUIRED":
-      return "Your referral needs follow-up from a healthcare coordinator. Someone may contact you for assistance.";
+      return "Your referral needs operational follow-up. A coordinator can help resolve the issue affecting your journey.";
 
     case "COMPLETED":
       return "Your referral journey has been completed.";
@@ -121,78 +91,129 @@ const getStatusMessage = (status) => {
   }
 };
 
+const getNextStep = (status) => {
+  switch (status) {
+    case "CREATED":
+      return {
+        icon: "↗",
+        title: "Referral is being sent",
+        text: "Your care team is preparing the referral for the receiving facility.",
+      };
+
+    case "SENT":
+      return {
+        icon: "◷",
+        title: "Waiting for acknowledgement",
+        text: "The receiving facility needs to acknowledge the referral before the next step.",
+      };
+
+    case "ACKNOWLEDGED":
+      return {
+        icon: "→",
+        title: "Proceed to the receiving facility",
+        text: "Your referral has been acknowledged. Follow the instructions provided by your care team.",
+      };
+
+    case "ARRIVAL_CONFIRMED":
+      return {
+        icon: "✓",
+        title: "Care is the next step",
+        text: "Your arrival has been recorded. The receiving facility can now continue the required service.",
+      };
+
+    case "FOLLOW_UP_REQUIRED":
+      return {
+        icon: "!",
+        title: "Human assistance is being coordinated",
+        text: "A coordinator can help with the operational issue affecting your referral.",
+      };
+
+    case "COMPLETED":
+      return {
+        icon: "✓",
+        title: "Referral journey completed",
+        text: "The referral has been marked as completed.",
+      };
+
+    default:
+      return {
+        icon: "→",
+        title: "Referral in progress",
+        text: "Your care team will provide the next instruction.",
+      };
+  }
+};
+
+const getStatusTone = (status) => {
+  switch (status) {
+    case "COMPLETED":
+      return "success";
+
+    case "FOLLOW_UP_REQUIRED":
+      return "warning";
+
+    case "ACKNOWLEDGED":
+    case "ARRIVAL_CONFIRMED":
+      return "active";
+
+    case "SENT":
+      return "waiting";
+
+    default:
+      return "info";
+  }
+};
+
+const formatDate = (date) => {
+  if (!date) return "";
+
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatTime = (date) => {
+  if (!date) return "";
+
+  return new Date(date).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
 const PatientDashboard = () => {
   const { referrals } = useReferrals();
 
-  // Simulated logged-in patient for the hardcoded prototype.
+  // Simulated patient for the hardcoded prototype.
   const patientId = "P-1001";
 
   const myReferrals = referrals.filter(
     (referral) => referral.patientId === patientId
   );
 
-  // Show the most recent active referral.
   const activeReferral =
     myReferrals.find(
       (referral) => referral.status !== "COMPLETED"
     ) || myReferrals[0];
 
-  // Empty state
   if (!activeReferral) {
     return (
-      <div
-        style={{
-          maxWidth: "850px",
-          margin: "0 auto",
-        }}
-      >
-        <div style={{ marginBottom: "2rem" }}>
-          <p
-            style={{
-              margin: 0,
-              color: "var(--text-muted)",
-              fontSize: "0.9rem",
-            }}
-          >
-            Patient / Caregiver
+      <div className="patient-page">
+        <section className="patient-empty-page">
+          <div className="patient-empty-icon">✓</div>
+
+          <div className="patient-eyebrow">
+            PATIENT / CAREGIVER
+          </div>
+
+          <h1>No active referral</h1>
+
+          <p>
+            You currently have no active referral journey to track.
           </p>
-
-          <h2
-            style={{
-              margin: "0.35rem 0 0.4rem",
-            }}
-          >
-            My Referral
-          </h2>
-
-          <p
-            style={{
-              margin: 0,
-              color: "var(--text-muted)",
-            }}
-          >
-            Track your referral journey and see what happens next.
-          </p>
-        </div>
-
-        <div
-          className="card"
-          style={{
-            textAlign: "center",
-            padding: "3rem 2rem",
-          }}
-        >
-          <h3>No Active Referral</h3>
-
-          <p
-            style={{
-              color: "var(--text-muted)",
-              marginTop: "0.75rem",
-            }}
-          >
-            You currently have no active referral.
-          </p>
-        </div>
+        </section>
       </div>
     );
   }
@@ -201,547 +222,416 @@ const PatientDashboard = () => {
     activeReferral.status
   );
 
-  const currentStatusColors = getStatusColors(
-    activeReferral.status
-  );
-
   const latestEvent =
-    activeReferral.timeline &&
-    activeReferral.timeline.length > 0
-      ? activeReferral.timeline[
-          activeReferral.timeline.length - 1
-        ]
-      : null;
+    activeReferral.timeline?.[
+      activeReferral.timeline.length - 1
+    ] || null;
+
+  const nextStep = getNextStep(activeReferral.status);
+  const tone = getStatusTone(activeReferral.status);
 
   return (
-    <div
-      style={{
-        maxWidth: "900px",
-        margin: "0 auto",
-      }}
-    >
-      {/* ================= HEADER ================= */}
+    <div className="patient-page">
 
-      <div
-        style={{
-          marginBottom: "2rem",
-        }}
-      >
-        <p
-          style={{
-            margin: 0,
-            color: "var(--text-muted)",
-            fontSize: "0.9rem",
-          }}
-        >
-          Patient / Caregiver
-        </p>
+      {/* =====================================================
+          HERO
+          ===================================================== */}
 
-        <h2
-          style={{
-            margin: "0.35rem 0 0.4rem",
-          }}
-        >
-          My Referral
-        </h2>
+      <section className="patient-hero">
 
-        <p
-          style={{
-            margin: 0,
-            color: "var(--text-muted)",
-          }}
-        >
-          Track your referral journey and know what happens next.
-        </p>
-      </div>
+        <div className="patient-hero-content">
 
-      {/* ================= REFERRAL SUMMARY ================= */}
+          <div className="patient-eyebrow">
+            PATIENT / CAREGIVER
+          </div>
 
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
+          <h1>
+            Your referral journey
+          </h1>
+
+          <p>
+            Track your referral status and see what happens next.
+          </p>
+
+        </div>
+
+        <div className="patient-hero-badge">
+          <span className="patient-online-dot" />
+          Journey tracking active
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          MAIN REFERRAL CARD
+          ===================================================== */}
+
+      <section className={`patient-status-card tone-${tone}`}>
+
+        <div className="patient-status-top">
+
           <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.85rem",
-              }}
-            >
-              Referral ID
-            </p>
 
-            <h2
-              style={{
-                margin: "0.3rem 0 0.45rem",
-              }}
-            >
+            <div className="patient-small-label">
+              REFERRAL ID
+            </div>
+
+            <div className="patient-referral-id">
               {activeReferral.id}
+            </div>
+
+            <div className="patient-referral-meta">
+              {activeReferral.referralType}
+              {activeReferral.priority
+                ? ` • ${activeReferral.priority}`
+                : ""}
+            </div>
+
+          </div>
+
+          <div className="patient-current-status">
+
+            <span className="patient-status-dot" />
+
+            {getStatusLabel(activeReferral.status)}
+
+          </div>
+
+        </div>
+
+
+        {/* Route */}
+
+        <div className="patient-route">
+
+          <div className="patient-route-facility">
+            <span>FROM</span>
+            <strong>
+              {activeReferral.fromFacility}
+            </strong>
+          </div>
+
+          <div className="patient-route-line">
+            <div className="patient-route-circle">
+              →
+            </div>
+          </div>
+
+          <div className="patient-route-facility">
+            <span>TO</span>
+            <strong>
+              {activeReferral.toFacility}
+            </strong>
+          </div>
+
+        </div>
+
+
+        {/* Current message */}
+
+        <div className="patient-current-message">
+
+          <div className="patient-message-icon">
+            {activeReferral.status === "COMPLETED"
+              ? "✓"
+              : activeReferral.status ===
+                "FOLLOW_UP_REQUIRED"
+              ? "!"
+              : "●"}
+          </div>
+
+          <div>
+            <div className="patient-message-label">
+              CURRENT STATUS
+            </div>
+
+            <h2>
+              {getStatusLabel(activeReferral.status)}
             </h2>
 
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-              }}
-            >
-              {activeReferral.referralType}{" "}
-              {activeReferral.priority
-                ? `• ${activeReferral.priority}`
-                : ""}
+            <p>
+              {getStatusMessage(
+                activeReferral.status
+              )}
             </p>
-          </div>
 
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "0.55rem 0.9rem",
-              borderRadius: "999px",
-              fontWeight: "700",
-              fontSize: "0.88rem",
-              background: currentStatusColors.background,
-              color: currentStatusColors.color,
-            }}
-          >
-            {getStatusLabel(activeReferral.status)}
-          </div>
-        </div>
-
-        {/* Referral route */}
-
-        <div
-          style={{
-            marginTop: "1.5rem",
-            padding: "1rem",
-            borderRadius: "10px",
-            background: "var(--bg-color)",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              color: "var(--text-muted)",
-              fontSize: "0.82rem",
-            }}
-          >
-            Referral Route
-          </p>
-
-          <p
-            style={{
-              margin: "0.35rem 0 0",
-              fontWeight: "600",
-              lineHeight: 1.5,
-            }}
-          >
-            {activeReferral.fromFacility}
-            {" → "}
-            {activeReferral.toFacility}
-          </p>
-        </div>
-      </div>
-
-      {/* ================= CURRENT STATUS ================= */}
-
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-          borderLeft:
-            activeReferral.status === "FOLLOW_UP_REQUIRED"
-              ? "4px solid #B42318"
-              : "4px solid var(--primary)",
-        }}
-      >
-        <p
-          style={{
-            margin: 0,
-            color: "var(--text-muted)",
-            fontSize: "0.82rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            fontWeight: "700",
-          }}
-        >
-          Current Status
-        </p>
-
-        <h3
-          style={{
-            margin: "0.5rem 0 0.4rem",
-          }}
-        >
-          {getStatusLabel(activeReferral.status)}
-        </h3>
-
-        <p
-          style={{
-            margin: 0,
-            color: "var(--text-muted)",
-            lineHeight: 1.6,
-          }}
-        >
-          {getStatusMessage(activeReferral.status)}
-        </p>
-
-        {latestEvent && (
-          <p
-            style={{
-              marginTop: "0.75rem",
-              marginBottom: 0,
-              fontSize: "0.82rem",
-              color: "var(--text-muted)",
-            }}
-          >
-            Last updated:{" "}
-            {new Date(latestEvent.date).toLocaleString()}
-          </p>
-        )}
-      </div>
-
-      {/* ================= REFERRAL JOURNEY ================= */}
-
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <h3
-          style={{
-            marginBottom: "1.5rem",
-          }}
-        >
-          Referral Journey
-        </h3>
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.9rem",
-          }}
-        >
-          {JOURNEY_STEPS.map((step, index) => {
-            const event =
-              activeReferral.timeline?.find(
-                (item) => item.status === step.key
-              );
-
-            const completed =
-              activeReferral.status !==
-                "FOLLOW_UP_REQUIRED" &&
-              index < currentStepIndex;
-
-            const current =
-              step.key === activeReferral.status;
-
-            return (
-              <div
-                key={step.key}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "35px 1fr",
-                  gap: "0.75rem",
-                }}
-              >
-                {/* Step indicator */}
-
-                <div
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: completed
-                      ? "#DFF5E8"
-                      : current
-                      ? "#FFF4D6"
-                      : "#EEF2F6",
-                    color: completed
-                      ? "#146C43"
-                      : current
-                      ? "#9A6700"
-                      : "#667085",
-                    fontWeight: "700",
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  {completed ? "✓" : index + 1}
-                </div>
-
-                {/* Step content */}
-
-                <div
-                  style={{
-                    paddingBottom:
-                      index === JOURNEY_STEPS.length - 1
-                        ? 0
-                        : "0.8rem",
-                    borderBottom:
-                      index === JOURNEY_STEPS.length - 1
-                        ? "none"
-                        : "1px solid #E8EDF2",
-                  }}
-                >
-                  <strong>{step.label}</strong>
-
-                  <p
-                    style={{
-                      margin: "0.25rem 0 0",
-                      color: "var(--text-muted)",
-                      fontSize: "0.84rem",
-                    }}
-                  >
-                    {event
-                      ? new Date(event.date).toLocaleString()
-                      : "Pending"}
-                  </p>
-
-                  {event?.notes && (
-                    <p
-                      style={{
-                        margin: "0.3rem 0 0",
-                        color: "var(--text-muted)",
-                        fontSize: "0.82rem",
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {event.notes}
-                    </p>
-                  )}
-                </div>
+            {latestEvent && (
+              <div className="patient-last-updated">
+                Last updated {formatDate(latestEvent.date)}{" "}
+                at {formatTime(latestEvent.date)}
               </div>
-            );
-          })}
+            )}
+          </div>
+
         </div>
 
-        {/* Follow-up notification */}
+      </section>
 
-        {activeReferral.status ===
-          "FOLLOW_UP_REQUIRED" && (
-          <div
-            style={{
-              marginTop: "1.25rem",
-              padding: "1rem",
-              borderRadius: "10px",
-              background: "#FFF4F2",
-              border: "1px solid #FECACA",
-            }}
-          >
-            <strong
-              style={{
-                color: "#B42318",
-              }}
-            >
-              Follow-up Required
-            </strong>
 
-            <p
-              style={{
-                margin: "0.4rem 0 0",
-                color: "#7A271A",
-                fontSize: "0.86rem",
-                lineHeight: 1.5,
-              }}
-            >
-              Your referral needs operational assistance.
-              A healthcare coordinator may follow up with
-              you.
+      {/* =====================================================
+          JOURNEY
+          ===================================================== */}
+
+      <section className="patient-section">
+
+        <div className="patient-section-heading">
+
+          <div>
+            <div className="patient-section-kicker">
+              YOUR JOURNEY
+            </div>
+
+            <h2>
+              Referral progress
+            </h2>
+
+            <p>
+              See where your referral is in the care journey.
             </p>
           </div>
-        )}
-      </div>
 
-      {/* ================= NEXT STEP ================= */}
+          <div className="patient-progress-count">
+            {Math.min(currentStepIndex + 1, JOURNEY_STEPS.length)}
+            /{JOURNEY_STEPS.length}
+          </div>
 
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <p
-          style={{
-            margin: 0,
-            color: "var(--text-muted)",
-            fontSize: "0.82rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            fontWeight: "700",
-          }}
-        >
-          What Happens Next?
-        </p>
-
-        {activeReferral.status === "SENT" && (
-          <>
-            <h3 style={{ margin: "0.5rem 0 0.4rem" }}>
-              Wait for facility acknowledgement
-            </h3>
-
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                lineHeight: 1.5,
-              }}
-            >
-              Your referral has been sent to the receiving
-              facility. You will see an update here once it
-              is acknowledged.
-            </p>
-          </>
-        )}
-
-        {activeReferral.status === "ACKNOWLEDGED" && (
-          <>
-            <h3 style={{ margin: "0.5rem 0 0.4rem" }}>
-              Proceed to the receiving facility
-            </h3>
-
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                lineHeight: 1.5,
-              }}
-            >
-              Your referral has been acknowledged. Follow
-              the instructions provided by your care team.
-            </p>
-          </>
-        )}
-
-        {activeReferral.status ===
-          "ARRIVAL_CONFIRMED" && (
-          <>
-            <h3 style={{ margin: "0.5rem 0 0.4rem" }}>
-              Your arrival has been recorded
-            </h3>
-
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                lineHeight: 1.5,
-              }}
-            >
-              The receiving facility has confirmed your
-              arrival. Your referral remains active until
-              the required service is completed.
-            </p>
-          </>
-        )}
-
-        {activeReferral.status ===
-          "FOLLOW_UP_REQUIRED" && (
-          <>
-            <h3 style={{ margin: "0.5rem 0 0.4rem" }}>
-              Human assistance is being coordinated
-            </h3>
-
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                lineHeight: 1.5,
-              }}
-            >
-              A coordinator can help with the operational
-              issue affecting your referral.
-            </p>
-          </>
-        )}
-
-        {activeReferral.status === "COMPLETED" && (
-          <>
-            <h3 style={{ margin: "0.5rem 0 0.4rem" }}>
-              Referral journey completed
-            </h3>
-
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                lineHeight: 1.5,
-              }}
-            >
-              The referral has been marked as completed.
-            </p>
-          </>
-        )}
-      </div>
-
-      {/* ================= PATIENT HELP ================= */}
-
-      <div
-        className="card"
-        style={{
-          marginBottom: "2rem",
-        }}
-      >
-        <h3>Need Help?</h3>
-
-        <p
-          style={{
-            color: "var(--text-muted)",
-            lineHeight: 1.6,
-            marginBottom: "1rem",
-          }}
-        >
-          Get help with referral navigation or request
-          human assistance if something is blocking your
-          journey.
-        </p>
-
-        <div
-          style={{
-            display: "flex",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <button
-            type="button"
-            className="btn"
-            onClick={() =>
-              alert(
-                "Human assistance requested. A coordinator can follow up."
-              )
-            }
-          >
-            Request Human Help
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() =>
-              alert(
-                `Demo navigation to ${activeReferral.toFacility}`
-              )
-            }
-          >
-            Get Directions
-          </button>
         </div>
+
+
+        <div className="patient-journey-card">
+
+          <div className="patient-journey">
+
+            {JOURNEY_STEPS.map((step, index) => {
+
+              const event =
+                activeReferral.timeline?.find(
+                  (item) =>
+                    item.status === step.key
+                );
+
+              const completed =
+                activeReferral.status !==
+                  "FOLLOW_UP_REQUIRED" &&
+                index < currentStepIndex;
+
+              const current =
+                step.key === activeReferral.status;
+
+              return (
+                <div
+                  key={step.key}
+                  className={`patient-journey-step ${
+                    completed
+                      ? "is-completed"
+                      : ""
+                  } ${
+                    current
+                      ? "is-current"
+                      : ""
+                  }`}
+                >
+
+                  <div className="patient-step-rail">
+
+                    <div className="patient-step-circle">
+
+                      {completed
+                        ? "✓"
+                        : index + 1}
+
+                    </div>
+
+                    {index <
+                      JOURNEY_STEPS.length - 1 && (
+                      <div
+                        className={`patient-step-line ${
+                          completed
+                            ? "is-filled"
+                            : ""
+                        }`}
+                      />
+                    )}
+
+                  </div>
+
+
+                  <div className="patient-step-content">
+
+                    <div className="patient-step-heading">
+
+                      <strong>
+                        {step.label}
+                      </strong>
+
+                      {current && (
+                        <span className="patient-now-badge">
+                          NOW
+                        </span>
+                      )}
+
+                    </div>
+
+                    <span className="patient-step-description">
+                      {step.shortLabel}
+                    </span>
+
+                    <span
+                      className={`patient-step-date ${
+                        event
+                          ? "has-event"
+                          : ""
+                      }`}
+                    >
+                      {event
+                        ? `${formatDate(
+                            event.date
+                          )} • ${formatTime(
+                            event.date
+                          )}`
+                        : "Pending"}
+                    </span>
+
+                  </div>
+
+                </div>
+              );
+            })}
+
+          </div>
+
+
+          {activeReferral.status ===
+            "FOLLOW_UP_REQUIRED" && (
+            <div className="patient-followup">
+
+              <div className="patient-followup-icon">
+                !
+              </div>
+
+              <div>
+                <strong>
+                  Follow-up is required
+                </strong>
+
+                <p>
+                  A healthcare coordinator may contact you
+                  to help keep the referral moving.
+                </p>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          NEXT STEP
+          ===================================================== */}
+
+      <section className="patient-next-card">
+
+        <div className="patient-next-icon">
+          {nextStep.icon}
+        </div>
+
+        <div className="patient-next-content">
+
+          <div className="patient-section-kicker">
+            WHAT HAPPENS NEXT
+          </div>
+
+          <h2>
+            {nextStep.title}
+          </h2>
+
+          <p>
+            {nextStep.text}
+          </p>
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          HELP
+          ===================================================== */}
+
+      <section className="patient-help-card">
+
+        <div className="patient-help-icon">
+          ?
+        </div>
+
+        <div className="patient-help-content">
+
+          <div className="patient-section-kicker">
+            SUPPORT
+          </div>
+
+          <h2>
+            Need help with your referral?
+          </h2>
+
+          <p>
+            You can request human assistance when something
+            is blocking your referral journey.
+          </p>
+
+          <div className="patient-help-actions">
+
+            <button
+              type="button"
+              className="patient-primary-btn"
+              onClick={() =>
+                alert(
+                  "Human assistance requested. A coordinator can follow up."
+                )
+              }
+            >
+              Request Human Help
+            </button>
+
+            <button
+              type="button"
+              className="patient-secondary-btn"
+              onClick={() =>
+                alert(
+                  `Demo navigation to ${activeReferral.toFacility}`
+                )
+              }
+            >
+              Get Directions
+            </button>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          SAFETY NOTE
+          ===================================================== */}
+
+      <div className="patient-safety-note">
+
+        <span>●</span>
+
+        <p>
+          Navexa helps you follow your referral journey.
+          Clinical care and decisions remain with your
+          healthcare team.
+        </p>
+
       </div>
+
     </div>
   );
 };

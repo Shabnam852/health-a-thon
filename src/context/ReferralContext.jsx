@@ -1,4 +1,9 @@
-import React, { createContext, useContext, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+} from "react";
+
 import { demoReferrals } from "../data/demoReferral";
 
 const ReferralContext = createContext();
@@ -10,7 +15,29 @@ export const useReferrals = () => {
 export const ReferralProvider = ({ children }) => {
   const [referrals, setReferrals] = useState(demoReferrals);
 
-  // Create a new referral
+  // --------------------------------------------------
+  // DEMO ROLE
+  // Stored in localStorage so refresh does not reset it
+  // --------------------------------------------------
+
+  const [role, setRoleState] = useState(
+    () => localStorage.getItem("navexa_role") || null
+  );
+
+  const setRole = (newRole) => {
+    localStorage.setItem("navexa_role", newRole);
+    setRoleState(newRole);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("navexa_role");
+    setRoleState(null);
+  };
+
+  // --------------------------------------------------
+  // REFERRAL FUNCTIONS
+  // --------------------------------------------------
+
   const addReferral = (newReferral) => {
     setReferrals((currentReferrals) => [
       newReferral,
@@ -18,8 +45,11 @@ export const ReferralProvider = ({ children }) => {
     ]);
   };
 
-  // Update referral status and add an event to its timeline
-  const updateReferralStatus = (id, newStatus, note = "") => {
+  const updateReferralStatus = (
+    id,
+    newStatus,
+    note = ""
+  ) => {
     setReferrals((currentReferrals) =>
       currentReferrals.map((referral) => {
         if (referral.id !== id) {
@@ -28,9 +58,12 @@ export const ReferralProvider = ({ children }) => {
 
         return {
           ...referral,
+
           status: newStatus,
+
           timeline: [
-            ...referral.timeline,
+            ...(referral.timeline || []),
+
             {
               status: newStatus,
               date: new Date().toISOString(),
@@ -42,9 +75,10 @@ export const ReferralProvider = ({ children }) => {
     );
   };
 
-  // Find one referral
   const getReferralById = (id) => {
-    return referrals.find((referral) => referral.id === id);
+    return referrals.find(
+      (referral) => referral.id === id
+    );
   };
 
   return (
@@ -54,6 +88,11 @@ export const ReferralProvider = ({ children }) => {
         addReferral,
         updateReferralStatus,
         getReferralById,
+
+        // Role functions
+        role,
+        setRole,
+        logout,
       }}
     >
       {children}

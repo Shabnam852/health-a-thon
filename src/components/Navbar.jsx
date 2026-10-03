@@ -1,123 +1,95 @@
 import React from "react";
-import { NavLink, Link } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useReferrals } from "../context/ReferralContext.jsx";
 
 const Navbar = () => {
-  const getLinkStyle = ({ isActive }) => ({
-    textDecoration: "none",
-    color: isActive ? "#1769AA" : "#344054",
-    fontWeight: isActive ? "700" : "500",
-    transition: "0.2s ease",
-  });
+  const { role, logout } = useReferrals();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
+  const navLinkClass = ({ isActive }) =>
+    `nav-link ${isActive ? "nav-link-active" : ""}`;
 
   return (
-    <header
-      style={{
-        background: "#ffffff",
-        borderBottom: "1px solid #E4E7EC",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "1rem 1.5rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1.5rem",
-        }}
-      >
+    <header className="nav-shell">
+      <div className="nav-inner">
+
         {/* Brand */}
-        <Link
-          to="/"
-          style={{
-            textDecoration: "none",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-          }}
-        >
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "10px",
-              background: "linear-gradient(135deg, #1769AA, #1F9D8B)",
-              color: "#ffffff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.15rem",
-              fontWeight: "800",
-            }}
-          >
+        <Link to="/" className="nav-brand">
+          <div className="nav-brand-mark">
             N
           </div>
 
-          <div>
-            <div
-              style={{
-                color: "#123B5D",
-                fontSize: "1.35rem",
-                fontWeight: "800",
-                lineHeight: 1,
-              }}
-            >
-              Navexa
-            </div>
-
-            <div
-              style={{
-                color: "#1F8A8A",
-                fontSize: "0.8rem",
-                fontWeight: "600",
-                marginTop: "2px",
-              }}
-            >
-              Health
-            </div>
+          <div className="nav-brand-text">
+            <div className="nav-brand-title">Navexa</div>
+            <div className="nav-brand-subtitle">Health</div>
           </div>
         </Link>
 
         {/* Navigation */}
-        <nav
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "1.5rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <NavLink to="/patient" style={getLinkStyle}>
-            Patient
-          </NavLink>
+        {role && (
+          <nav className="nav-links">
 
-          <NavLink to="/facility" style={getLinkStyle}>
-            Facility
-          </NavLink>
+            {role === "patient" && (
+              <>
+                <NavLink to="/patient" className={navLinkClass}>
+                  Dashboard
+                </NavLink>
 
-          <NavLink to="/coordinator" style={getLinkStyle}>
-            Coordinator
-          </NavLink>
+                <button
+                  className="nav-help-btn"
+                  onClick={() =>
+                    window.alert(
+                      "Human support request created.\nA care coordinator will follow up."
+                    )
+                  }
+                >
+                  Need Help?
+                </button>
+              </>
+            )}
 
-          <Link
-            to="/create"
-            style={{
-              textDecoration: "none",
-              background: "#1769AA",
-              color: "#ffffff",
-              padding: "0.7rem 1.1rem",
-              borderRadius: "9px",
-              fontWeight: "700",
-              fontSize: "0.9rem",
-            }}
-          >
-            + New Referral
-          </Link>
-        </nav>
+            {role === "facility" && (
+              <>
+                <NavLink to="/facility" className={navLinkClass}>
+                  Dashboard
+                </NavLink>
+
+                <NavLink to="/create" className="nav-new-referral">
+                  + New Referral
+                </NavLink>
+              </>
+            )}
+
+            {role === "coordinator" && (
+              <NavLink to="/coordinator" className={navLinkClass}>
+                Operations
+              </NavLink>
+            )}
+
+            <div className="nav-divider" />
+
+            <div className="nav-role-pill">
+              <span className="nav-role-dot" />
+              {role === "patient" && "Patient"}
+              {role === "facility" && "Healthcare Facility"}
+              {role === "coordinator" && "Coordinator"}
+            </div>
+
+            <button
+              className="nav-switch-btn"
+              onClick={handleLogout}
+            >
+              Switch Role
+            </button>
+
+          </nav>
+        )}
+
       </div>
     </header>
   );

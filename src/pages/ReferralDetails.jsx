@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { useReferrals } from "../context/ReferralContext";
+import { useReferrals } from "../context/ReferralContext.jsx";
 
 const STATUS_LABELS = {
   CREATED: "Referral Created",
@@ -9,33 +9,6 @@ const STATUS_LABELS = {
   ARRIVAL_CONFIRMED: "Arrival Confirmed",
   COMPLETED: "Referral Completed",
   FOLLOW_UP_REQUIRED: "Follow-up Required",
-};
-
-const STATUS_STYLES = {
-  CREATED: {
-    background: "#E8F4FF",
-    color: "#1769AA",
-  },
-  SENT: {
-    background: "#FFF4D6",
-    color: "#9A6700",
-  },
-  ACKNOWLEDGED: {
-    background: "#E6F7EF",
-    color: "#177245",
-  },
-  ARRIVAL_CONFIRMED: {
-    background: "#E6F7EF",
-    color: "#177245",
-  },
-  COMPLETED: {
-    background: "#DFF5E8",
-    color: "#146C43",
-  },
-  FOLLOW_UP_REQUIRED: {
-    background: "#FDECEC",
-    color: "#B42318",
-  },
 };
 
 const JOURNEY_STEPS = [
@@ -51,65 +24,130 @@ const getCurrentStepIndex = (status) => {
     return 1;
   }
 
-  return JOURNEY_STEPS.indexOf(status);
+  const index = JOURNEY_STEPS.indexOf(status);
+
+  return index === -1 ? 0 : index;
+};
+
+const getTone = (status) => {
+  switch (status) {
+    case "FOLLOW_UP_REQUIRED":
+      return "warning";
+
+    case "COMPLETED":
+      return "success";
+
+    case "SENT":
+      return "waiting";
+
+    case "ACKNOWLEDGED":
+    case "ARRIVAL_CONFIRMED":
+      return "active";
+
+    default:
+      return "info";
+  }
 };
 
 const getNextAction = (status) => {
   switch (status) {
     case "CREATED":
       return {
-        title: "Send Referral",
-        description: "The referral has been created and is ready to be sent.",
+        eyebrow: "READY TO START",
+        title: "Send this referral",
+        description:
+          "The referral has been created and is ready to be sent to the receiving facility.",
+        button: "Send Referral",
         action: "send",
+        tone: "info",
       };
 
     case "SENT":
       return {
-        title: "Awaiting Facility Acknowledgement",
+        eyebrow: "WAITING",
+        title: "Awaiting facility acknowledgement",
         description:
           "The receiving facility has not yet acknowledged this referral.",
+        button: "Acknowledge Referral",
         action: "acknowledge",
+        tone: "waiting",
+        secondary: "Flag for Follow-up",
       };
 
     case "ACKNOWLEDGED":
       return {
-        title: "Awaiting Patient Arrival",
+        eyebrow: "NEXT MILESTONE",
+        title: "Awaiting patient arrival",
         description:
           "The receiving facility has acknowledged the referral. Arrival can be confirmed when the patient reaches the facility.",
+        button: "Confirm Patient Arrival",
         action: "arrival",
+        tone: "active",
       };
 
     case "ARRIVAL_CONFIRMED":
       return {
-        title: "Care / Service in Progress",
+        eyebrow: "CARE IN PROGRESS",
+        title: "Care / service completion pending",
         description:
-          "Arrival has been confirmed. The referral can be completed once the requested service is finished.",
+          "Patient arrival has been confirmed. Complete the referral when the requested service has been finished.",
+        button: "Complete Referral",
         action: "complete",
+        tone: "active",
       };
 
     case "FOLLOW_UP_REQUIRED":
       return {
-        title: "Human Follow-up Required",
+        eyebrow: "ACTION REQUIRED",
+        title: "Human follow-up is in progress",
         description:
-          "The referral needs operational follow-up by an authorised coordinator or healthcare worker.",
+          "The referral requires operational follow-up by an authorised coordinator or healthcare worker.",
+        button: "Mark Follow-up Resolved",
         action: "followup",
+        tone: "warning",
       };
 
     case "COMPLETED":
       return {
-        title: "Referral Closed",
+        eyebrow: "CLOSED",
+        title: "Referral journey completed",
         description:
-          "The referral journey has been completed and the case is closed.",
+          "This referral has reached the completed state and the journey is closed.",
         action: "none",
+        tone: "success",
       };
 
     default:
       return {
-        title: "Status Unknown",
-        description: "Please review the referral.",
+        eyebrow: "REFERRAL",
+        title: "Review referral",
+        description: "Please review the current referral record.",
         action: "none",
+        tone: "info",
       };
   }
+};
+
+const formatDate = (date) => {
+  if (!date) return "—";
+
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatDateTime = (date) => {
+  if (!date) return "Pending";
+
+  return new Date(date).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
 const ReferralDetails = () => {
@@ -119,44 +157,51 @@ const ReferralDetails = () => {
   const {
     getReferralById,
     updateReferralStatus,
+    role,
   } = useReferrals();
 
   const referral = getReferralById(id);
 
   if (!referral) {
     return (
-      <div
-        style={{
-          maxWidth: "700px",
-          margin: "4rem auto",
-          padding: "2rem",
-          textAlign: "center",
-        }}
-      >
-        <h2>Referral Not Found</h2>
+      <div className="details-page">
+        <div className="details-not-found">
+          <div className="details-not-found-icon">?</div>
 
-        <p
-          style={{
-            color: "var(--text-muted)",
-            marginTop: "0.75rem",
-          }}
-        >
-          The referral you're looking for does not exist in the demo data.
-        </p>
+          <div className="details-eyebrow">
+            REFERRAL RECORD
+          </div>
 
-        <button
-          onClick={() => navigate(-1)}
-          className="btn"
-          style={{ marginTop: "1.5rem" }}
-        >
-          ← Go Back
-        </button>
+          <h1>Referral not found</h1>
+
+          <p>
+            The referral you are looking for does not exist in
+            the current demo data.
+          </p>
+
+          <button
+            type="button"
+            className="details-primary-btn"
+            onClick={() => navigate(-1)}
+          >
+            ← Go Back
+          </button>
+        </div>
       </div>
     );
   }
 
+  const currentStepIndex = getCurrentStepIndex(
+    referral.status
+  );
+
   const nextAction = getNextAction(referral.status);
-  const currentStepIndex = getCurrentStepIndex(referral.status);
+  const tone = getTone(referral.status);
+
+  const latestEvent =
+    referral.timeline?.[
+      referral.timeline.length - 1
+    ] || null;
 
   const performAction = () => {
     switch (nextAction.action) {
@@ -214,456 +259,513 @@ const ReferralDetails = () => {
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "950px",
-        margin: "0 auto",
-      }}
-    >
-      {/* Back */}
-      <button
-        onClick={() => navigate(-1)}
-        className="btn btn-secondary"
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        ← Back
-      </button>
+    <div className="details-page">
 
-      {/* Header */}
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
+      {/* =====================================================
+          TOP BAR
+          ===================================================== */}
+
+      <div className="details-topbar">
+
+        <button
+          type="button"
+          className="details-back-btn"
+          onClick={() => navigate(-1)}
         >
-          <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.9rem",
-              }}
-            >
-              Referral ID
-            </p>
+          ← Back
+        </button>
 
-            <h1
-              style={{
-                margin: "0.3rem 0 0.5rem",
-                fontSize: "2rem",
-              }}
-            >
-              {referral.id}
-            </h1>
-
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-              }}
-            >
-              Created on{" "}
-              {new Date(referral.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "0.55rem 0.9rem",
-              borderRadius: "999px",
-              fontWeight: "700",
-              fontSize: "0.9rem",
-              background:
-                STATUS_STYLES[referral.status]?.background || "#EEF2F6",
-              color:
-                STATUS_STYLES[referral.status]?.color || "#475467",
-            }}
-          >
-            {STATUS_LABELS[referral.status] || referral.status}
-          </div>
+        <div className="details-view-label">
+          {role === "coordinator"
+            ? "Coordinator view"
+            : "Facility view"}
         </div>
+
       </div>
 
-      {/* Referral Information */}
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <h3 style={{ marginBottom: "1.25rem" }}>
-          Referral Information
-        </h3>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "1.25rem",
-          }}
-        >
-          <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.85rem",
-              }}
-            >
-              Patient
-            </p>
+      {/* =====================================================
+          HERO
+          ===================================================== */}
 
-            <strong>{referral.patientName}</strong>
+      <section className={`details-hero tone-${tone}`}>
+
+        <div className="details-hero-main">
+
+          <div className="details-eyebrow">
+            REFERRAL RECORD
           </div>
 
-          <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.85rem",
-              }}
-            >
-              Patient ID
-            </p>
+          <h1>{referral.id}</h1>
 
-            <strong>{referral.patientId}</strong>
-          </div>
-
-          <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.85rem",
-              }}
-            >
-              Referral Type
-            </p>
-
-            <strong>{referral.referralType}</strong>
-          </div>
-
-          <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.85rem",
-              }}
-            >
-              Priority
-            </p>
-
-            <strong>{referral.priority}</strong>
-          </div>
-
-          <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.85rem",
-              }}
-            >
-              Referring Facility
-            </p>
-
-            <strong>{referral.fromFacility}</strong>
-          </div>
-
-          <div>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--text-muted)",
-                fontSize: "0.85rem",
-              }}
-            >
-              Receiving Facility
-            </p>
-
-            <strong>{referral.toFacility}</strong>
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: "1.5rem",
-            padding: "1rem",
-            borderRadius: "10px",
-            background: "var(--bg-color)",
-          }}
-        >
-          <p
-            style={{
-              margin: "0 0 0.35rem",
-              color: "var(--text-muted)",
-              fontSize: "0.85rem",
-            }}
-          >
-            Referral Information
+          <p>
+            Created {formatDate(referral.createdAt)}
           </p>
 
-          <p style={{ margin: 0 }}>
-            {referral.reason}
-          </p>
         </div>
-      </div>
 
-      {/* Current Next Action */}
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-          borderLeft:
-            referral.status === "FOLLOW_UP_REQUIRED"
-              ? "4px solid #B42318"
-              : "4px solid var(--primary)",
-        }}
-      >
-        <p
-          style={{
-            margin: 0,
-            color: "var(--text-muted)",
-            fontSize: "0.85rem",
-            fontWeight: "600",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-          }}
-        >
-          What Happens Next
-        </p>
+        <div className="details-status-pill">
+          <span />
+          {STATUS_LABELS[referral.status] ||
+            referral.status}
+        </div>
 
-        <h3 style={{ margin: "0.5rem 0 0.4rem" }}>
-          {nextAction.title}
-        </h3>
+      </section>
 
-        <p
-          style={{
-            margin: 0,
-            color: "var(--text-muted)",
-            lineHeight: 1.6,
-          }}
-        >
-          {nextAction.description}
-        </p>
 
-        {/* Main action */}
-        {nextAction.action !== "none" && (
-          <div
-            style={{
-              display: "flex",
-              gap: "0.75rem",
-              flexWrap: "wrap",
-              marginTop: "1.25rem",
-            }}
-          >
-            <button
-              className="btn"
-              onClick={performAction}
-            >
-              {nextAction.action === "send" &&
-                "Send Referral"}
+      {/* =====================================================
+          ROUTE
+          ===================================================== */}
 
-              {nextAction.action === "acknowledge" &&
-                "Acknowledge Referral"}
+      <section className="details-route-card">
 
-              {nextAction.action === "arrival" &&
-                "Confirm Patient Arrival"}
+        <div className="details-route-facility">
 
-              {nextAction.action === "complete" &&
-                "Complete Referral"}
-
-              {nextAction.action === "followup" &&
-                "Mark Follow-up Resolved"}
-            </button>
-
-            {referral.status === "SENT" && (
-              <button
-                className="btn btn-secondary"
-                onClick={handleFollowUp}
-              >
-                Flag for Follow-up
-              </button>
-            )}
+          <div className="details-route-icon source">
+            ↗
           </div>
-        )}
-      </div>
 
-      {/* Referral Journey */}
-      <div
-        className="card"
-        style={{
-          marginBottom: "1.5rem",
-        }}
-      >
-        <h3 style={{ marginBottom: "1.5rem" }}>
-          Referral Journey
-        </h3>
+          <div>
+            <span>REFERRING FACILITY</span>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.9rem",
-          }}
-        >
-          {JOURNEY_STEPS.map((step, index) => {
-            const event = referral.timeline.find(
-              (item) => item.status === step
-            );
+            <strong>
+              {referral.fromFacility}
+            </strong>
+          </div>
 
-            const isCompleted =
-              index <= currentStepIndex &&
-              referral.status !== "FOLLOW_UP_REQUIRED";
+        </div>
 
-            const isCurrent =
-              referral.status === step;
 
-            return (
-              <div
-                key={step}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "35px 1fr",
-                  gap: "0.75rem",
-                  alignItems: "start",
-                }}
-              >
-                {/* Circle */}
-                <div
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.85rem",
-                    fontWeight: "700",
-                    background: isCompleted
-                      ? "#DFF5E8"
-                      : isCurrent
-                      ? "#FFF4D6"
-                      : "#EEF2F6",
-                    color: isCompleted
-                      ? "#146C43"
-                      : isCurrent
-                      ? "#9A6700"
-                      : "#667085",
-                  }}
-                >
-                  {isCompleted ? "✓" : index + 1}
+        <div className="details-route-middle">
+
+          <div className="details-route-line" />
+
+          <div className="details-route-arrow">
+            →
+          </div>
+
+          <div className="details-route-line" />
+
+        </div>
+
+
+        <div className="details-route-facility">
+
+          <div className="details-route-icon destination">
+            ↘
+          </div>
+
+          <div>
+            <span>RECEIVING FACILITY</span>
+
+            <strong>
+              {referral.toFacility}
+            </strong>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <div className="details-content-grid">
+
+        {/* ===================================================
+            MAIN COLUMN
+            =================================================== */}
+
+        <main>
+
+          {/* PATIENT / REFERRAL INFO */}
+
+          <section className="details-card">
+
+            <div className="details-card-heading">
+
+              <div>
+                <div className="details-section-kicker">
+                  REFERRAL DETAILS
                 </div>
 
-                <div
-                  style={{
-                    paddingBottom:
-                      index === JOURNEY_STEPS.length - 1
-                        ? 0
-                        : "0.8rem",
-                    borderBottom:
-                      index === JOURNEY_STEPS.length - 1
-                        ? "none"
-                        : "1px solid #E8EDF2",
-                  }}
+                <h2>Patient & referral information</h2>
+              </div>
+
+              <span className="details-priority">
+                {referral.priority}
+              </span>
+
+            </div>
+
+
+            <div className="details-info-grid">
+
+              <div className="details-info-item">
+                <span>Patient</span>
+                <strong>{referral.patientName}</strong>
+              </div>
+
+              <div className="details-info-item">
+                <span>Patient ID</span>
+                <strong>{referral.patientId}</strong>
+              </div>
+
+              <div className="details-info-item">
+                <span>Referral Type</span>
+                <strong>{referral.referralType}</strong>
+              </div>
+
+              <div className="details-info-item">
+                <span>Priority</span>
+
+                <strong
+                  className={
+                    referral.priority === "Urgent"
+                      ? "details-urgent-text"
+                      : ""
+                  }
                 >
+                  {referral.priority}
+                </strong>
+              </div>
+
+            </div>
+
+
+            <div className="details-reason">
+
+              <span>REFERRAL INFORMATION</span>
+
+              <p>
+                {referral.reason}
+              </p>
+
+            </div>
+
+          </section>
+
+
+          {/* JOURNEY */}
+
+          <section className="details-card">
+
+            <div className="details-card-heading">
+
+              <div>
+                <div className="details-section-kicker">
+                  JOURNEY
+                </div>
+
+                <h2>Referral progress</h2>
+
+                <p>
+                  Follow the referral from creation to closure.
+                </p>
+              </div>
+
+              <div className="details-progress-count">
+                {referral.status === "FOLLOW_UP_REQUIRED"
+                  ? "1 issue"
+                  : `${Math.min(
+                      currentStepIndex + 1,
+                      JOURNEY_STEPS.length
+                    )}/${JOURNEY_STEPS.length}`}
+              </div>
+
+            </div>
+
+
+            <div className="details-timeline">
+
+              {JOURNEY_STEPS.map((step, index) => {
+
+                const event =
+                  referral.timeline?.find(
+                    (item) => item.status === step
+                  );
+
+                const isCompleted =
+                  referral.status !==
+                    "FOLLOW_UP_REQUIRED" &&
+                  index < currentStepIndex;
+
+                const isCurrent =
+                  step === referral.status;
+
+                return (
+                  <div
+                    key={step}
+                    className={`details-timeline-item ${
+                      isCompleted
+                        ? "completed"
+                        : ""
+                    } ${
+                      isCurrent
+                        ? "current"
+                        : ""
+                    }`}
+                  >
+
+                    <div className="details-timeline-marker">
+
+                      <div className="details-timeline-circle">
+
+                        {isCompleted
+                          ? "✓"
+                          : index + 1}
+
+                      </div>
+
+                      {index <
+                        JOURNEY_STEPS.length - 1 && (
+                        <div
+                          className={`details-timeline-connector ${
+                            isCompleted
+                              ? "filled"
+                              : ""
+                          }`}
+                        />
+                      )}
+
+                    </div>
+
+
+                    <div className="details-timeline-content">
+
+                      <div className="details-timeline-title">
+
+                        <strong>
+                          {STATUS_LABELS[step]}
+                        </strong>
+
+                        {isCurrent && (
+                          <span>
+                            CURRENT
+                          </span>
+                        )}
+
+                      </div>
+
+                      <p>
+                        {event
+                          ? formatDateTime(
+                              event.date
+                            )
+                          : "Pending"}
+                      </p>
+
+                      {event?.notes && (
+                        <small>
+                          {event.notes}
+                        </small>
+                      )}
+
+                    </div>
+
+                  </div>
+                );
+              })}
+
+            </div>
+
+
+            {referral.status ===
+              "FOLLOW_UP_REQUIRED" && (
+              <div className="details-exception">
+
+                <div className="details-exception-icon">
+                  !
+                </div>
+
+                <div>
                   <strong>
-                    {STATUS_LABELS[step]}
+                    Follow-up required
                   </strong>
 
-                  <p
-                    style={{
-                      margin: "0.25rem 0 0",
-                      color: "var(--text-muted)",
-                      fontSize: "0.88rem",
-                    }}
-                  >
-                    {event
-                      ? new Date(event.date).toLocaleString()
-                      : "Pending"}
+                  <p>
+                    This referral is unresolved and requires
+                    human operational follow-up.
                   </p>
-
-                  {event?.notes && (
-                    <p
-                      style={{
-                        margin: "0.35rem 0 0",
-                        color: "var(--text-muted)",
-                        fontSize: "0.86rem",
-                      }}
-                    >
-                      {event.notes}
-                    </p>
-                  )}
                 </div>
+
               </div>
-            );
-          })}
+            )}
+
+          </section>
+
+        </main>
+
+
+        {/* =================================================
+            SIDEBAR
+            ================================================= */}
+
+        <aside className="details-sidebar">
+
+          {/* NEXT ACTION */}
+
+          <section
+            className={`details-action-card tone-${nextAction.tone}`}
+          >
+
+            <div className="details-action-kicker">
+              {nextAction.eyebrow}
+            </div>
+
+            <div className="details-action-icon">
+              {nextAction.action === "none"
+                ? "✓"
+                : nextAction.action === "followup"
+                ? "!"
+                : "→"}
+            </div>
+
+            <h2>
+              {nextAction.title}
+            </h2>
+
+            <p>
+              {nextAction.description}
+            </p>
+
+
+            {nextAction.action !== "none" && (
+              <div className="details-action-buttons">
+
+                <button
+                  type="button"
+                  className="details-primary-btn"
+                  onClick={performAction}
+                >
+                  {nextAction.button}
+                </button>
+
+                {referral.status === "SENT" && (
+                  <button
+                    type="button"
+                    className="details-secondary-btn"
+                    onClick={handleFollowUp}
+                  >
+                    Flag for Follow-up
+                  </button>
+                )}
+
+              </div>
+            )}
+
+          </section>
+
+
+          {/* QUICK SUMMARY */}
+
+          <section className="details-mini-card">
+
+            <div className="details-section-kicker">
+              QUICK SUMMARY
+            </div>
+
+            <div className="details-mini-row">
+              <span>Patient</span>
+              <strong>
+                {referral.patientName}
+              </strong>
+            </div>
+
+            <div className="details-mini-row">
+              <span>Type</span>
+              <strong>
+                {referral.referralType}
+              </strong>
+            </div>
+
+            <div className="details-mini-row">
+              <span>Priority</span>
+              <strong>
+                {referral.priority}
+              </strong>
+            </div>
+
+            <div className="details-mini-row">
+              <span>Last updated</span>
+              <strong>
+                {latestEvent
+                  ? formatDate(latestEvent.date)
+                  : "—"}
+              </strong>
+            </div>
+
+          </section>
+
+
+          {/* NAVIGATION */}
+
+          <section className="details-nav-card">
+
+            <div className="details-section-kicker">
+              WORKSPACE
+            </div>
+
+            {role === "facility" && (
+              <>
+                <Link
+                  to="/facility"
+                  className="details-nav-link"
+                >
+                  <span>▣</span>
+                  Facility Dashboard
+                </Link>
+
+                <Link
+                  to="/create"
+                  className="details-nav-link"
+                >
+                  <span>＋</span>
+                  Create New Referral
+                </Link>
+              </>
+            )}
+
+            {role === "coordinator" && (
+              <Link
+                to="/coordinator"
+                className="details-nav-link"
+              >
+                <span>◉</span>
+                Coordinator Operations
+              </Link>
+            )}
+
+          </section>
+
+        </aside>
+
+      </div>
+
+
+      {/* =====================================================
+          SCOPE NOTE
+          ===================================================== */}
+
+      <div className="details-scope-note">
+
+        <div className="details-scope-icon">
+          ✓
         </div>
 
-        {/* Exception message */}
-        {referral.status === "FOLLOW_UP_REQUIRED" && (
-          <div
-            style={{
-              marginTop: "1.5rem",
-              padding: "1rem",
-              borderRadius: "10px",
-              background: "#FFF4F2",
-              border: "1px solid #FECACA",
-            }}
-          >
-            <strong style={{ color: "#B42318" }}>
-              Follow-up required
-            </strong>
+        <div>
+          <strong>
+            Human-controlled referral coordination
+          </strong>
 
-            <p
-              style={{
-                margin: "0.4rem 0 0",
-                color: "#7A271A",
-                fontSize: "0.9rem",
-              }}
-            >
-              The referral is unresolved and requires human
-              operational follow-up.
-            </p>
-          </div>
-        )}
+          <p>
+            Navexa tracks referral milestones and supports
+            operational follow-up. Clinical assessment,
+            treatment and clinical decisions remain with
+            authorised healthcare professionals.
+          </p>
+        </div>
+
       </div>
 
-      {/* Quick navigation */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.75rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <Link to="/patient" className="btn btn-secondary">
-          Patient View
-        </Link>
-
-        <Link to="/facility" className="btn btn-secondary">
-          Facility View
-        </Link>
-
-        <Link to="/coordinator" className="btn btn-secondary">
-          Coordinator View
-        </Link>
-      </div>
     </div>
   );
 };
