@@ -1,8 +1,8 @@
 # Navexa Closed-Loop Referrals — Requirements Sheet
 
-Version 2 · 19 Oct 2026 · Owner: Aditya (Team Phoenix) · Editable copy: [Claude Doc](https://claude.ai/code/artifact/956345d9-a3ad-4885-8b23-8cb1843e4a1f) (private until shared)
+Version 3 · 26 Oct 2026 · Owner: Aditya (Team Phoenix) · Editable copy: [Claude Doc](https://claude.ai/code/artifact/956345d9-a3ad-4885-8b23-8cb1843e4a1f) (private until shared)
 
-Status: draft for review by the team and the doctor partner. Version 2 applies an outside review (see §13).
+Status: draft for review by the team and the doctor partner. Version 2 applied an outside review; version 3 records the team's answers to the open questions (§11, §13).
 
 ## 1. Scope and goals
 
@@ -24,7 +24,7 @@ Programme facts (from the [programme guide](https://healthathon.reskilll.com/gui
 
 ### In scope for the 7 Nov 2026 submission
 
-- One referral pathway, maternal **or** child, picked by the doctor partner (Q1).
+- One referral pathway: **maternal**, starting at PHC level and above (Q1, Q26).
 - Role views: patient/caregiver, healthcare facility (sending and receiving), coordinator.
 - The six stages of G§2 (Create → Send → Acknowledge → Arrange/reach → Care/service → Outcome/close), carried by 13 statuses (§3).
 - An append-only audit trail of every action, actor, time and resulting status.
@@ -43,6 +43,8 @@ Programme facts (from the [programme guide](https://healthathon.reskilll.com/gui
 - Live hospital, transport or government system integrations (G§5). These are future work.
 - Real patient data in the app, AI prompts, mentor sessions or demos (G§5).
 - Tracking care after closure, such as back-referral follow-up at the sending facility (EC-76).
+- The child pathway, and newborn referrals that arise from a maternal one (Q1). Their edge cases stay in §6, marked **Later**.
+- Referrals that start below PHC level: sub-centre/HWC or home (Q26).
 
 ### Success metric
 
@@ -50,11 +52,12 @@ Pick one KPI for the pilot (G§6). These are candidates, not results. Each KPI i
 
 | KPI | Definition | Denominator and reporting | Recommendation |
 | --- | --- | --- | --- |
-| Acknowledgement lag | Occurred-at of the first `ACKNOWLEDGED`, `ACCEPTED`, `DECLINED` or `REDIRECT_REQUESTED` event (in-app or phone) minus `SENT` occurred-at | Tasks sent in the period, excluding `ENTERED_IN_ERROR`. Referrals that arrive before any acknowledgement (EC-19) are a separate count. Still-unacknowledged Tasks are reported as a count, never dropped. Report median, 90th percentile and % acknowledged within the priority's timer | **Primary [proposal]**: in-app acknowledgements cost nothing to measure; phone acknowledgements are entered by the coordinator (EC-18) with their occurred-at time |
-| Closure completeness | (`CLOSED` + `CLOSED_UNRESOLVED`) ÷ referrals sent at least 14 days (routine) or 3 days (urgent, emergency) before the report date | Excludes `ENTERED_IN_ERROR` and `CANCELLED` | Secondary |
+| Acknowledgement lag | Occurred-at of the first `ACKNOWLEDGED`, `ACCEPTED`, `DECLINED` or `REDIRECT_REQUESTED` event (in-app or phone) minus `SENT` occurred-at | Tasks sent in the period, excluding `ENTERED_IN_ERROR`. Referrals that arrive before any acknowledgement (EC-19) are a separate count. Still-unacknowledged Tasks are reported as a count, never dropped. Report median, 90th percentile and % acknowledged within the priority's timer | **Primary** (Q15): in-app acknowledgements cost nothing to measure; phone acknowledgements are entered by the coordinator (EC-18) with their occurred-at time |
+| Referral failures | Count and share of Tasks that failed, by type: never acknowledged, declined or redirected with no re-send, closed unresolved | Tasks sent in the period, excluding `ENTERED_IN_ERROR` and `CANCELLED` | **Reported with the primary** (Q15) |
+| Closure completeness | (`CLOSED` + `CLOSED_UNRESOLVED`) ÷ referrals sent at least 14 days (routine) or 3 days (urgent, emergency) before the report date | Excludes `ENTERED_IN_ERROR` and `CANCELLED` | Supporting |
 | Coordinator follow-up effort | Contact-log entries and follow-up tasks per referral (counts, not minutes) | Plus one 5-day time-and-motion sample at baseline and at day 60 | Optional |
 
-Before any claim, state the baseline, sample, period and collection method (G§6). How the baseline is collected is Q21.
+Before any claim, state the baseline, sample, period and collection method (G§6). Baseline: the last 4 weeks of the facility's paper referral register, about 30 referrals (Q21).
 
 ## 2. Actors and roles
 
@@ -62,24 +65,24 @@ Six actors use Navexa, and the accompanying ASHA is recorded without a login. On
 
 | ID | Actor | Example | Main job in Navexa | FHIR representation |
 | --- | --- | --- | --- | --- |
-| A1 | Referring clinician / health worker | Medical officer, staff nurse or ANM at a sub-centre/HWC, PHC or CHC | Creates and sends the referral; confirms the return update | `PractitionerRole` at the sending `Organization`; `ServiceRequest.requester` |
+| A1 | Referring clinician / health worker | Medical officer or staff nurse at a PHC or CHC | Creates and sends the referral; confirms the return update | `PractitionerRole` at the sending `Organization`; `ServiceRequest.requester` |
 | A2 | Receiving facility staff | Duty doctor, labour-room nurse or registration desk at a district hospital or FRU | Acknowledges, accepts, declines or redirects; confirms arrival; records service and outcome | `PractitionerRole` at the receiving `Organization`; `Task.owner` |
 | A3 | Coordinator | Referral coordinator or programme staff | Watches the queue, owns follow-up, records phone reports from off-network staff, approves AI drafts | `PractitionerRole` with a coordinator role code; `Task.owner` of follow-up tasks |
 | A4 | Patient / caregiver | Mother, parent or family member | Sees plain-language status of their own and linked referrals; may report arrival (unverified) | `Patient`, `RelatedPerson` |
 | A5 | Coordinator Assist (AI) | LLM service behind the API | Summarises coded events, flags missing admin fields, fills approved message templates | `Device` as a second `Provenance.agent` on drafts only |
-| A6 | Admin / supervisor **[proposal]** | Programme lead or district coordinator | Manages facilities, users, timers and roster; escalation level 2; KPI and audit views | `PractitionerRole` with an admin role code |
+| A6 | Admin / supervisor **[proposal]** | Programme lead or district coordinator | Manages facilities, users, timers and roster; KPI and audit views | `PractitionerRole` with an admin role code |
 
-Transport crews and ASHAs have no login in the prototype. The coordinator or referrer records their reports with source `phone-report` or `asha-report` and the reporter's name (RL-4). Whether ASHAs get a report-only login is Q25.
+Transport crews and ASHAs have no login in the prototype. The coordinator or referrer records their reports with source `phone-report` or `asha-report` and the reporter's name (RL-4). ASHAs stay reporters without a login (Q25).
 
 **User flags** (from the user directory, FR-68):
 
-- **Clinical**: a clinical role (medical officer, staff nurse, ANM). Registration-desk users are not Clinical.
-- **Auth**: may record service completion and outcome at the receiving facility (Q4).
+- **Clinical**: a clinical role (medical officer, staff nurse). Registration-desk users are not Clinical.
+- **Auth**: may record service completion and outcome at the receiving facility. Doctors hold it; a doctor may delegate it to a named staff nurse, and the delegation is logged (Q4).
 - **In-charge**: the facility in-charge, level 3 of the escalation ladder (FR-38).
 
 ### Permission matrix
 
-**Y** = allowed. **Auth** / **Clinical** = only users with that flag. **Phone** = coordinator only, when recording a phone report; the reporter's name and facility are mandatory (RL-4), the source is `phone-report` and the label shows "(by phone)". **Config** = off by default, switchable per deployment (Q22). Blank = not allowed.
+**Y** = allowed. **Auth** / **Clinical** = only users with that flag. **Phone** = coordinator only, when recording a phone report; the reporter's name and facility are mandatory (RL-4), the source is `phone-report` and the label shows "(by phone)". Blank = not allowed. The coordinator is non-clinical and does not see handover text (Q22).
 
 | Action | A1 Referring | A2 Receiving | A3 Coordinator | A4 Patient | A5 AI | A6 Admin |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -109,7 +112,7 @@ Transport crews and ASHAs have no login in the prototype. The coordinator or ref
 | Escalate manually (jump a level) | Y | | Y | | | |
 | Generate AI draft | | | Y | | Y (draft only) | |
 | Approve, edit, send or reject AI draft | | | Y | | | |
-| View clinical handover details | Y | Y | Config | | | |
+| View clinical handover details | Y | Y | | | | |
 | View plain-language status | Y | Y | Y | Y | | Y |
 | View audit log | Own referrals | Own referrals | Y | | | Y |
 | Export FHIR Bundle | Y | | Y | | | Y |
@@ -211,7 +214,7 @@ Nothing else counts as closed. Closure completeness (§1) counts all three.
 
 ### What each status says to people
 
-Patient-facing text never claims more than the status. `{facility}` and `{who}` are filled at render time; `{who}` is "you" for an adult patient, "your baby" for a newborn, or the child's first name (FR-75). Wording is a draft for the doctor partner (G§3).
+Patient-facing text never claims more than the status. `{facility}` and `{who}` are filled at render time; `{who}` is "you" for an adult patient, "your baby" for a newborn, or the child's first name (FR-75). The team accepted this wording on 26 Oct (Q10); the doctor partner signs it off before the pilot (§8).
 
 | Code | Staff label | Patient / caregiver text (draft) |
 | --- | --- | --- |
@@ -233,7 +236,7 @@ Patient-facing text never claims more than the status. `{facility}` and `{who}` 
 
 Evidence events add a second line under the status, for example: "Arrival reported by family, not yet confirmed by {facility}."
 
-Every patient screen also shows: *If this is an emergency or the patient feels worse, call 112 (or 102/108 where active) or go to the nearest 24-hour facility your health worker named.* (G§5; numbers per state, Q12)
+Every patient screen also shows: *If this is an emergency or the patient feels worse, call 112 or 108 (102 for transport to a facility), or go to the nearest 24-hour facility your health worker named.* (G§5, Q12)
 
 ### Evidence events (not statuses)
 
@@ -282,7 +285,7 @@ The "Journey tracking active" badge, the progress counter and the "Proceed to th
 | FR-04 | Duplicate and same-name warnings | Should | Warning names the open referral to the same facility; the patient picker shows age, village and mother's or husband's name (EC-65); continuing needs a logged reason | — |
 | FR-05 | Receiving facility is picked by a human from a managed facility directory. The system may filter by service offered; it never ranks or recommends | Must | No free-text destination; no "suggested facility" from AI or rules | G§4 |
 | FR-06 | Capture that the patient or caregiver was told about the referral and agreed to updates, plus preferred language, contact channel and whether the phone is the family's own | Should | Fields stored with who captured them and when; no SMS sent without recorded consent | G§5 |
-| FR-07 | Priority is chosen by the referring clinician (Routine / Urgent / Emergency). Choosing Emergency shows the emergency-pathway banner | Must | Banner reads: "Navexa does not replace emergency transfer. Call 112 (or 102/108 where active) and follow your facility protocol." | G§5 |
+| FR-07 | Priority is chosen by the referring clinician (Routine / Urgent / Emergency). Choosing Emergency shows the emergency-pathway banner | Must | Banner reads: "Navexa does not replace emergency transfer. Call 112 or 108 (102 for transport between facilities) and follow your facility protocol." | G§5 |
 | FR-08 | Attachments (photo of a referral slip or record) | Could | Fake images only in the demo; never sent to the AI; size limit (placeholder 5 MB) | G§5 |
 | FR-69 | Field for the facility's paper referral-register number | Should | Shown on the slip and the record; searchable | Programme |
 | FR-71 | Priority can change after send, with a reason; timers are recomputed | Should | Old and new priority in the timeline; new due times visible; receiver and coordinator notified (EC-68) | — |
@@ -296,7 +299,7 @@ The "Journey tracking active" badge, the progress counter and the "Proceed to th
 | FR-11 | Sender's label stays "Sent – awaiting acknowledgement" until a receiving user acknowledges | Must | No screen shows "received" or "accepted" for a `SENT` referral | G§2 |
 | FR-12 | Notify the receiving facility in-app; SMS/WhatsApp is simulated in the prototype; `delivered` comes only from a real gateway (pilot) | Should | Simulated message appears in a demo outbox with its template ID | G§5 |
 | FR-13 | Edits after send create a new version; the receiver is told what changed; old versions stay readable | Could | Version number increments; diff of changed fields visible | — |
-| FR-65 | Printable one-page referral slip: reference, QR code (reference link), destination, priority, sending contact, register number; no clinical text | Should | Prints from the Send screen; the QR opens that referral; the slip has no handover text | Programme |
+| FR-65 | Referral slip: reference, QR code (reference link), destination, priority, sending contact, register number; no clinical text. A QR code on a phone screen is enough; printing is optional (Q28) | Should | Shown on the Send screen and printable; the QR opens that referral; the slip has no handover text | Programme |
 
 ### 4.3 Acknowledge and respond (G§2 stage 3)
 
@@ -325,8 +328,8 @@ The "Journey tracking active" badge, the progress counter and the "Proceed to th
 
 | ID | Requirement | Priority | Acceptance criteria | Ref |
 | --- | --- | --- | --- | --- |
-| FR-26 | An Auth receiving user records `SERVICE_COMPLETED`; any receiving user records the `admitted` event | Must | Non-Auth users don't see the action and the API returns 403 for them; for the demo, Auth is a seed-user flag | G§2 |
-| FR-27 | "Service completed" has a per-pathway definition shown on the confirm dialog | Should | Dialog text comes from pathway config (Q6) | G§2 |
+| FR-26 | An Auth receiving user records `SERVICE_COMPLETED`; any receiving user records the `admitted` event | Must | Non-Auth users don't see the action and the API returns 403 for them. Auth = doctors, or a staff nurse a doctor delegated to (Q4); for the demo, a seed-user flag | G§2 |
+| FR-27 | "Service completed" has a per-pathway definition shown on the confirm dialog | Should | Dialog reads "First clinical review by a doctor at {facility} is done" (Q6) | G§2 |
 | FR-28 | Late or out-of-order entries are allowed with an occurred-at time and a "recorded late" marker | Should | Timeline sorts by occurred-at and shows both times | G§5 |
 
 ### 4.6 Outcome and close (G§2 stage 6)
@@ -349,7 +352,7 @@ The "Journey tracking active" badge, the progress counter and the "Proceed to th
 | FR-35 | Work queue of open referrals: overdue first, then priority, then age. Filters (stage, facility, priority, owner, pathway) come after the sprint | Must | An overdue urgent referral is always above a non-overdue one | G§3 |
 | FR-36 | Every flag creates a follow-up task with an owner (a named user or a named queue), a next action and a due time | Must | No flag exists without all three; a queue-owned task counts as "unassigned" | G§3 |
 | FR-37 | Take or assign a follow-up task; unassigned tasks are highlighted | Must | Assignment logged with old and new owner | G§3 |
-| FR-38 | Escalation ladder: level 1 coordinator pool, level 2 A6 supervisor, level 3 receiving-facility in-charge. Each level resolves to the rostered contact (FR-67); with no contact rostered, the task stays and shows "No escalation contact rostered" | Should | With the test clock advanced past each configured delay, the owner moves to the next level and the change is logged | G§3 |
+| FR-38 | Escalation ladder: level 1 coordinator pool, level 2 the receiving facility's duty medical officer for that shift, level 3 the facility in-charge (Q23). Each level resolves to the rostered contact (FR-67); with no contact rostered, the task stays and shows "No escalation contact rostered" | Should | With the test clock advanced past each configured delay, the owner moves to the next level and the change is logged | G§3 |
 | FR-39 | Contact log: each call or message attempt with who, to whom, channel and result | Should | Results: no answer, confirmed, will call back, wrong number, other | G§3 |
 | FR-40 | Human override: any automated flag or escalation can be cleared, snoozed or de-escalated by a person, with a reason | Must | Every flag card has Clear and Snooze; audit shows who, why and until when; the timer resumes after a snooze | Programme |
 | FR-64 | A referrer, receiving user or coordinator can raise "Follow-up required" manually with a reason, owner and due time | Must | Flag appears in the queue within NFR-01's limit; reason mandatory | G§3 |
@@ -361,7 +364,7 @@ The "Journey tracking active" badge, the progress counter and the "Proceed to th
 | --- | --- | --- | --- | --- |
 | FR-41 | Plain-language status (§3 table), facility name and address, what happens next, who to contact | Must | Text matches the status table exactly | G§3, G§5 |
 | FR-42 | No clinical handover text, priority, internal notes or staff names beyond the contact person | Must | Patient API response has no clinical fields and no priority | G§5 |
-| FR-43 | All UI strings externalised; English plus one local language from pre-translated templates reviewed by the doctor partner | Should | Switching language changes every patient-facing string; no AI translation for 7 Nov (EC-59) | G§5 |
+| FR-43 | All UI strings externalised; English plus Hindi (Q11) from pre-translated templates reviewed by the doctor partner | Should | Switching language changes every patient-facing string; no AI translation for 7 Nov (EC-59) | G§5 |
 | FR-44 | Patient access by reference + phone OTP (simulated). The demo may use the role switcher | Could | Wrong OTP shows nothing about the referral | — |
 | FR-45 | Status-change notifications (simulated SMS) only on consented channels. Default body: reference, "status updated" and a contact number; status and facility name only if consent says the phone is private | Should | Every message ends "Do not reply. Call {number}." | G§5 |
 | FR-46 | Caregiver can report arrival and request a call back | Should | Creates `arrival_reported` or a coordinator task | G§2 |
@@ -409,7 +412,7 @@ The "Journey tracking active" badge, the progress counter and the "Proceed to th
 | FR-68 | User directory: name, role, facility, active, Clinical, Auth, In-charge and reads-language flags | Must (seed only) | Every stamped action resolves to a directory user | RL-1 |
 | FR-77 | KPI formulas implemented as a script that runs over the event log | Should | Script output equals the KPI view for the seed data | G§6 |
 
-**Timer defaults are placeholders** until the doctor partner sets them (Q5). All values are configurable (FR-60).
+**Timer values adopted by the team on 26 Oct** (Q5). They run 24/7 and stay configurable (FR-60).
 
 | Priority | Acknowledge within | Arrival due (expected time given) | Arrival due (no expected time) | Outcome returned within | Escalate if follow-up still open after | Review for unresolved closure at |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -417,7 +420,7 @@ The "Journey tracking active" badge, the progress counter and the "Proceed to th
 | Urgent | 1 h | Expected time + 4 h | Departure or acknowledgement + 6 h | 72 h after service | 2 h | 7 days |
 | Routine | 24 h | Expected time + 48 h | Departure or acknowledgement + 72 h | 7 days after service | 24 h | 30 days |
 
-Emergency referrals are phoned ahead and leave within minutes (EC-07), so an acknowledgement timer would fire after the patient has left; the arrival timer is the main control. For emergency admissions, "service" is the first procedure and the discharge outcome may come later (Q6, Q7). Reminders are capped by NFR-17.
+Emergency referrals are phoned ahead and leave within minutes (EC-07), so an acknowledgement timer would fire after the patient has left; the arrival timer is the main control. For every priority, "service" is the first clinical review by a doctor at the receiving facility; the discharge outcome may come later (Q6). Reminders are capped by NFR-17.
 
 ## 5. FHIR and interoperability
 
@@ -503,15 +506,15 @@ Polling every 3 s meets NFR-01 for the demo; `Subscription` comes later.
 
 ## 6. Edge cases and failure modes
 
-96 exception paths, each with the behaviour Navexa must show. The rule behind all of them: when the system does not know, it says so and gives a named person the next step (G§2, G§5). **When** says whether the demo must show it or it can wait for the pilot.
+96 exception paths, each with the behaviour Navexa must show. The rule behind all of them: when the system does not know, it says so and gives a named person the next step (G§2, G§5). **When** says whether the demo must show it, it can wait for the pilot, or it is outside phase-one scope (**Later**: newborn referrals and referrals that start below PHC level, Q1, Q26).
 
 ### 6.1 Create
 
 | ID | Scenario | Required behaviour | Covers | When |
 | --- | --- | --- | --- | --- |
 | EC-01 | Patient has no ID, or name unknown (unconscious, newborn not yet named) | Temporary identifier; newborn recorded as "Baby of {mother}". Merge with the real record later (EC-48) | FR-02 | Demo |
-| EC-02 | Mother and newborn both need referral, possibly to different places | Two linked referrals sharing `ServiceRequest.requisition`; each has its own loop; the caregiver sees both (FR-80) | FR-01, FR-80 | Demo |
-| EC-03 | Twins or more | One referral per baby: "Baby 1 of {mother}", "Baby 2 of {mother}" | FR-01 | Pilot |
+| EC-02 | Mother and newborn both need referral, possibly to different places | Two linked referrals sharing `ServiceRequest.requisition`; each has its own loop; the caregiver sees both (FR-80) | FR-01, FR-80 | Later |
+| EC-03 | Twins or more | One referral per baby: "Baby 1 of {mother}", "Baby 2 of {mother}" | FR-01 | Later |
 | EC-04 | No caregiver phone, or a shared phone | Referral can still be sent. Patient notifications off; coordinator sees "no contact channel" | FR-06 | Pilot |
 | EC-05 | Patient is a child or an adolescent mother under 18 | Guardian recorded as contact and consent-giver; contact preferences respected | FR-06 | Pilot |
 | EC-06 | Same patient already has an open referral to the same facility | Duplicate warning; continue only with a logged reason | FR-04 | Pilot |
@@ -519,9 +522,9 @@ Polling every 3 s meets NFR-01 for the demo; `Subscription` comes later.
 | EC-08 | Sending and receiving facility are the same | Block send | FR-05 | Demo |
 | EC-09 | Receiving facility is not on Navexa | "Off-network" referral: the coordinator records every receiving-side event with the Phone permission, each marked "(by phone)" | RL-4, §2 | Demo |
 | EC-10 | Patient or family refuses the referral when advised | Close unresolved with reason `patient-declined-referral`. Not counted as a system failure | FR-31 | Pilot |
-| EC-64 | Referral starts outside a facility (home delivery, sub-centre/HWC, ASHA-escorted) | Directory includes `sub-centre-hwc` and `community-home`; the referrer may be an ANM; the ASHA is recorded as reporter | FR-59 | Pilot |
+| EC-64 | Referral starts outside a facility (home delivery, sub-centre/HWC, ASHA-escorted) | Directory includes `sub-centre-hwc` and `community-home`; the referrer may be an ANM; the ASHA is recorded as reporter | FR-59 | Later |
 | EC-65 | Two patients with the same name at one facility | Picker shows age or DOB, village and mother's or husband's name; same-name warning; a wrong pick is corrected with `ENTERED_IN_ERROR` plus a new referral | FR-04 | Pilot |
-| EC-66 | Newborn referred while the mother is admitted or unfit at the sending facility | Caregiver and consent-giver = father or relative; mother's referral linked by requisition; patient text addressed to the caregiver | EC-02, FR-06 | Pilot |
+| EC-66 | Newborn referred while the mother is admitted or unfit at the sending facility | Caregiver and consent-giver = father or relative; mother's referral linked by requisition; patient text addressed to the caregiver | EC-02, FR-06 | Later |
 | EC-67 | Caregiver's number belongs to the ASHA or a neighbour | Flag "not the family's phone"; minimal SMS body only; call-back preferred | EC-04, EC-62 | Pilot |
 | EC-68 | Clinician changes priority after send (deterioration or downgrade) | Allowed for A1 with a reason; timers recomputed from now; receiver and coordinator notified; old priority kept in history | FR-71 | Pilot |
 | EC-94 | Caregiver changes phone number after consent | Contact-change event; consent carries over; the old number stops receiving | FR-06, EC-63 | Pilot |
@@ -563,14 +566,14 @@ Polling every 3 s meets NFR-01 for the demo; `Subscription` comes later.
 | EC-26 | Patient goes to a different facility | Record "went elsewhere" with the facility. Either re-target (new Task to that facility, reason logged) or close unresolved | FR-20, FR-31 | Pilot |
 | EC-27 | Patient arrived but nobody recorded it | Arrival flag; the coordinator calls; the facility confirms late (in-app or by phone) with occurred-at | FR-24, FR-28 | Demo |
 | EC-28 | Caregiver reports arrival; the facility cannot find the patient | Stays "Arrival reported, not confirmed"; urgent coordinator task | FR-23 | Demo |
-| EC-29 | Death or serious deterioration after arrival | Only a Clinical user records it. Sensitive flag (FR-70): patient notifications and AI off; a named person contacts the family directly | FR-70 | Pilot |
-| EC-30 | Birth happens before arrival | Record the event; offer to create a linked newborn referral (EC-02) | FR-02 | Pilot |
+| EC-29 | Death or serious deterioration after arrival | Only a Clinical user records it. Sensitive flag (FR-70): patient notifications and AI off; the referring clinician contacts the family directly (Q14) | FR-70 | Pilot |
+| EC-30 | Birth happens before arrival | Record the event; offer to create a linked newborn referral (EC-02) | FR-02 | Later |
 | EC-31 | Patient decides not to travel after acceptance | `declined_travel` event; the clinician keeps it open for follow-up or closes unresolved | FR-31 | Pilot |
-| EC-32 | Arrival due at night or on a holiday | Timers run 24/7 by default; pathway config may set working-hours timers for routine referrals (Q5) | FR-60 | Pilot |
+| EC-32 | Arrival due at night or on a holiday | Timers run 24/7 (Q5) | FR-60 | Pilot |
 | EC-73 | Death or serious deterioration before arrival (at origin or in transit) | A Clinical user at either facility records it: any open status → `CLOSED` with outcome `died` (Task `cancelled`, reason `patient-died`); sensitive flag; the receiving facility is told to stand down | FR-70 | Pilot |
 | EC-74 | Patient arrives at night or on a holiday for an OPD-hours service | Duty or casualty staff may confirm arrival; note "arrived outside service hours"; service timer unaffected | FR-22 | Pilot |
 | EC-75 | Ambulance diverts to a nearer facility on the way | `transport_diverted` event by phone; then EC-26 re-target or close unresolved | EC-25, EC-26 | Pilot |
-| EC-93 | Mother and newborn travel separately; one arrives first | Arrival recorded per referral; the shared caregiver sees both | EC-02 | Pilot |
+| EC-93 | Mother and newborn travel separately; one arrives first | Arrival recorded per referral; the shared caregiver sees both | EC-02 | Later |
 
 ### 6.5 Care and service
 
@@ -582,7 +585,7 @@ Polling every 3 s meets NFR-01 for the demo; `Subscription` comes later.
 | EC-36 | Receiving facility refers onward to a third facility | New referral linked to the original (`basedOn`). The original closes with outcome `referred-onward` | FR-29 | Pilot |
 | EC-37 | A different department than requested gives the service | Allowed; noted on the service record | FR-26 | Pilot |
 | EC-76 | Receiving facility sends the patient back to the referrer for follow-up | Outcome `back-referred-for-follow-up`; no new referral; Navexa does not track care after closure | FR-29 | Pilot |
-| EC-77 | One twin dies while the other continues care | Each referral handled separately; caregiver messaging for both switched to manual; sensitive flag on both | FR-70 | Pilot |
+| EC-77 | One twin dies while the other continues care | Each referral handled separately; caregiver messaging for both switched to manual; sensitive flag on both | FR-70 | Later |
 
 ### 6.6 Outcome and close
 
@@ -642,7 +645,7 @@ Polling every 3 s meets NFR-01 for the demo; `Subscription` comes later.
 | EC-62 | Shared phone; a message could reveal the condition | SMS holds only the reference, "status updated" and a contact number | FR-45 | Pilot |
 | EC-63 | Caregiver withdraws consent for messages | Notifications stop at once; referral care continues; withdrawal logged | FR-06 | Pilot |
 | EC-89 | Caregiver's language is not supported | English text plus a "call me back" option; the coordinator task carries the language | FR-43 | Pilot |
-| EC-90 | Caregiver has both the mother's and the newborn's referrals | Sees both, each with its own status; one set of contact preferences | FR-80 | Demo |
+| EC-90 | Caregiver has both the mother's and the newborn's referrals | Sees both, each with its own status; one set of contact preferences | FR-80 | Later |
 | EC-91 | Caregiver replies to the SMS or WhatsApp message | Inbound messages are not read in phase one; every message ends "Do not reply. Call {number}." | FR-45 | Pilot |
 | EC-92 | Patient status link forwarded to someone else | The link needs reference + OTP (FR-44); without the OTP nothing is shown | FR-44 | Pilot |
 
@@ -658,7 +661,7 @@ Week 2 of the Guide asks for normal and disrupted scenarios (G§7). Seed one ref
 
 ## 7. Data model and terminology
 
-The handover dataset below is our first cut of "what must travel with the referral" (G§3). The doctor partner decides the final required-versus-optional split (Q2). Two columns matter for safety: what the patient sees, and what the AI may see.
+The handover dataset below is our first cut of "what must travel with the referral" (G§3). The team adopted it as is on 26 Oct (Q2). Two columns matter for safety: what the patient sees, and what the AI may see.
 
 ### Minimum handover dataset
 
@@ -705,7 +708,7 @@ The handover dataset below is our first cut of "what must travel with the referr
 | `ServiceRequest.priority` | FHIR `request-priority` (required) | routine, urgent, asap, stat |
 | Decline reason | Local | no-capacity, service-unavailable, wrong-facility, information-incomplete, other |
 | Unresolved-closure reason | Local | lost-to-follow-up, went-elsewhere, declined-travel, patient-declined-referral, outcome-unknown |
-| Outcome category | Local, doctor partner to define (Q7) | e.g. service-completed, referred-onward, back-referred-for-follow-up, left-against-advice, died (sensitive), other |
+| Outcome category | Local (Q7, adopted 26 Oct) | e.g. service-completed, referred-onward, back-referred-for-follow-up, left-against-advice, died (sensitive), other |
 | Transport mode | Local | public-ambulance (102/108 under JSSK, or via 112), private-ambulance, own-vehicle, public-transport, other |
 | Contact result | Local | no-answer, confirmed, will-call-back, wrong-number, other |
 | Event source | Local | in-app, phone-report, asha-report, sms, retrospective, ai-draft-approved |
@@ -758,7 +761,7 @@ Listed so the 60–90 day pilot plan (G§3) is honest about what it needs. Sourc
 | --- | --- |
 | IT Act 2000 s.43A and SPDI Rules 2011 | Health condition and medical records are sensitive personal data: consent before collection, a published privacy policy, reasonable security practices. Applies to any real data today |
 | DPDP Act 2023 (enacted 11 Aug 2023) and DPDP Rules (notified Nov 2025, 18-month phased rollout) | Clear notice and consent in the user's language; use data only for the stated purpose; access, correction, erasure and grievance routes; security safeguards; breach reporting; deletion when no longer needed |
-| Children's data under the DPDP Act | Under-18s are children and need verifiable consent from a parent or guardian, but the Rules exempt some healthcare processing; check whether Navexa qualifies. This covers every child referral **and** adolescent mothers (EC-05) |
+| Children's data under the DPDP Act | Under-18s are children and need verifiable consent from a parent or guardian, but the Rules exempt some healthcare processing; check whether Navexa qualifies. With the child pathway out of scope, this still covers adolescent mothers (EC-05) |
 | Messaging (TRAI DLT, WhatsApp Business) | Register the entity, sender header and every message template on a DLT platform before any real SMS; WhatsApp needs opt-in and approved utility templates; inbound replies are not processed in phase one. AI drafts to patients can only fill template variables (FR-82) |
 | ABDM health data policy and consent flow | Applies only if Navexa links to ABDM (ABHA, the provider registry, the consent manager) |
 | Facility agreements and data fiduciary | Written data-sharing agreement with each pilot facility and the health department; name the data fiduciary and retention period (Q27) |
@@ -777,7 +780,7 @@ The demo must run on the presenter's laptop and a mid-range Android phone, with 
 | NFR-04 | Low connectivity | Offline send queue with an honest "Not sent yet" label (EC-11) | Required for pilot | Should |
 | NFR-05 | Independence | Runs entirely on the presenter's laptop: local API, seed data, templates, simulated outbox | No third-party service required | Must |
 | NFR-06 | Accessibility | WCAG 2.2 AA is the target. For 7 Nov: status never shown by colour alone, labelled inputs, every action reachable by keyboard | axe-core reports 0 critical or serious issues on the five scenario screens | Must |
-| NFR-07 | Localisation | Unicode Indic scripts render correctly; all strings in resource files; dates DD Mon YYYY, 24-hour, IST | One local language complete for patient screens | Should |
+| NFR-07 | Localisation | Unicode Indic scripts render correctly; all strings in resource files; dates DD Mon YYYY, 24-hour, IST | Hindi complete for patient screens (Q11) | Should |
 | NFR-08 | Plain language | Patient text short and plain in every language | ≤ 20 words a sentence, ≤ 3 sentences per status; doctor-partner sign-off recorded by date | Must |
 | NFR-09 | Correctness | State machine in one module; a unit test for every allowed and every refused transition in the §3 table | 100% of the transition table covered | Must |
 | NFR-10 | Interoperability | Exported resources validate against FHIR R4 | One manual HL7 validator run before submission; 0 errors | Should |
@@ -878,45 +881,52 @@ These are the documents the team needs, from programme rules to FHIR, India's na
 | [Synthea](https://github.com/synthetichealth/synthea) | Release 2026-08-18; has a pregnancy module | Synthetic FHIR patients for seed data | Yes |
 | [HAPI FHIR public server](https://hapi.fhir.org/) (base `https://hapi.fhir.org/baseR4`) | Purged regularly; no PHI allowed | Quick validation and experiments only, not demo storage | Reference |
 
-## 11. Open questions and assumptions
+## 11. Open questions and decisions
 
-29 questions block final values in this sheet. Most go to the doctor partner in the reviews planned in §12 (G§3, G§8); the rest are team decisions.
+Five build questions stay open. The team answered the other 23 on 26 Oct 2026 (Q19 was settled in v2); the doctor partner confirms the clinical ones before the pilot (§12).
+
+### Open
 
 | ID | Question | Owner | Blocks |
 | --- | --- | --- | --- |
-| Q1 | Which pathway first, maternal or child, and in which setting (facility levels, state)? | Doctor partner | Scope, seed data |
-| Q2 | Which handover fields are required and which optional? | Doctor partner | FR-02, §7 |
-| Q3 | What counts as a valid acknowledgement (in-app only, or phone too)? | Doctor partner | FR-14, KPI |
-| Q4 | Who at the receiving facility may record service completion and outcome (the Auth flag)? | Doctor partner | FR-26, FR-29 |
-| Q5 | Timer values per priority; 24/7 or working hours; escalation delays | Doctor partner | FR-19, FR-38, FR-60 |
-| Q6 | What counts as "service completed" for the chosen pathway, including emergency admissions? | Doctor partner | FR-27, §4.11 |
-| Q7 | Outcome categories, and what feedback must reach the referrer? | Doctor partner | FR-29, §7 |
-| Q8 | When is it safe to close? May a coordinator close on the referrer's behalf? | Doctor partner | FR-30, EC-39 |
-| Q9 | How is arrival confirmed today? Is a caregiver or ASHA arrival report useful or risky? | Doctor partner | FR-22, FR-23 |
-| Q10 | Which patient labels could falsely reassure? | Doctor partner | §3 label table |
-| Q11 | Which local language(s) for patient screens? | Doctor partner | FR-43 |
-| Q12 | Which emergency and transport numbers are live in the pilot state (112; 102 under JSSK; 108)? Who books 102 transfers, and what emergency text do we show? | Doctor partner | FR-07, §3 |
-| Q13 | Is "accepted" a real separate step, or does acknowledgement imply acceptance? | Doctor partner | `ACCEPTED` status |
-| Q14 | Who contacts the family after a death or stillbirth, and what does Navexa show? | Doctor partner | EC-29, EC-41, EC-73 |
-| Q15 | Which KPI is primary for the pilot? | Doctor partner + team | §1 KPI |
-| Q16 | v2 adopts 13 statuses (`AWAITING_ARRIVAL` and `IN_CARE` became events). Does that match practice? | Doctor partner + team | §3 |
-| Q17 | Storage and API. **Recommendation:** a thin Node (Express) API with an append-only SQLite or JSON event store, FHIR-shaped resources and the AI proxy; HAPI FHIR and `$validate` after the sprint. Decide by 21 Oct; if the API is not running by 24 Oct, use the FH-1 fallback | Team | §5, FH-1, NFR-05 |
-| Q18 | Which AI model and provider, called server-side? The programme lists OpenAI and Sarvam AI as tech partners; compare no-training / zero-retention terms and Indic output. Decide by 24 Oct | Team | FR-47 to FR-56, SC-5 |
-| Q19 | Resolved in v2: "Follow-up required" becomes an overlay flag in the code (§3 gap list) | Team | — |
+| Q17 | Storage and API. **Recommendation:** a thin Node (Express) API with an append-only SQLite or JSON event store, FHIR-shaped resources and the AI proxy; HAPI FHIR and `$validate` after the sprint. If the API is not running in time, use the FH-1 fallback | Team | §5, FH-1, NFR-05 |
+| Q18 | Which AI model and provider, called server-side? The programme lists OpenAI and Sarvam AI as tech partners; compare no-training / zero-retention terms and Hindi output | Team | FR-47 to FR-56, SC-5 |
 | Q20 | What does the final-round package require (video, repo, deck)? Known: the window closes 7 Nov 11:59 pm IST; Round 1 needed a 6–8 slide deck, with prototype link, video and supporting document optional. Check the logged-in dashboard | Team | Submission plan |
-| Q21 | Baseline method: which paper register, how many referrals, which weeks, who extracts, and how acknowledgement time is recorded today | Doctor partner + team | KPI, FR-77, G5 |
-| Q22 | Is the pilot coordinator a clinical person? May they see handover text? | Doctor partner | Matrix (A3), DM-3 |
-| Q23 | Who is the reachable escalation contact at each level, by shift, including nights and holidays? | Doctor partner | FR-38, FR-67 |
 | Q24 | Which SMS/WhatsApp provider, and who holds the DLT registration (health department, facility or team)? | Team + doctor partner | FR-82, NFR-23 |
-| Q25 | Should ASHAs get a report-only login, or only be recorded as reporters? | Doctor partner | §2, EC-64 |
-| Q26 | Does the pathway start at sub-centre/HWC or home, or only at PHC and above? | Doctor partner | FR-59, seed data |
 | Q27 | Pilot data retention period, and who is the data fiduciary (health department or team)? | Team lead | NFR-16, SC-4, §8 |
-| Q28 | Do pilot facilities have a printer for slips, or is a QR code on a phone screen enough? | Doctor partner | FR-65 |
-| Q29 | Should the patient/caregiver app view exist in phase one, or do caregivers get only SMS plus the ASHA? | Doctor partner + team | §4.8 scope |
+
+### Decided
+
+| ID | Question | Decision (26 Oct 2026) | Applied in |
+| --- | --- | --- | --- |
+| Q1 | Which pathway first? | Maternal only. The child pathway and newborn referrals are out of phase-one scope | §1, §6 (Later) |
+| Q2 | Required handover fields | The §7 dataset as it stands | §7 |
+| Q3 | What counts as a valid acknowledgement? | In-app by a named receiving user; a phone report recorded by the coordinator also counts | FR-14, §1 KPI |
+| Q4 | Who records service completion and outcome? | A doctor; a doctor may delegate it to a named staff nurse, and the delegation is logged | §2 Auth flag, FR-26 |
+| Q5 | Timer values | The §4.11 values, running 24/7 | §4.11, EC-32 |
+| Q6 | What counts as "service completed"? | First clinical review by a doctor at the receiving facility | FR-27, §4.11 |
+| Q7 | Outcome categories | The §7 list | §7 |
+| Q8 | Who may close? | The referrer, or the coordinator after relaying the outcome (logged) | FR-30, EC-39 |
+| Q9 | Caregiver or ASHA arrival reports | Kept, always shown as "Arrival reported, not confirmed" | FR-23 |
+| Q10 | Labels that could falsely reassure | The §3 wording is accepted | §3 |
+| Q11 | Local language | Hindi | FR-43, NFR-07 |
+| Q12 | Emergency line | 112, plus 108 and 102 | FR-07, §3 |
+| Q13 | Is "accepted" a separate step? | Yes | §3 |
+| Q14 | Who contacts the family after a death or stillbirth? | The referring clinician | EC-29, EC-41, EC-73 |
+| Q15 | Primary KPI | Acknowledgement lag, reported with referral failures | §1 |
+| Q16 | Status model | 13 statuses | §3 |
+| Q19 | "Follow-up required" | An overlay flag, not a status (v2) | §3 |
+| Q21 | KPI baseline | The last 4 weeks of the paper referral register, about 30 referrals | §1 |
+| Q22 | Is the coordinator clinical? | No; the coordinator does not see handover text | §2 matrix |
+| Q23 | Escalation contacts | The receiving facility's duty medical officer for the shift, then the facility in-charge | FR-38, FR-67 |
+| Q25 | ASHA login | No; ASHAs are recorded as reporters | §2 |
+| Q26 | Where the pathway starts | PHC and above | §1, EC-64 |
+| Q28 | Printed slips | A QR code on a phone screen is enough; printing is optional | FR-65 |
+| Q29 | Patient/caregiver view in phase one | Yes, kept | §4.8 |
 
 ### Assumptions
 
-- The setting is India's public health system (sub-centre/HWC → PHC → CHC/FRU → district hospital → tertiary), confirmed by the programme site; the pilot state is Q1.
+- The setting is India's public health system (sub-centre/HWC → PHC → CHC/FRU → district hospital → tertiary), confirmed by the programme site; the pilot state is not chosen yet.
 - Some receiving facilities will not use Navexa, so off-network mode (EC-09) is needed.
 - No live integrations by 7 Nov 2026. FHIR is the internal model and export format.
 - All times are IST for display.
@@ -924,7 +934,7 @@ These are the documents the team needs, from programme rules to FHIR, India's na
 
 ## 12. Sprint plan
 
-The submission window closes on 7 Nov at 11:59 pm IST, 19 days after this version. Two decisions gate the build: storage and API by 21 Oct (Q17) and the AI provider by 24 Oct (Q18).
+The submission window closes on 7 Nov at 11:59 pm IST, 12 days after this version. The storage and AI-provider decisions (Q17, Q18) are still open, and their planned dates of 21 and 24 Oct have passed.
 
 ```mermaid
 gantt
@@ -946,16 +956,16 @@ gantt
     Finale at IIT Bombay :milestone, m7, 2026-11-28, 0d
 ```
 
-Doctor-partner reviews: two 20-minute slots a week (G§8). What each week must close:
+Doctor-partner reviews: two 20-minute slots a week (G§8). What each remaining week must close:
 
-- **Week 2 (by 23 Oct):** Q1–Q5, Q9, Q12, Q13, Q16; the top three failure points (G§8); review two AI drafts (an acknowledgement request and a patient pending update).
-- **Week 3 (by 30 Oct):** Q6–Q8, Q10, Q11, Q14, Q21–Q23, Q25, Q26, Q28, Q29; patient wording in the local language.
-- **Week 4 (by 7 Nov):** final claims, "implemented vs planned", KPI and pilot plan (Q15, Q27).
-- **Team:** Q17 by 21 Oct, Q18 by 24 Oct, Q20 now, Q24 before the pilot.
+- **Week 3 (by 30 Oct):** the doctor partner confirms the team's 26 Oct answers to the clinical questions (§11) and signs off the Hindi patient wording.
+- **Week 4 (by 7 Nov):** final claims, "implemented vs planned", KPI and pilot plan.
+- **Team:** Q17, Q18 and Q20 now; Q24 and Q27 before the pilot.
 
 ## 13. Change log
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 26 Oct 2026 | v3 | Team answers to 23 open questions (§11): maternal pathway only, from PHC level up; newborn and below-PHC edge cases marked Later; acknowledgement lag plus referral failures as the KPI; Auth flag for doctors, delegable to a staff nurse; non-clinical coordinator; escalation to the duty medical officer, then the in-charge; Hindi; timers adopted; QR slip on screen. Five build questions stay open |
 | 19 Oct 2026 | v2 | Outside review applied (49 findings). 13 statuses (`AWAITING_ARRIVAL` and `IN_CARE` became events) and a full transition table; coordinator phone-report permission; human override on every flag (FR-40); send-time AI output check and fact-bound drafts; 19 new requirements (FR-64–FR-82), 8 new NFRs, 33 new edge cases, 9 new questions; G§ notation; measurable KPI definitions; 112 in the emergency line; SPDI Rules and DPDP timing; TRAI DLT; FHIR fixes (`_sort`, `ServiceRequest.status`, Provenance agent types, `HTEST` tag); sprint plan; gap from current code |
 | 19 Oct 2026 | v1 | First draft from the Doctor Partner Guide |
