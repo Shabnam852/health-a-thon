@@ -1,0 +1,157 @@
+{
+  "project_name": "Navexa Health",
+  "audit_version": "1.0.0",
+  "audit_date": "2026-10-16",
+  "auditor": "Antigravity Advanced Agentic AI",
+  "repository": {
+    "root": "d:/ANTIGRAVITY/Healthathon/health-a-thon",
+    "git_branch": "main",
+    "working_tree_clean": true
+  },
+  "technical_architecture": {
+    "framework": "React 18.3.1",
+    "build_tool": "Vite 5.3.4",
+    "routing": "React Router DOM 6.24.1",
+    "styling": "Vanilla CSS (src/index.css, 5666 lines, 81.6 KB)",
+    "state_management": "React Context (ReferralContext.jsx)",
+    "persistence": {
+      "referrals": "In-memory state (resets on F5 browser refresh)",
+      "role": "localStorage key 'navexa_role'"
+    },
+    "backend_and_database": "ABSENT (pure frontend demo)",
+    "external_integrations": "ABSENT (no APIs, SMS, maps, or auth providers)"
+  },
+  "roles_and_permissions": [
+    {
+      "id": "patient",
+      "name": "Patient / Caregiver",
+      "allowed_routes": ["/patient"],
+      "capabilities": ["View single referral progress rail", "Simulated help alert", "Simulated directions alert"],
+      "limitations": "Hardcoded to patientId P-1001; cannot see newly created referrals"
+    },
+    {
+      "id": "facility",
+      "name": "Healthcare Facility",
+      "allowed_routes": ["/facility", "/create", "/referral/:id"],
+      "capabilities": ["Create referrals", "Acknowledge referral", "Confirm arrival", "Complete referral"],
+      "limitations": "Hardcoded to 'District Hospital'; dead primary action button for CREATED status"
+    },
+    {
+      "id": "coordinator",
+      "name": "Coordinator",
+      "allowed_routes": ["/coordinator", "/referral/:id"],
+      "capabilities": ["View Needs Attention / Monitoring / Completed queues", "Start follow-up", "Resolve follow-up"],
+      "limitations": "CREATED referrals are completely omitted from queue filters"
+    }
+  ],
+  "routes": [
+    { "path": "/", "page": "RoleSelection.jsx", "access": "Public" },
+    { "path": "/patient", "page": "PatientDashboard.jsx", "access": "Role: patient" },
+    { "path": "/facility", "page": "FacilityDashboard.jsx", "access": "Role: facility" },
+    { "path": "/coordinator", "page": "CoordinatorDashboard.jsx", "access": "Role: coordinator" },
+    { "path": "/create", "page": "CreateReferral.jsx", "access": "Role: facility" },
+    { "path": "/referral/:id", "page": "ReferralDetails.jsx", "access": "Roles: facility, coordinator" }
+  ],
+  "capabilities_matrix": {
+    "referral_creation": { "status": "IMPLEMENTED", "notes": "Form with live summary preview at /create" },
+    "facility_acknowledgement": { "status": "IMPLEMENTED", "notes": "Transitions SENT -> ACKNOWLEDGED" },
+    "arrival_verification": { "status": "IMPLEMENTED", "notes": "Transitions ACKNOWLEDGED -> ARRIVAL_CONFIRMED" },
+    "audit_timeline": { "status": "IMPLEMENTED", "notes": "Appends client timestamped event objects" },
+    "patient_journey_tracking": { "status": "PARTIALLY_IMPLEMENTED", "notes": "5-stage progress rail, but hardcoded to P-1001" },
+    "coordinator_operations_queue": { "status": "PARTIALLY_IMPLEMENTED", "notes": "Tabbed queues, but omits CREATED referrals" },
+    "caregiver_contact_tracking": { "status": "PARTIALLY_IMPLEMENTED", "notes": "Captured in form, saved in object, never rendered in UI" },
+    "service_outcome_recording": { "status": "SIMULATED", "notes": "Appends static text note, no clinical data captured" },
+    "transport_coordination": { "status": "UI_ONLY", "notes": "'Get Directions' button triggers browser alert" },
+    "care_navigator_assignment": { "status": "ABSENT", "notes": "No navigator entity or assignment logic exists" },
+    "missed_referral_detection": { "status": "ABSENT", "notes": "No elapsed-time checks or SLA alerts" },
+    "missed_appointment_follow_up": { "status": "ABSENT", "notes": "No appointment dates or scheduling models" },
+    "barrier_identification_and_resolution": { "status": "ABSENT", "notes": "Resolve action simply flips status string" },
+    "home_outreach_tracking": { "status": "ABSENT", "notes": "No community health worker or home visit tracking" },
+    "clinical_escalation": { "status": "ABSENT", "notes": "Urgent priority follows identical async queue as Routine" },
+    "follow_up_scheduling": { "status": "ABSENT", "notes": "No scheduling calendar or follow-up date picker" },
+    "continuing_care_after_closure": { "status": "ABSENT", "notes": "Care journey terminates upon COMPLETED status" },
+    "redirection_and_rejection": { "status": "ABSENT", "notes": "No decline, redirect, or cancellation mechanism" },
+    "backend_persistence": { "status": "ABSENT", "notes": "In-memory state only, resets on browser refresh" }
+  },
+  "build_and_validation": {
+    "build_command": "npm run build",
+    "build_status": "SUCCESS",
+    "build_duration_seconds": 2.42,
+    "build_output": "dist/index.html (0.41 kB), dist/assets/index.js (217.30 kB), dist/assets/index.css (53.92 kB)",
+    "lint_command": "npm run lint",
+    "lint_status": "FAILED",
+    "lint_error": "eslint command not found (eslint not installed in package.json)",
+    "test_command": "None",
+    "test_status": "ABSENT"
+  },
+  "top_bugs_and_defects": [
+    {
+      "id": "BUG-01",
+      "severity": "HIGH",
+      "file": "src/pages/FacilityDashboard.jsx",
+      "lines": "54-89, 104",
+      "description": "Primary action button on FacilityDashboard is dead for CREATED referrals because handlePrimaryAction lacks a branch for CREATED."
+    },
+    {
+      "id": "BUG-02",
+      "severity": "HIGH",
+      "file": "src/pages/CoordinatorDashboard.jsx",
+      "lines": "9-35",
+      "description": "CREATED referrals are not included in attention, monitoring, or completed filters, rendering them invisible in the operations center."
+    },
+    {
+      "id": "BUG-03",
+      "severity": "HIGH",
+      "file": "src/pages/PatientDashboard.jsx",
+      "lines": "190",
+      "description": "Hardcoded patientId = 'P-1001' prevents patients from seeing newly created referrals."
+    },
+    {
+      "id": "BUG-04",
+      "severity": "MEDIUM",
+      "file": "src/context/ReferralContext.jsx",
+      "lines": "16",
+      "description": "Referrals state is in-memory only; refreshing the browser destroys all user-created referrals and status advances."
+    },
+    {
+      "id": "BUG-05",
+      "severity": "MEDIUM",
+      "file": "src/pages/CreateReferral.jsx and ReferralDetails.jsx",
+      "lines": "67, 195-207",
+      "description": "Caregiver contact number is collected in the form and stored in state, but never rendered anywhere in ReferralDetails or dashboards."
+    },
+    {
+      "id": "BUG-06",
+      "severity": "MEDIUM",
+      "file": "src/components/Navbar.jsx and src/pages/PatientDashboard.jsx",
+      "lines": "Navbar:46-49, PatientDashboard:592-595",
+      "description": "Request Human Help buttons trigger browser window.alert promising follow-up, but perform zero state changes or notifications."
+    }
+  ],
+  "recommendations_summary": {
+    "P0": [
+      "Persist referrals to localStorage/mock DB so state survives refresh.",
+      "Remove hardcoded patientId = 'P-1001'; add referral/patient selector.",
+      "Fix dead action button on FacilityDashboard for CREATED status.",
+      "Connect 'Request Human Help' to set status to FOLLOW_UP_REQUIRED.",
+      "Display caregiver contact in ReferralDetails and Coordinator view."
+    ],
+    "P1": [
+      "Add Care Navigator data entity and assignment workflow.",
+      "Support referral redirection and rejection with documented reasons.",
+      "Replace instant completion with structured clinical outcome modal.",
+      "Remove dead component files (ReferralCard, ReferralTimeline, StatusBadge) or consolidate."
+    ],
+    "P2": [
+      "Add form validation (phone format, distinct source/destination facilities).",
+      "Add elapsed-time SLA warnings for overdue acknowledgements and arrivals.",
+      "Fix package.json lint script and update HTML title."
+    ],
+    "P3": [
+      "Implement real backend API (PostgreSQL + REST/GraphQL).",
+      "Adopt HL7 FHIR ServiceRequest profiles.",
+      "Integrate SMS/WhatsApp notifications for community families.",
+      "Extend data model to support 42-day postpartum and neonatal continuing care."
+    ]
+  }
+}

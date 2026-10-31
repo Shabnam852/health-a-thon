@@ -1,148 +1,137 @@
 import React from "react";
-import {
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
-import Navbar from "./components/Navbar.jsx";
-
+import AppShell from "./components/AppShell.jsx";
 import RoleSelection from "./pages/RoleSelection.jsx";
-import CreateReferral from "./pages/CreateReferral.jsx";
-import PatientDashboard from "./pages/PatientDashboard.jsx";
-import FacilityDashboard from "./pages/FacilityDashboard.jsx";
 import CoordinatorDashboard from "./pages/CoordinatorDashboard.jsx";
 import ReferralDetails from "./pages/ReferralDetails.jsx";
-
-import { useReferrals } from "./context/ReferralContext.jsx";
-
-// --------------------------------------------------
-// Protected Route
-// --------------------------------------------------
-
-const ProtectedRoute = ({
-  allowedRoles,
-  children,
-}) => {
-  const { role } = useReferrals();
-  const location = useLocation();
-
-  // No selected role
-  if (!role) {
-    return (
-      <Navigate
-        to="/"
-        replace
-        state={{ from: location.pathname }}
-      />
-    );
-  }
-
-  // Role not allowed
-  if (!allowedRoles.includes(role)) {
-    const fallbackRoutes = {
-      patient: "/patient",
-      facility: "/facility",
-      coordinator: "/coordinator",
-    };
-
-    return (
-      <Navigate
-        to={fallbackRoutes[role] || "/"}
-        replace
-      />
-    );
-  }
-
-  return children;
-};
-
-// --------------------------------------------------
-// App
-// --------------------------------------------------
+import BarrierResolution from "./pages/BarrierResolution.jsx";
+import PatientDashboard from "./pages/PatientDashboard.jsx";
+import FacilityDashboard from "./pages/FacilityDashboard.jsx";
+import CreateReferral from "./pages/CreateReferral.jsx";
+import NetworkView from "./pages/NetworkView.jsx";
+import TransportCoordination from "./pages/TransportCoordination.jsx";
+import ContinuityOfCare from "./pages/ContinuityOfCare.jsx";
+import NavigatorWorkspace from "./pages/NavigatorWorkspace.jsx";
+import NotFound from "./pages/NotFound.jsx";
 
 function App() {
   return (
-    <div className="app-container">
-      <Navbar />
+    <div className="min-h-screen bg-surface font-body-md text-on-surface antialiased">
+      <Routes>
+        {/* PUBLIC ROLE SELECTION */}
+        <Route path="/" element={<RoleSelection />} />
 
-      <main className="page-container">
-        <Routes>
+        {/* WORKSPACE ROUTES (Wrapped in Stitch AppShell) */}
+        <Route
+          path="/coordinator"
+          element={
+            <AppShell>
+              <CoordinatorDashboard />
+            </AppShell>
+          }
+        />
 
-          {/* PUBLIC */}
-          <Route
-            path="/"
-            element={<RoleSelection />}
-          />
+        <Route
+          path="/navigator"
+          element={
+            <AppShell>
+              <NavigatorWorkspace />
+            </AppShell>
+          }
+        />
 
-          {/* PATIENT */}
-          <Route
-            path="/patient"
-            element={
-              <ProtectedRoute allowedRoles={["patient"]}>
-                <PatientDashboard />
-              </ProtectedRoute>
-            }
-          />
+        <Route
+          path="/referral/:id"
+          element={
+            <AppShell>
+              <ReferralDetails />
+            </AppShell>
+          }
+        />
 
-          {/* FACILITY */}
-          <Route
-            path="/facility"
-            element={
-              <ProtectedRoute allowedRoles={["facility"]}>
-                <FacilityDashboard />
-              </ProtectedRoute>
-            }
-          />
+        <Route
+          path="/referrals"
+          element={
+            <AppShell>
+              <ReferralDetails />
+            </AppShell>
+          }
+        />
 
-          {/* COORDINATOR */}
-          <Route
-            path="/coordinator"
-            element={
-              <ProtectedRoute
-                allowedRoles={["coordinator"]}
-              >
-                <CoordinatorDashboard />
-              </ProtectedRoute>
-            }
-          />
+        <Route
+          path="/barriers"
+          element={
+            <AppShell>
+              <BarrierResolution />
+            </AppShell>
+          }
+        />
 
-          {/* CREATE REFERRAL */}
-          <Route
-            path="/create"
-            element={
-              <ProtectedRoute
-                allowedRoles={["facility"]}
-              >
-                <CreateReferral />
-              </ProtectedRoute>
-            }
-          />
+        <Route
+          path="/transport"
+          element={
+            <AppShell>
+              <TransportCoordination />
+            </AppShell>
+          }
+        />
 
-          {/* INTERNAL REFERRAL DETAILS */}
-          <Route
-            path="/referral/:id"
-            element={
-              <ProtectedRoute
-                allowedRoles={[
-                  "facility",
-                  "coordinator",
-                ]}
-              >
-                <ReferralDetails />
-              </ProtectedRoute>
-            }
-          />
+        <Route
+          path="/facility"
+          element={
+            <AppShell>
+              <FacilityDashboard />
+            </AppShell>
+          }
+        />
 
-          {/* FALLBACK */}
-          <Route
-            path="*"
-            element={<Navigate to="/" replace />}
-          />
+        <Route
+          path="/create"
+          element={
+            <AppShell>
+              <CreateReferral />
+            </AppShell>
+          }
+        />
 
-        </Routes>
-      </main>
+        <Route
+          path="/patient"
+          element={
+            <AppShell>
+              <PatientDashboard />
+            </AppShell>
+          }
+        />
+
+        <Route
+          path="/continuity"
+          element={
+            <AppShell>
+              <ContinuityOfCare />
+            </AppShell>
+          }
+        />
+
+        <Route
+          path="/network"
+          element={
+            <AppShell>
+              <NetworkView />
+            </AppShell>
+          }
+        />
+
+        {/* 404 NOT FOUND ROUTE */}
+        <Route
+          path="*"
+          element={
+            <AppShell>
+              <NotFound />
+            </AppShell>
+          }
+        />
+      </Routes>
     </div>
   );
 }

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {"darkMode":"class","theme":{"extend":{"colors":{"on-tertiary-fixed-variant":"#3d4947","on-primary-fixed-variant":"#2f4865","on-primary":"#ffffff","on-primary-fixed":"#001d36","primary-fixed-dim":"#afc9ea","error":"#ba1a1a","tertiary":"#121e1c","secondary-fixed-dim":"#73d7d2","surface-bright":"#f8f9ff","surface-container-low":"#eef4ff","on-tertiary-fixed":"#121e1c","on-background":"#0b1c2e","on-secondary":"#ffffff","surface":"#f8f9ff","inverse-primary":"#afc9ea","surface-container-lowest":"#ffffff","surface-variant":"#d3e4fd","inverse-on-surface":"#eaf1ff","surface-dim":"#cbdbf4","background":"#f8f9ff","surface-container-high":"#dbe9ff","secondary-container":"#8df0eb","on-tertiary-container":"#8e9b99","outline":"#74777e","outline-variant":"#c3c6ce","on-secondary-fixed":"#00201f","tertiary-fixed-dim":"#bcc9c7","on-primary-container":"#819aba","primary-container":"#17324d","on-surface":"#0b1c2e","tertiary-fixed":"#d7e5e3","error-container":"#ffdad6","on-secondary-container":"#006f6b","primary":"#001d36","on-error-container":"#93000a","secondary":"#006a67","surface-tint":"#47607e","on-tertiary":"#ffffff","surface-container":"#e5eeff","surface-container-highest":"#d3e4fd","secondary-fixed":"#90f3ee","tertiary-container":"#263331","on-error":"#ffffff","on-secondary-fixed-variant":"#00504d","inverse-surface":"#213144","on-surface-variant":"#43474d","primary-fixed":"#d1e4ff"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"gutter-lg":"2rem","space-xs":"0.25rem","space-xl":"2.25rem","gutter-md":"1.5rem","space-sm":"0.5rem","gutter":"1rem","space-lg":"1.5rem","margin":"1rem","margin-lg":"3rem","space-md":"1rem","margin-md":"2rem"},"fontFamily":{"body-lg":["Inter"],"data-tabular":["Inter"],"label-md":["Inter"],"headline-lg":["Plus Jakarta Sans"],"body-md":["Inter"],"title-sm":["Plus Jakarta Sans"],"label-sm":["Inter"],"headline-md":["Plus Jakarta Sans"],"body-sm":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"],"headline-xl-mobile":["Plus Jakarta Sans"],"headline-xl":["Plus Jakarta Sans"]},"fontSize":{"body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],"data-tabular":["13px",{"lineHeight":"18px","fontWeight":"500"}],"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"500"}],"headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"title-sm":["15px",{"lineHeight":"22px","fontWeight":"600"}],"label-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.04em","fontWeight":"600"}],"headline-md":["18px",{"lineHeight":"26px","fontWeight":"600"}],"body-sm":["13px",{"lineHeight":"18px","fontWeight":"400"}],"headline-lg-mobile":["20px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-xl-mobile":["26px",{"lineHeight":"34px","letterSpacing":"-0.015em","fontWeight":"700"}],"headline-xl":["32px",{"lineHeight":"40px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 bottom-0 w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between"><div class="flex flex-col flex-1 min-h-0"><div class="px-space-md py-space-md bg-surface-container-lowest"><div class="flex items-center gap-space-sm"><img alt="Navexa Health Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X1Ztp_4qtw602TPPn7UFYMw43Mx42O6nzXezYRkYmKayaE_qsUqnByiaJOYNpF5X8dlZvRudb97R1c6IuOV4fR6HaIakUXIbIqfTPkUjMVl87sdh_OMPQKTI98XwmekJeCRq_W3Lkkb5tCp65dGH74hHAoAYBSflJoWDHfOMRb1qQ3LCbSx1CcATqxg6J-PqRq2wwoTogXqRk_7b2WL2mmqur-Q17qMuBEMuNofVuwKfPTWUjBhJrA-ZM-"/><div class="flex flex-col"><span class="font-title-sm text-title-sm text-primary tracking-tight">Navexa Health</span><span class="font-label-sm text-label-sm text-on-surface-variant">Maternal &amp; Neonatal Care System</span></div></div><div class="mt-space-sm"><span class="inline-flex items-center gap-1.5 px-space-sm py-space-xs rounded-full bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm text-label-sm"><span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>DEMO MODE - Active Network</span></div></div><nav class="flex-1 overflow-y-auto px-space-sm py-space-xs space-y-1" data-active-classes="bg-primary-container text-on-primary font-bold rounded-lg"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="care-coordinator-hub" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-body-sm text-body-sm">Care Coordinator Hub</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="referral-case-details" href="#"><span class="material-symbols-outlined text-[20px]">assignment_late</span><span class="font-body-sm text-body-sm">Referral Case Details</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 transition-colors bg-primary-container text-on-primary font-bold rounded-lg" data-path="barrier-resolution" href="#"><span class="material-symbols-outlined text-[20px]">support_agent</span><span class="font-body-sm text-body-sm">Barrier Resolution</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="facility-operations" href="#"><span class="material-symbols-outlined text-[20px]">swap_calls</span><span class="font-body-sm text-body-sm">Facility Operations</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="create-referral" href="#"><span class="material-symbols-outlined text-[20px]">add_circle</span><span class="font-body-sm text-body-sm">Create Referral</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="patient-and-family-view" href="#"><span class="material-symbols-outlined text-[20px]">family_restroom</span><span class="font-body-sm text-body-sm">Patient &amp; Family View</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="continuity-and-follow-up" href="#"><span class="material-symbols-outlined text-[20px]">event_available</span><span class="font-body-sm text-body-sm">Continuity &amp; Follow-up</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="referral-network" href="#"><span class="material-symbols-outlined text-[20px]">hub</span><span class="font-body-sm text-body-sm">Referral Network</span></a></nav></div><div class="p-space-sm m-space-sm rounded-xl bg-surface-container-low shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex items-center gap-space-sm"><div class="relative flex-shrink-0"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCooDGFa7qPCwTWh0oC8fovs0awEeLjO7muJKgbAXM1Dh2J-bTp5YxaH4KgdQOJ2MSkmAJx3kDyk9SqYNQT-rftnQJy1DCQZrP6mqikn3tmWDCK7wa2gxs8-Q172V4NlS3OfAPiwH5M0hC5AsozMohWC1i2ajTPxpnSYEkoHabg4oF_OtJFSfUL8tWgN5RoJ67n6-SJLMul8A_RNT23cl3d_JUVidK3kyDDBYKEpT5EWH6134w8hyRW1Q"/><span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-secondary-fixed ring-1 ring-surface-container-lowest"></span></div><div class="flex-1 min-w-0"><div class="flex items-center justify-between"><p class="font-title-sm text-body-sm text-primary truncate">Sarah Jenkins, RN</p><span class="font-label-sm text-label-sm text-secondary font-medium">Available</span></div><p class="font-label-sm text-label-sm text-on-surface-variant truncate">Lead Clinical Coordinator</p><p class="font-label-sm text-label-sm text-on-surface-variant truncate text-[10px]">St. Jude Regional Perinatal</p></div></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-gutter-md flex items-center justify-between"><div class="flex items-center gap-space-md flex-1 max-w-xl"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[18px]">search</span><input class="w-full pl-9 pr-4 py-1.5 rounded-lg bg-surface-container-low font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-secondary/40" placeholder="Search by patient ID, MRN, case ref, or NHS #..." type="text"/></div><div class="hidden xl:flex items-center gap-1.5 px-space-sm py-1.5 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md whitespace-nowrap"><span class="material-symbols-outlined text-[16px] text-secondary">domain</span><span>Midwest Perinatal Hub: 14 Connected Facilities</span></div></div><div class="flex items-center gap-space-md"><div class="hidden lg:flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm"><span class="material-symbols-outlined text-[14px] text-error">verified_user</span><span>Clinical Coordination Tool • Not for Emergency Dispatch</span></div><button class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-error text-on-error font-label-sm text-[10px]">3</span></button><a class="inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md hover:bg-on-secondary-container transition-colors shadow-[0_1px_8px_rgba(0,0,0,0.04)]" data-path="create-referral" href="#"><span class="material-symbols-outlined text-[18px]">add</span><span>New Referral</span></a><img alt="Profile" class="w-8 h-8 rounded-full object-cover ml-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCooDGFa7qPCwTWh0oC8fovs0awEeLjO7muJKgbAXM1Dh2J-bTp5YxaH4KgdQOJ2MSkmAJx3kDyk9SqYNQT-rftnQJy1DCQZrP6mqikn3tmWDCK7wa2gxs8-Q172V4NlS3OfAPiwH5M0hC5AsozMohWC1i2ajTPxpnSYEkoHabg4oF_OtJFSfUL8tWgN5RoJ67n6-SJLMul8A_RNT23cl3d_JUVidK3kyDDBYKEpT5EWH6134w8hyRW1Q"/></div></header><main class="relative pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- Operational Alert Banner & Network Principle Header -->
+<div class="px-gutter-md pt-space-lg pb-space-md">
+<div class="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary-container via-primary to-primary-container p-space-lg shadow-md text-on-primary">
+<div class="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-secondary/15 blur-3xl pointer-events-none"></div>
+<div class="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-space-md">
+<div class="space-y-1.5 max-w-4xl">
+<div class="flex items-center gap-space-sm">
+<span class="inline-flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm uppercase tracking-wider">
+<span class="w-2 h-2 rounded-full bg-error animate-ping"></span>
+              Active Queue Alert
+            </span>
+<span class="font-label-md text-label-md text-primary-fixed-dim">Navexa Core Principle #1</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-primary tracking-tight">
+            Missed Arrival &amp; Unresolved Journey Queue
+          </h1>
+<p class="font-body-md text-body-md text-surface-container-high leading-relaxed">
+<span class="font-medium text-white italic">"A referral sent is not care received."</span>
+            This workspace tracks unconfirmed arrivals, investigates root causes in real-time, and coordinates tangible clinical and logistical interventions before complications arise.
+          </p>
+</div>
+<div class="flex items-center gap-space-md self-start xl:self-center shrink-0">
+<div class="flex items-center gap-space-sm bg-surface-container-lowest/10 backdrop-blur-md px-space-md py-space-sm rounded-lg text-on-primary">
+<span class="material-symbols-outlined text-secondary-fixed text-[26px]">crisis_alert</span>
+<div>
+<p class="font-headline-md text-headline-md leading-none font-bold">7 Patients</p>
+<p class="font-label-sm text-label-sm text-surface-dim">Overdue Hospital Intake</p>
+</div>
+</div>
+<button class="inline-flex items-center gap-1.5 px-space-md py-2.5 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md hover:bg-on-secondary-container transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">cell_tower</span>
+<span>Broadcast Network Ping</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Metric Summary Strip -->
+<div class="px-gutter-md pb-space-lg">
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-space-sm">
+<!-- Stat 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">Overdue Arrivals</span>
+<span class="font-headline-xl text-headline-xl text-error font-bold tracking-tight">07</span>
+<span class="font-label-sm text-label-sm text-error flex items-center gap-0.5 mt-0.5">
+<span class="material-symbols-outlined text-[13px]">arrow_upward</span> +2 since 08:00
+          </span>
+</div>
+<div class="w-11 h-11 rounded-lg bg-error-container/60 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[24px]">timer_off</span>
+</div>
+</div>
+<!-- Stat 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">Contact Pending</span>
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">04</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-0.5 mt-0.5">
+<span class="material-symbols-outlined text-[13px]">schedule</span> 2 automated, 2 calls
+          </span>
+</div>
+<div class="w-11 h-11 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">phone_in_talk</span>
+</div>
+</div>
+<!-- Stat 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">Transit / Equipment</span>
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">03</span>
+<span class="font-label-sm text-label-sm text-secondary flex items-center gap-0.5 mt-0.5">
+<span class="material-symbols-outlined text-[13px]">local_taxi</span> MediVan dispatched (1)
+          </span>
+</div>
+<div class="w-11 h-11 rounded-lg bg-secondary-container/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[24px]">commute</span>
+</div>
+</div>
+<!-- Stat 4 -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">Language / Cultural</span>
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">02</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-0.5 mt-0.5">
+<span class="material-symbols-outlined text-[13px]">translate</span> Somali &amp; Mixtec
+          </span>
+</div>
+<div class="w-11 h-11 rounded-lg bg-surface-container-high flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[24px]">record_voice_over</span>
+</div>
+</div>
+<!-- Stat 5 -->
+<div class="col-span-2 md:col-span-1 bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">Re-routed Today</span>
+<span class="font-headline-xl text-headline-xl text-secondary font-bold tracking-tight">08</span>
+<span class="font-label-sm text-label-sm text-secondary flex items-center gap-0.5 mt-0.5">
+<span class="material-symbols-outlined text-[13px]">check_circle</span> 100% arrival logged
+          </span>
+</div>
+<div class="w-11 h-11 rounded-lg bg-secondary-fixed/50 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[24px]">verified</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Two-Column Workspace Layout (40% / 60%) -->
+<div class="px-gutter-md pb-margin-lg">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+<!-- LEFT PANE: Interactive Worklist (approx 40% -> 5 cols desktop) -->
+<section aria-label="Overdue Patient Queue" class="lg:col-span-5 flex flex-col space-y-space-md">
+<!-- Worklist Control Bar -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">sort</span>
+<span class="font-title-sm text-title-sm text-primary">Overdue Priority Filter</span>
+</div>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-medium">Sorted by Acuity</span>
+</div>
+<!-- Quick Filters -->
+<div class="flex flex-wrap gap-1.5">
+<button class="px-space-sm py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm" type="button">All (7)</button>
+<button class="px-space-sm py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm" type="button">Transit (3)</button>
+<button class="px-space-sm py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm" type="button">Financial (1)</button>
+<button class="px-space-sm py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm" type="button">Phone No-Answer (2)</button>
+</div>
+</div>
+<!-- Case Cards Stack -->
+<div class="space-y-space-sm" id="queueCardsContainer">
+<!-- CASE 1: SELECTED CASE (Baby Boy Chen) -->
+<article class="relative bg-surface-container-lowest rounded-xl p-space-md shadow-md border-l-4 border-l-error cursor-pointer transition-all hover:bg-surface-bright ring-2 ring-secondary/30">
+<div class="flex items-start justify-between gap-space-sm mb-2">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 px-space-xs py-0.5 rounded bg-error-container text-on-error-container font-label-sm text-label-sm font-bold">
+<span class="material-symbols-outlined text-[12px]">emergency</span> CRITICAL OVERDUE
+                </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">Ref #NX-9042</span>
+</div>
+<span class="font-label-sm text-label-sm text-error font-bold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">alarm</span> +1h 25m
+              </span>
+</div>
+<div class="flex gap-space-sm items-start">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed/40 flex items-center justify-center text-secondary shrink-0 font-bold font-title-sm text-title-sm">
+                BC
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline justify-between gap-2">
+<h2 class="font-title-sm text-title-sm text-primary font-bold truncate">Baby Boy Chen (3 Days Old)</h2>
+<span class="font-label-sm text-label-sm text-error bg-error-container/40 px-1.5 py-0.5 rounded font-mono font-semibold">TSB: 21.4 mg/dL</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                  Destination: <span class="text-on-surface font-medium">St. Jude NICU Phototherapy</span>
+</p>
+</div>
+</div>
+<!-- Active Barrier Micro-Callout -->
+<div class="mt-space-sm p-space-xs px-space-sm bg-surface-container-low rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[16px] shrink-0">car_crash</span>
+<p class="font-body-sm text-body-sm text-on-surface truncate">
+<span class="font-medium text-secondary">Identified Barrier:</span> Transit failure &amp; lacks compliant rear-facing infant car seat.
+              </p>
+</div>
+<div class="mt-space-sm pt-2 border-t border-surface-container flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-secondary">phone_callback</span> Contact logged 10:15 AM
+              </span>
+<span class="font-bold text-secondary uppercase tracking-wider flex items-center gap-0.5">
+                ACTIVE IN CONSOLE <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</span>
+</div>
+</article>
+<!-- CASE 2: Amara Okafor -->
+<article class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all cursor-pointer">
+<div class="flex items-start justify-between gap-space-sm mb-2">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 px-space-xs py-0.5 rounded bg-surface-container-high text-primary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[12px] text-error">priority_high</span> HIGH ACUITY
+                </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">Ref #NX-9038</span>
+</div>
+<span class="font-label-sm text-label-sm text-error font-semibold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">alarm</span> +2h 00m
+              </span>
+</div>
+<div class="flex gap-space-sm items-start">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary shrink-0 font-bold font-title-sm text-title-sm">
+                AO
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline justify-between gap-2">
+<h3 class="font-title-sm text-title-sm text-primary font-semibold truncate">Amara Okafor (Postpartum Day 5)</h3>
+<span class="font-label-sm text-label-sm text-error font-mono font-medium">BP 168/104</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                  Destination: <span class="text-on-surface font-medium">Maternal Triage / Preeclampsia Unit</span>
+</p>
+</div>
+</div>
+<div class="mt-space-sm p-space-xs px-space-sm bg-surface-container-low rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-[16px] shrink-0">voicemail</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                Voicemail left (10:02 AM). 2nd automated ping queued. Needs urgent BP re-check.
+              </p>
+</div>
+<div class="mt-space-sm pt-2 border-t border-surface-container flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="text-on-surface-variant">Referring: Westside Midwifery Group</span>
+<button class="text-secondary hover:text-on-secondary-container font-semibold flex items-center gap-0.5" type="button">
+                Switch View <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+</article>
+<!-- CASE 3: Khadija Said -->
+<article class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all cursor-pointer">
+<div class="flex items-start justify-between gap-space-sm mb-2">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 px-space-xs py-0.5 rounded bg-surface-container-high text-primary font-label-sm text-label-sm font-semibold">
+                  URGENT OB
+                </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">Ref #NX-9051</span>
+</div>
+<span class="font-label-sm text-label-sm text-error font-semibold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">alarm</span> +45m
+              </span>
+</div>
+<div class="flex gap-space-sm items-start">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary shrink-0 font-bold font-title-sm text-title-sm">
+                KS
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline justify-between gap-2">
+<h3 class="font-title-sm text-title-sm text-primary font-semibold truncate">Khadija Said (36 wks GA)</h3>
+<span class="font-label-sm text-label-sm text-on-surface-variant">DFM reported</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                  Destination: <span class="text-on-surface font-medium">St. Jude Labor &amp; Delivery Assessment</span>
+</p>
+</div>
+</div>
+<div class="mt-space-sm p-space-xs px-space-sm bg-surface-container-low rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-[16px] shrink-0">ac_unit</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                Transit route suspended due to snow squall; needs emergency 4x4 transport voucher.
+              </p>
+</div>
+<div class="mt-space-sm pt-2 border-t border-surface-container flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="text-on-surface-variant">Primary Language: Somali (Interpreter Req.)</span>
+<button class="text-secondary hover:text-on-secondary-container font-semibold flex items-center gap-0.5" type="button">
+                Switch View <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+</article>
+<!-- CASE 4: Lucia Gomez -->
+<article class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all cursor-pointer">
+<div class="flex items-start justify-between gap-space-sm mb-2">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 px-space-xs py-0.5 rounded bg-surface-container-high text-primary font-label-sm text-label-sm font-semibold">
+                  NEONATAL FEEDING
+                </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">Ref #NX-9019</span>
+</div>
+<span class="font-label-sm text-label-sm text-error font-semibold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">alarm</span> +3h 10m
+              </span>
+</div>
+<div class="flex gap-space-sm items-start">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary shrink-0 font-bold font-title-sm text-title-sm">
+                LG
+              </div>
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline justify-between gap-2">
+<h3 class="font-title-sm text-title-sm text-primary font-semibold truncate">Lucia Gomez (Neonate Day 7)</h3>
+<span class="font-label-sm text-label-sm text-error font-mono font-medium">-12.8% Wt Loss</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                  Destination: <span class="text-on-surface font-medium">Pediatric Hydration &amp; Observation</span>
+</p>
+</div>
+</div>
+<div class="mt-space-sm p-space-xs px-space-sm bg-surface-container-low rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-[16px] shrink-0">payments</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+                Mother hesitating due to fear of emergency copay bills; financial counselor assigned.
+              </p>
+</div>
+<div class="mt-space-sm pt-2 border-t border-surface-container flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="text-on-surface-variant">Lactation Outreach Coordinator attached</span>
+<button class="text-secondary hover:text-on-secondary-container font-semibold flex items-center gap-0.5" type="button">
+                Switch View <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+</article>
+</div>
+</section>
+<!-- RIGHT PANE: Deep Resolution & Action Console (approx 60% -> 7 cols desktop) -->
+<section aria-label="Deep Resolution Workspace" class="lg:col-span-7 flex flex-col space-y-space-md">
+<!-- Detailed Patient Clinical Profile Header -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-sm border-b border-surface-container">
+<div>
+<div class="flex items-center gap-2">
+<span class="inline-block w-2.5 h-2.5 rounded-full bg-error animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-error font-bold uppercase tracking-wider">Active Urgent Resolution Protocol</span>
+<span class="font-mono text-label-sm text-label-sm text-on-surface-variant">Ref #NX-9042</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-primary font-bold mt-1">
+                Baby Boy Chen • 3 Days Postnatal
+              </h2>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-space-sm py-1 rounded bg-error-container text-on-error-container font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span> Severe Hyperbilirubinemia
+              </span>
+<div class="text-right">
+<div class="font-title-sm text-title-sm text-error font-bold font-mono">21.4 mg/dL</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Phototherapy Threshold: 18.0</div>
+</div>
+</div>
+</div>
+<!-- Transfer Conduit Metadata Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-space-sm font-body-sm text-body-sm">
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">Referring Facility &amp; Clinician</span>
+<div class="font-title-sm text-title-sm text-primary font-semibold mt-0.5">Northside Pediatric Community Health</div>
+<div class="text-on-surface-variant text-label-md">Dr. Robert Vance, MD (Direct: ext. 4412)</div>
+<div class="text-on-surface-variant text-[11px] mt-1 text-outline">Referral Issued: Today at 08:45 AM</div>
+</div>
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">Designated Receiving Department</span>
+<div class="font-title-sm text-title-sm text-primary font-semibold mt-0.5">St. Jude Children's Neonatal ICU</div>
+<div class="text-on-surface-variant text-label-md">Phototherapy Bed #04 (Reserved &amp; Warmed)</div>
+<div class="text-error font-medium text-[11px] mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">alarm</span> Expected Arrival: 09:30 AM (85 mins overdue)
+              </div>
+</div>
+</div>
+</div>
+<!-- Structured Barrier Classification Panel -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">report_problem</span>
+<h3 class="font-title-sm text-title-sm text-primary font-bold">Structured Root-Cause Barrier Diagnosis</h3>
+</div>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed-variant font-semibold">
+              Logistics Barrier Confirmed
+            </span>
+</div>
+<div class="bg-surface-bright rounded-lg p-space-md space-y-space-sm">
+<div class="flex flex-wrap items-center gap-space-sm">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Validated Category:</span>
+<span class="inline-flex items-center gap-1 px-space-sm py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px]">no_crash</span> Transportation &amp; Equipment Deficit
+              </span>
+<span class="inline-flex items-center gap-1 px-space-sm py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px]">priority_high</span> High Neonatal Brain Safety Risk (Kernicterus Prevention)
+              </span>
+</div>
+<div class="p-space-sm bg-surface-container-lowest rounded-lg">
+<p class="font-body-sm text-body-sm text-on-surface">
+<span class="font-semibold text-primary">Investigator Finding:</span>
+                Mother (Mei Chen) confirmed patient is alert but increasingly somnolent. Family vehicle transmission failed on departure. The family walked to the local transit line but municipal bus drivers refused boarding because the infant was carried only in arms without a state-certified rear-facing car seat. Family lacks funds for immediate private rideshare or commercial car safety seat purchase.
+              </p>
+</div>
+</div>
+</div>
+<!-- Contact & Attempt History Log -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">history_edu</span>
+<h3 class="font-title-sm text-title-sm text-primary font-bold">Contact &amp; Outreach Timeline</h3>
+</div>
+<button class="text-secondary hover:text-on-secondary-container font-label-md text-label-md flex items-center gap-1 font-semibold" type="button">
+<span class="material-symbols-outlined text-[16px]">add_call</span> Log Immediate Call
+            </button>
+</div>
+<!-- Vertical Timeline -->
+<div class="relative pl-6 space-y-space-md before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-container">
+<!-- Timeline Item 1 -->
+<div class="relative">
+<div class="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[12px]">phone</span>
+</div>
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<div class="flex items-center justify-between">
+<span class="font-title-sm text-title-sm text-primary font-semibold">Direct Verbal Connect • Mother (Mei Chen)</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">10:15 AM (18m ago)</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface mt-1">
+                  Sarah Jenkins, RN reached mother. Mother distressed, explained car breakdown and bus turn-away. RN instructed mother to stay shelter-safe at the 5th Avenue Transit Pavilion while emergency transport is dispatched. Infant feeding status assessed: fed 1.5 oz 45 mins ago.
+                </p>
+<div class="mt-2 flex items-center gap-2 font-label-sm text-label-sm text-outline">
+<span>Logged by: S. Jenkins, RN (Lead Coordinator)</span>
+<span>•</span>
+<span>Call Duration: 6m 42s</span>
+</div>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative">
+<div class="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[12px]">sms</span>
+</div>
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<div class="flex items-center justify-between">
+<span class="font-title-sm text-title-sm text-primary font-medium">Automated Multi-lingual SMS Prompt</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">09:30 AM (63m ago)</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                  Sent dual-language (English / Mandarin) St. Jude phototherapy arrival reminder with direct one-tap navigator callback link. Carrier Receipt: Confirmed Delivered to +1 (312) 555-0198.
+                </p>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="relative">
+<div class="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[12px]">outgoing_mail</span>
+</div>
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<div class="flex items-center justify-between">
+<span class="font-title-sm text-title-sm text-primary font-medium">Referral Transmitted &amp; Bed Staged</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">08:45 AM</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                  Electronic intake packet received from Northside Pediatric. Phototherapy unit reserve protocol engaged automatically.
+                </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Intervention & Resolution Playbook (Actionable Controls) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">play_circle</span>
+<h3 class="font-title-sm text-title-sm text-primary font-bold">Intervention &amp; Resolution Playbook</h3>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Step 2 of 4 In Progress</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-sm">
+<!-- Action 1: Dispatched -->
+<div class="p-space-md rounded-xl bg-secondary/5 flex flex-col justify-between space-y-space-sm relative overflow-hidden">
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-secondary font-bold block">Intervention 01 • Active Transit</span>
+<h4 class="font-title-sm text-title-sm text-primary font-bold mt-0.5">Specialized MediVan Dispatch</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                    Certified technician on-board with inspected Chicco KeyFit infant restraint capsule.
+                  </p>
+</div>
+<span class="material-symbols-outlined text-secondary text-[24px]">airport_shuttle</span>
+</div>
+<div class="pt-2">
+<button class="w-full py-2.5 px-space-md rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-on-secondary-container transition-all flex items-center justify-center gap-1.5 shadow-sm" id="dispatchBtn" onclick="simulateDispatchUpdate()" type="button">
+<span class="material-symbols-outlined text-[18px]">navigation</span>
+<span id="dispatchBtnText">Dispatch MediVan #04 • ETA 18m</span>
+</button>
+<div class="mt-1.5 text-center font-label-sm text-label-sm text-secondary font-medium" id="transitEtaNotice">
+                  Driver: Marcus Ross (Direct Radio Connected)
+                </div>
+</div>
+</div>
+<!-- Action 2: Bed Delay Notification -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between space-y-space-sm">
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold block">Intervention 02 • Clinical Staging</span>
+<h4 class="font-title-sm text-title-sm text-primary font-bold mt-0.5">NICU Arrival Delay Notice</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                    Keeps Bed #04 warmed and informs charge nurse not to release hold to emergency overflow.
+                  </p>
+</div>
+<span class="material-symbols-outlined text-primary text-[24px]">bed</span>
+</div>
+<div class="pt-2">
+<button class="w-full py-2.5 px-space-md rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold hover:bg-primary transition-all flex items-center justify-center gap-1.5" id="nicuNotifyBtn" onclick="notifyNicuNurse()" type="button">
+<span class="material-symbols-outlined text-[18px]">notification_important</span>
+<span id="nicuBtnText">Notify NICU Charge Nurse (+25m)</span>
+</button>
+<div class="mt-1.5 text-center font-label-sm text-label-sm text-on-surface-variant" id="nicuStatusText">
+                  Charge Nurse: Brenda Miller, RNC-NIC
+                </div>
+</div>
+</div>
+<!-- Action 3: Clinical Re-triage Escalation -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between space-y-space-sm">
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold block">Intervention 03 • Physician Review</span>
+<h4 class="font-title-sm text-title-sm text-primary font-bold mt-0.5">Emergency Acuity Re-Triage</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                    Request St. Jude on-call neonatologist review bilirubin progression trajectory during transit.
+                  </p>
+</div>
+<span class="material-symbols-outlined text-outline text-[24px]">medical_services</span>
+</div>
+<div class="pt-2">
+<button class="w-full py-2.5 px-space-md rounded-lg bg-surface-container-highest text-primary font-label-md text-label-md font-semibold hover:bg-surface-variant transition-all flex items-center justify-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[18px]">contact_support</span>
+<span>Pediatrician Emergency Review</span>
+</button>
+<div class="mt-1.5 text-center font-label-sm text-label-sm text-on-surface-variant">
+                  On-Call Neonatologist: Dr. Evelyn Hayes
+                </div>
+</div>
+</div>
+<!-- Action 4: Verified Arrival -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between space-y-space-sm">
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold block">Intervention 04 • Intake Handoff</span>
+<h4 class="font-title-sm text-title-sm text-primary font-bold mt-0.5">Clerk Intake Signoff</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                    Once MediVan pulls into bay 3, scan patient wristband to close the overdue exception queue.
+                  </p>
+</div>
+<span class="material-symbols-outlined text-outline text-[24px]">how_to_reg</span>
+</div>
+<div class="pt-2">
+<button class="w-full py-2.5 px-space-md rounded-lg bg-surface-container text-on-surface-variant font-label-md text-label-md font-semibold hover:bg-secondary hover:text-on-secondary transition-all flex items-center justify-center gap-1.5" id="confirmArrivalBtn" onclick="confirmIntakeArrival()" type="button">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span id="confirmBtnText">Confirm Intake &amp; Resolve Barrier</span>
+</button>
+<div class="mt-1.5 text-center font-label-sm text-label-sm text-on-surface-variant">
+                  Awaiting transport arrival at Hospital Bay
+                </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Activity Log & Medicolegal Coordinator Audit Trail -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">policy</span>
+<h3 class="font-title-sm text-title-sm text-primary font-bold">Medicolegal Audit Trail &amp; Coordinator Sign-off</h3>
+</div>
+<span class="font-label-sm text-label-sm text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">lock</span> Encrypted HIPAA Compliance Log
+            </span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-data-tabular text-data-tabular">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+<th class="py-2 px-3 rounded-l">Timestamp</th>
+<th class="py-2 px-3">Actor / Clinician</th>
+<th class="py-2 px-3">Action Event</th>
+<th class="py-2 px-3">Resolution Metric</th>
+<th class="py-2 px-3 rounded-r text-right">Digital Signature</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container" id="auditTrailBody">
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="py-2.5 px-3 font-mono text-on-surface-variant">10:18:24 AM</td>
+<td class="py-2.5 px-3 font-medium text-primary">Sarah Jenkins, RN</td>
+<td class="py-2.5 px-3">Specialized Transit MediVan #04 Dispatched with certified car seat</td>
+<td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed-variant font-semibold text-[11px]">En Route</span></td>
+<td class="py-2.5 px-3 text-right font-mono text-[11px] text-outline">SIG#SJ-9482-AUTH</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="py-2.5 px-3 font-mono text-on-surface-variant">10:15:02 AM</td>
+<td class="py-2.5 px-3 font-medium text-primary">Sarah Jenkins, RN</td>
+<td class="py-2.5 px-3">Barrier classified: Transport breakdown &amp; newborn safety restraint absence</td>
+<td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-semibold text-[11px]">Root Diagnosed</span></td>
+<td class="py-2.5 px-3 text-right font-mono text-[11px] text-outline">SIG#SJ-9482-AUTH</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="py-2.5 px-3 font-mono text-on-surface-variant">09:30:00 AM</td>
+<td class="py-2.5 px-3 font-medium text-primary">System Dispatcher</td>
+<td class="py-2.5 px-3">Automated bilingual SMS prompt transmitted (+1 312 555-0198)</td>
+<td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-semibold text-[11px]">Delivered</span></td>
+<td class="py-2.5 px-3 text-right font-mono text-[11px] text-outline">SYS#AUTO-PING</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="py-2.5 px-3 font-mono text-on-surface-variant">08:45:11 AM</td>
+<td class="py-2.5 px-3 font-medium text-primary">Dr. Robert Vance, MD</td>
+<td class="py-2.5 px-3">Outpatient Hyperbilirubinemia direct referral generated &amp; NICU bed reserved</td>
+<td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-semibold text-[11px]">Originated</span></td>
+<td class="py-2.5 px-3 text-right font-mono text-[11px] text-outline">SIG#RV-0128-MD</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+<script>
+  function simulateDispatchUpdate() {
+    const btn = document.getElementById('dispatchBtn');
+    const text = document.getElementById('dispatchBtnText');
+    const notice = document.getElementById('transitEtaNotice');
+    
+    text.textContent = 'En Route: Driver Arriving (ETA 12m)';
+    btn.classList.remove('bg-secondary');
+    btn.classList.add('bg-primary');
+    notice.innerHTML = '<span class="text-error font-bold flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[13px]">fmd_good</span> MediVan 1.8 mi away from Transit Pavilion</span>';
+    
+    appendAuditRow('Transit driver picked up infant & mother. GPS telemetry active.', 'Tracking Live');
+  }
+
+  function notifyNicuNurse() {
+    const btn = document.getElementById('nicuNotifyBtn');
+    const text = document.getElementById('nicuBtnText');
+    const status = document.getElementById('nicuStatusText');
+    
+    text.textContent = 'NICU Charge Nurse Notified & Confirmed';
+    btn.classList.remove('bg-primary-container');
+    btn.classList.add('bg-secondary');
+    status.innerHTML = '<span class="text-secondary font-bold">Bed #04 Hold Extended until 11:15 AM (Nurse Brenda Acknowledged)</span>';
+    
+    appendAuditRow('NICU Bed #04 hold extended 45 min by B. Miller, RNC-NIC', 'Bed Secured');
+  }
+
+  function confirmIntakeArrival() {
+    const btn = document.getElementById('confirmArrivalBtn');
+    const text = document.getElementById('confirmBtnText');
+    
+    text.textContent = 'Intake Completed & Closed';
+    btn.classList.remove('bg-surface-container', 'text-on-surface-variant');
+    btn.classList.add('bg-secondary', 'text-on-secondary');
+    
+    appendAuditRow('Patient checked in at St. Jude Phototherapy Suite. Barrier Resolved.', 'Intake Confirmed');
+    alert('Care received! Case #NX-9042 successfully resolved without care interruption.');
+  }
+
+  function appendAuditRow(action, statusBadge) {
+    const tbody = document.getElementById('auditTrailBody');
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-surface-bright transition-colors bg-secondary-fixed/20';
+    tr.innerHTML = `
+      <td class="py-2.5 px-3 font-mono text-on-surface-variant">${timeStr}</td>
+      <td class="py-2.5 px-3 font-medium text-primary">Sarah Jenkins, RN</td>
+      <td class="py-2.5 px-3">${action}</td>
+      <td class="py-2.5 px-3"><span class="px-1.5 py-0.5 rounded bg-secondary text-on-secondary font-semibold text-[11px]">${statusBadge}</span></td>
+      <td class="py-2.5 px-3 text-right font-mono text-[11px] text-outline">SIG#SJ-9482-LIVE</td>
+    `;
+    tbody.insertBefore(tr, tbody.firstChild);
+  }
+</script></main></div></body></html>
+
