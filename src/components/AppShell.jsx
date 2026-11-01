@@ -5,6 +5,7 @@ import TopHeader from "./TopHeader";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import {
   isRouteAllowedForRole,
+  isKnownRoute,
   getRoleDefinition,
   getPrimaryRoleForRoute,
 } from "../config/navigationConfig.js";
@@ -16,7 +17,8 @@ const AppShell = ({ children }) => {
 
   const currentRole = role || "coordinator";
   const roleDef = getRoleDefinition(currentRole);
-  const isAllowed = isRouteAllowedForRole(currentRole, location.pathname);
+  // Unknown paths fall through to the 404 page instead of the access-denied screen.
+  const isAllowed = !isKnownRoute(location.pathname) || isRouteAllowedForRole(currentRole, location.pathname);
 
   // Close mobile drawer on Escape key
   useEffect(() => {

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { getRoleDefinition } from "../config/navigationConfig.js";
+import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
 
 const TopHeader = ({ onOpenMobileMenu }) => {
   const navigate = useNavigate();
@@ -22,9 +22,15 @@ const TopHeader = ({ onOpenMobileMenu }) => {
 
   const currentRole = role || "coordinator";
   const roleDef = getRoleDefinition(currentRole);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const canSearch = isRouteAllowedForRole(currentRole, "/referral");
+  // Alerts carry patient details and link to a workspace, so each role sees only those it can open.
+  const visibleNotifications = notifications.filter(
+    (n) => !n.link || isRouteAllowedForRole(currentRole, n.link.split("?")[0])
+  );
+  const unreadCount = visibleNotifications.filter((n) => !n.read).length;
 
-  const filteredReferrals = searchTerm.trim()
+  // Only roles that can open a referral chart may search across referrals.
+  const filteredReferrals = searchTerm.trim() && canSearch
     ? referrals.filter(
         (r) =>
           r.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,35 +68,45 @@ const TopHeader = ({ onOpenMobileMenu }) => {
             <span className="material-symbols-outlined text-[24px]">menu</span>
           </button>
 
-          {/* Search Input (Hidden on tiny screens if patient, or adaptable) */}
-          <div className="relative w-full flex items-center">
-            <span className="material-symbols-outlined absolute left-3 text-on-surface-variant text-[18px]">
-              search
-            </span>
-            <input
-              className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-surface-container-low font-body-sm text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-secondary/40 transition-all border border-surface-container/40"
-              placeholder={
-                currentRole === "patient"
-                  ? "Search health resources or instructions..."
-                  : "Search patient MRN, name, or indication..."
-              }
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setIsSearching(true);
-              }}
-              onFocus={() => setIsSearching(true)}
-            />
-          </div>
+          {/* Search Input (only for roles that can open a referral) */}
+          {canSearch && (
+            <div className="relative w-full flex items-center">
+              <span className="material-symbols-outlined absolute left-3 text-on-surface-variant text-[18px]">
+                search
+              </span>
+              <input
+                className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-surface-container-low font-body-sm text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-secondary/40 transition-all border border-surface-container/40"
+                placeholder="Search patients..."
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setIsSearching(true);
+                }}
+                onFocus={() => setIsSearching(true)}
+                onBlur={() => setIsSearching(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setIsSearching(false);
+                }}
+              />
+            </div>
+          )}
 
           {/* Autocomplete Dropdown */}
+          {isSearching && searchTerm.trim() && canSearch && filteredReferrals.length === 0 && (
+            <div className="absolute top-14 left-4 right-4 sm:left-6 sm:right-auto lg:left-8 max-w-xl sm:w-full bg-surface-container-lowest rounded-xl shadow-xl border border-surface-container px-4 py-3 z-50 text-xs text-on-surface-variant">
+              No matching patients.
+            </div>
+          )}
           {isSearching && filteredReferrals.length > 0 && (
-            <div className="absolute top-14 left-4 sm:left-6 lg:left-8 max-w-xl w-full bg-surface-container-lowest rounded-xl shadow-xl border border-surface-container py-2 z-50 max-h-72 overflow-y-auto">
+            <div className="absolute top-14 left-4 right-4 sm:left-6 sm:right-auto lg:left-8 max-w-xl sm:w-full bg-surface-container-lowest rounded-xl shadow-xl border border-surface-container py-2 z-50 max-h-72 overflow-y-auto">
               {filteredReferrals.map((r) => (
                 <div
                   key={r.id}
-                  onClick={() => handleSelectPatient(r)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelectPatient(r);
+                  }}
                   className="px-4 py-2 hover:bg-surface-container-low cursor-pointer flex items-center justify-between border-b border-surface-container/30 last:border-b-0"
                 >
                   <div>
@@ -102,7 +118,7 @@ const TopHeader = ({ onOpenMobileMenu }) => {
                       <span>•</span>
                       <span>{r.referralType}</span>
                       <span>•</span>
-                      <span className="font-medium text-secondary">{r.status}</span>
+                      <span className="font-medium text-secondary">{r.status.replace(/_/g, " ")}</span>
                     </div>
                   </div>
                   <span className="material-symbols-outlined text-secondary text-[18px]">
@@ -123,7 +139,7 @@ const TopHeader = ({ onOpenMobileMenu }) => {
             className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-low text-primary hover:bg-surface-container font-label-sm text-xs font-semibold border border-surface-container/60 transition-colors"
           >
             <span className={`w-2 h-2 rounded-full ${roleDef.avatarBg}`}></span>
-            <span className="truncate max-w-[130px]">{roleDef.title}</span>
+            <span className="truncate max-w-[130px] md:max-w-none">{roleDef.title}</span>
             <span className="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
           </Link>
 
@@ -146,7 +162,7 @@ const TopHeader = ({ onOpenMobileMenu }) => {
 
             {/* Notification Flyout Menu */}
             {showNotifMenu && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-container z-50 p-3 space-y-2">
+              <div className="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-96 bg-surface-container-lowest rounded-xl shadow-2xl border border-surface-container z-50 p-3 space-y-2">
                 <div className="flex items-center justify-between pb-2 border-b border-surface-container">
                   <div className="flex items-center gap-1.5">
                     <span className="font-title-sm text-sm font-bold text-primary">Care Alerts</span>
@@ -163,10 +179,10 @@ const TopHeader = ({ onOpenMobileMenu }) => {
                 </div>
 
                 <div className="max-h-64 overflow-y-auto space-y-2">
-                  {notifications.length === 0 ? (
+                  {visibleNotifications.length === 0 ? (
                     <p className="text-center py-4 text-xs text-on-surface-variant">No alerts at this time.</p>
                   ) : (
-                    notifications.map((n) => (
+                    visibleNotifications.map((n) => (
                       <div
                         key={n.id}
                         className={`p-2.5 rounded-lg border text-xs transition-colors flex items-start justify-between gap-2 ${
@@ -207,15 +223,16 @@ const TopHeader = ({ onOpenMobileMenu }) => {
           {/* Reset Demo Data Button */}
           <button
             onClick={() => setShowResetModal(true)}
-            className="hidden md:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-primary text-xs font-medium transition-colors border border-surface-container"
+            aria-label="Reset demonstration data"
+            className="inline-flex items-center gap-1 p-1.5 md:px-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-primary text-xs font-medium transition-colors border border-surface-container"
             title="Reset demonstration data"
           >
             <span className="material-symbols-outlined text-[15px]">restart_alt</span>
-            <span>Reset Demo</span>
+            <span className="hidden md:inline">Reset Demo</span>
           </button>
 
-          {/* Role-Specific Action: Only show New Referral if coordinator/facility */}
-          {currentRole !== "patient" && (
+          {/* Role-Specific Action: Only show New Referral to roles that can create one */}
+          {isRouteAllowedForRole(currentRole, "/create") && (
             <Link
               to="/create"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-secondary text-white font-label-md text-xs hover:bg-on-secondary-container transition-colors shadow-xs font-semibold"
