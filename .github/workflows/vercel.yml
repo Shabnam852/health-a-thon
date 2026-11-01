@@ -1,0 +1,80 @@
+name: CI and Vercel deploy
+
+# Pushes to main deploy to production. Pushes to other branches deploy a preview.
+# Pull requests from forks only run the checks, because GitHub doesn't give them secrets.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # A same-repo pull request is already covered by its push run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+
+  gitleaks:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Keep any found secret out of PR comments and downloadable artifacts.
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  deploy:
+    needs: [check, gitleaks]
+    # Only the main repo holds the Vercel secrets, so forks skip this job.
+    if: github.event_name != 'pull_request' && github.repository == 'Shabnam852/health-a-thon'
+    runs-on: ubuntu-latest
+    # Let a running production deploy finish, so main never ends up half released.
+    concurrency:
+      group: vercel-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      TARGET: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+      PROD_FLAG: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install Vercel CLI
+        run: npm install --global vercel@65.9.0
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment="$TARGET" --token="$VERCEL_TOKEN"
+      - name: Build
+        run: vercel build $PROD_FLAG --token="$VERCEL_TOKEN"
+      - name: Deploy
+        run: |
+          url=$(vercel deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN")
+          echo "Deployed $TARGET: $url" >> "$GITHUB_STEP_SUMMARY"
