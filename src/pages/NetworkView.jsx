@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { isRouteAllowedForRole } from "../config/navigationConfig.js";
 
 const NetworkView = () => {
-  const { facilities } = useReferrals();
+  const { facilities, role } = useReferrals();
+  const canCreate = isRouteAllowedForRole(role, "/create");
+  const canOpenFacility = isRouteAllowedForRole(role, "/facility");
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredFacilities = (facilities || []).filter(
@@ -40,13 +43,15 @@ const NetworkView = () => {
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              <Link
-                to="/create"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-xs sm:text-sm font-semibold hover:bg-on-secondary-container transition-all shadow-xs"
-              >
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                <span>Initiate Transfer</span>
-              </Link>
+              {canCreate && (
+                <Link
+                  to="/create"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-xs sm:text-sm font-semibold hover:bg-on-secondary-container transition-all shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  <span>Initiate Transfer</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -94,7 +99,7 @@ const NetworkView = () => {
               <span className="text-[10px] uppercase font-bold text-on-surface-variant block">
                 Average Transfer Corridor
               </span>
-              <span className="font-headline-xl text-xl font-bold text-primary">8.8 mi</span>
+              <span className="font-headline-xl text-xl font-bold text-primary">14.2 km</span>
               <span className="text-[11px] text-on-surface-variant flex items-center gap-0.5 mt-0.5">
                 Estimated 18m transit window
               </span>
@@ -111,7 +116,7 @@ const NetworkView = () => {
               </span>
               <span className="font-headline-xl text-xl font-bold text-secondary">3 Units</span>
               <span className="text-[11px] text-secondary flex items-center gap-0.5 mt-0.5 font-medium">
-                Infant Car Seats Equipped
+                Neonatal Transport Kits Equipped
               </span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-secondary-container/40 flex items-center justify-center text-secondary">
@@ -130,7 +135,7 @@ const NetworkView = () => {
             </span>
             <input
               type="text"
-              placeholder="Search facilities by name, capability, or level..."
+              placeholder="Search facilities..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 rounded-lg bg-surface-container-low text-xs border border-surface-container focus:outline-none focus:ring-2 focus:ring-secondary/40"
@@ -174,19 +179,25 @@ const NetworkView = () => {
               </div>
 
               <div className="pt-3 border-t border-surface-container/60 flex items-center justify-between text-xs">
-                <Link
-                  to="/facility"
-                  className="text-secondary hover:underline font-semibold flex items-center gap-1"
-                >
-                  <span>Open Operations View</span>
-                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                </Link>
-                <Link
-                  to="/create"
-                  className="px-3 py-1 rounded bg-surface-container hover:bg-surface-container-high text-primary font-medium"
-                >
-                  Refer Patient
-                </Link>
+                {canOpenFacility ? (
+                  <Link
+                    to={`/facility?facility=${fac.id}`}
+                    className="text-secondary hover:underline font-semibold flex items-center gap-1"
+                  >
+                    <span>Open Operations View</span>
+                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                  </Link>
+                ) : (
+                  <span />
+                )}
+                {canCreate && (
+                  <Link
+                    to="/create"
+                    className="px-3 py-1 rounded bg-surface-container hover:bg-surface-container-high text-primary font-medium"
+                  >
+                    Refer Patient
+                  </Link>
+                )}
               </div>
             </div>
           ))}

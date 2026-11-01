@@ -1,56 +1,56 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import Toast, { useToast } from "../components/Toast.jsx";
 import { FollowUpStatus } from "../domain/enums.js";
+import { RoleId, isRouteAllowedForRole } from "../config/navigationConfig.js";
 
 const ContinuityOfCare = () => {
-  const { referrals, completeFollowUpTask } = useReferrals();
+  const { referrals, completeFollowUpTask, role, activeReferralId } = useReferrals();
+  const isPatient = role === RoleId.PATIENT;
 
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [completeModalTask, setCompleteModalTask] = useState(null);
   const [completionNotes, setCompletionNotes] = useState("");
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
-  // Find all referrals with active followUpPlans
-  const referralsWithCarePlans = referrals.filter((r) => r.followUpPlan != null);
+  // Find all referrals with active followUpPlans. A patient sees only their own.
+  const referralsWithCarePlans = referrals.filter(
+    (r) => r.followUpPlan != null && (!isPatient || r.id === activeReferralId)
+  );
 
   const activeReferral =
-    (selectedPlanId
-      ? referralsWithCarePlans.find((r) => r.id === selectedPlanId)
-      : referralsWithCarePlans[0]) || referrals[0];
+    (selectedPlanId && referralsWithCarePlans.find((r) => r.id === selectedPlanId)) || referralsWithCarePlans[0] || null;
 
   const plan = activeReferral?.followUpPlan;
+
+  const closeCompleteModal = () => {
+    setCompleteModalTask(null);
+    setCompletionNotes("");
+  };
 
   const handleConfirmTaskCompletion = () => {
     if (!completeModalTask || !activeReferral) return;
 
-    completeFollowUpTask(
+    const res = completeFollowUpTask(
       activeReferral.id,
       completeModalTask.id,
       completionNotes || "Touchpoint successfully completed and clinical findings documented."
     );
 
-    showToast(`Touchpoint "${completeModalTask.title}" recorded as completed!`);
-    setCompleteModalTask(null);
-    setCompletionNotes("");
+    if (res.success) {
+      showToast(`Touchpoint "${completeModalTask.title}" recorded as completed!`);
+    } else {
+      showToast(`Action failed: ${res.reason}`, "error");
+    }
+    closeCompleteModal();
   };
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Header Banner */}
       <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -76,15 +76,17 @@ const ContinuityOfCare = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Active Dyad Care Plans */}
         <div className="lg:col-span-4 space-y-3">
-          <h3 className="font-title-sm text-sm font-bold text-primary px-1">Enrolled Patients</h3>
+          <h3 className="font-title-sm text-sm font-bold text-primary px-1">{isPatient ? "My Care Plan" : "Enrolled Patients"}</h3>
 
           {referralsWithCarePlans.length === 0 ? (
             <div className="p-5 rounded-xl bg-surface-container-lowest border border-surface-container text-xs text-on-surface-variant text-center">
-              No continuous care plans active yet. Complete a referral to automatically establish a 42-day postpartum care plan.
+              {isPatient
+                ? "Your 42-day care plan starts when your hospital care is complete."
+                : "No continuous care plans active yet. Complete a referral to automatically establish a 42-day postpartum care plan."}
             </div>
           ) : (
             referralsWithCarePlans.map((r) => {
-              const isSelected = r.id === activeReferral.id;
+              const isSelected = r.id === activeReferral?.id;
               const completedCount = r.followUpPlan.tasks.filter(
                 (t) => t.status === FollowUpStatus.COMPLETED
               ).length;
@@ -107,7 +109,7 @@ const ContinuityOfCare = () => {
                     </span>
                   </div>
 
-                  <p className="text-xs text-on-surface-variant mt-1 truncate">
+                  <p className="text-xs text-on-surface-variant mt-1">
                     {r.condition || "Postpartum surveillance"}
                   </p>
 
@@ -139,13 +141,15 @@ const ContinuityOfCare = () => {
                   <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-surface-container-high text-primary">
                     Status: {plan.status}
                   </span>
-                  <Link
-                    to={`/referral/${activeReferral.id}`}
-                    className="text-xs font-semibold text-secondary hover:underline flex items-center gap-1"
-                  >
-                    <span>Full Medical Chart</span>
-                    <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-                  </Link>
+                  {isRouteAllowedForRole(role, "/referral") && (
+                    <Link
+                      to={`/referral/${activeReferral.id}`}
+                      className="text-xs font-semibold text-secondary hover:underline flex items-center gap-1"
+                    >
+                      <span>Full Medical Chart</span>
+                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                    </Link>
+                  )}
                 </div>
               </div>
 
@@ -202,6 +206,13 @@ const ContinuityOfCare = () => {
                               <span className="material-symbols-outlined text-[14px]">check</span>
                               Verified Completed
                             </span>
+                          ) : isPatient ? (
+                            <span className="text-xs font-semibold text-on-surface-variant">Your care team will record this visit</span>
+                          ) : task.status === FollowUpStatus.MISSED ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-error font-bold px-2.5 py-1 rounded-full bg-error-container">
+                              <span className="material-symbols-outlined text-[14px]">event_busy</span>
+                              Missed: reschedule first
+                            </span>
                           ) : (
                             <button
                               onClick={() => setCompleteModalTask(task)}
@@ -225,7 +236,9 @@ const ContinuityOfCare = () => {
             </div>
           ) : (
             <div className="bg-surface-container-lowest p-8 rounded-2xl border border-surface-container text-center text-sm text-on-surface-variant">
-              Select an enrolled patient on the left to view and document their 42-day continuous care touchpoints.
+              {isPatient
+                ? "Your care team will add your check-ups here."
+                : "Select an enrolled patient on the left to view and document their 42-day continuous care touchpoints."}
             </div>
           )}
         </div>
@@ -250,7 +263,7 @@ const ContinuityOfCare = () => {
             />
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setCompleteModalTask(null)}
+                onClick={closeCompleteModal}
                 className="px-4 py-2 rounded-lg bg-surface-container text-xs font-medium text-primary"
               >
                 Cancel

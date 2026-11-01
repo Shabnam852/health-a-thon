@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { ReferralStatus, PatientType } from "../domain/enums.js";
+import Toast, { useToast } from "../components/Toast.jsx";
+import { ReferralStatus, PatientType, isHighAcuity } from "../domain/enums.js";
+
+const FACILITY_TABS = [
+  { id: "pending", label: "Pending Acknowledgement", icon: "inbox" },
+  { id: "intransit", label: "Accepted / In-Transit", icon: "local_shipping" },
+  { id: "arrived", label: "Arrived / In Assessment", icon: "how_to_reg" },
+  { id: "completed", label: "Completed", icon: "task_alt" },
+  { id: "redirected", label: "Diverted / Declined", icon: "alt_route" },
+];
 
 const FacilityDashboard = () => {
   const navigate = useNavigate();
@@ -16,58 +25,59 @@ const FacilityDashboard = () => {
     recordClinicalOutcome,
   } = useReferrals();
 
-  const [activeFacilityId, setActiveFacilityId] = useState("FAC-ST-JUDE");
+  const facilityFromUrl = searchParams.get("facility");
+  const [activeFacilityId, setActiveFacilityId] = useState(facilityFromUrl || "FAC-SANJEEVANI");
+
+  useEffect(() => {
+    if (facilityFromUrl) setActiveFacilityId(facilityFromUrl);
+  }, [facilityFromUrl]);
   
   const tabFromUrl = searchParams.get("tab");
-  const [activeTab, setActiveTabState] = useState(() => {
-    if (tabFromUrl && ["pending", "intransit", "arrived", "completed", "redirected"].includes(tabFromUrl)) {
-      return tabFromUrl;
-    }
-    return "pending";
-  });
+  const parseTab = (tab) => (FACILITY_TABS.some((t) => t.id === tab) ? tab : null);
+  // No tab means the facility hub.
+  const [activeTab, setActiveTabState] = useState(() => parseTab(tabFromUrl));
 
   const setActiveTab = (tab) => {
     setActiveTabState(tab);
     setSearchParams({ tab });
   };
 
+  // The URL decides the screen, so a sidebar link to plain /facility returns to the hub.
   useEffect(() => {
-    if (tabFromUrl && ["pending", "intransit", "arrived", "completed", "redirected"].includes(tabFromUrl)) {
-      setActiveTabState(tabFromUrl);
-    }
+    setActiveTabState(parseTab(tabFromUrl));
   }, [tabFromUrl]);
 
   const [selectedActionModal, setSelectedActionModal] = useState(null); // { type: 'reject' | 'redirect' | 'arrival' | 'outcome', referral }
 
   // Action modal form states
   const [rejectReason, setRejectReason] = useState("No Level III NICU beds currently available");
-  const [redirectToFacility, setRedirectToFacility] = useState("University Medical Center Detroit");
+  const [redirectToFacility, setRedirectToFacility] = useState("Vidyaranya Institute of Medical Sciences");
   const [redirectReason, setRedirectReason] = useState("Diverted to quaternary care hub for surgical capacity");
   const [arrivalBay, setArrivalBay] = useState("OB Triage Exam Room 3B");
-  const [arrivalStaff, setArrivalStaff] = useState("Sarah Jenkins, RN (ID #STJ-9041)");
+  const [arrivalStaff, setArrivalStaff] = useState("Anitha Joseph, RN (ID #SRP-9041)");
 
   // Structured clinical outcome states
-  const [clinicianName, setClinicianName] = useState("Dr. Rachel Sterling, MD, FACOG");
+  const [clinicianName, setClinicianName] = useState("Dr. Rekha Srinivasan, MS, FICOG");
   const [maternalStatus, setMaternalStatus] = useState("STABLE");
   const [deliveryType, setDeliveryType] = useState("SPONTANEOUS_VAGINAL");
   const [neonatalStatus, setNeonatalStatus] = useState("STABLE");
   const [disposition, setDisposition] = useState("ADMITTED");
   const [clinicalNotes, setClinicalNotes] = useState("");
 
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   const currentFacility = facilities.find((f) => f.id === activeFacilityId) || facilities[0];
 
+  // The default redirect target may be the current facility, which the picker leaves out.
+  const redirectOptions = facilities.filter((f) => f.name !== currentFacility.name);
+  const redirectTarget = redirectOptions.some((f) => f.name === redirectToFacility)
+    ? redirectToFacility
+    : redirectOptions[0]?.name;
+
   // Inbound referrals addressed to this facility
   const inboundReferrals = referrals.filter(
-    (r) =>
-      r.toFacility?.toLowerCase().includes(currentFacility.name.toLowerCase()) ||
-      r.toFacility?.toLowerCase().includes("st. jude")
+    (r) => r.toFacility?.toLowerCase().includes(currentFacility.name.toLowerCase())
   );
 
   // Categorize inbound queues
@@ -91,6 +101,14 @@ const FacilityDashboard = () => {
     (r) => r.status === ReferralStatus.REJECTED || r.status === ReferralStatus.REDIRECTED
   );
 
+  const queueCounts = {
+    pending: pendingAcknowledgement.length,
+    intransit: inTransitArrivals.length,
+    arrived: arrivedInAssessment.length,
+    completed: completedHandovers.length,
+    redirected: rejectedRedirected.length,
+  };
+
   const displayedList =
     activeTab === "pending"
       ? pendingAcknowledgement
@@ -107,7 +125,7 @@ const FacilityDashboard = () => {
     if (res.success) {
       showToast(`Intake acknowledged for ${ref.patientName}! Bed pod reserved.`);
     } else {
-      showToast(`Action failed: ${res.reason}`);
+      showToast(`Action failed: ${res.reason}`, "error");
     }
   };
 
@@ -123,6 +141,8 @@ const FacilityDashboard = () => {
 
     if (res.success) {
       showToast(`Physical arrival confirmed for ${ref.patientName}! Checked into ${arrivalBay}.`);
+    } else {
+      showToast(`Action failed: ${res.reason}`, "error");
     }
     setSelectedActionModal(null);
   };
@@ -130,16 +150,24 @@ const FacilityDashboard = () => {
   const handleConfirmReject = () => {
     if (!selectedActionModal) return;
     const ref = selectedActionModal.referral;
-    rejectReferral(ref.id, arrivalStaff, rejectReason);
-    showToast(`Referral declined for ${ref.patientName}. Returned to coordinator for redirection.`);
+    const res = rejectReferral(ref.id, arrivalStaff, rejectReason);
+    if (res.success) {
+      showToast(`Referral declined for ${ref.patientName}. Returned to coordinator for redirection.`);
+    } else {
+      showToast(`Action failed: ${res.reason}`, "error");
+    }
     setSelectedActionModal(null);
   };
 
   const handleConfirmRedirect = () => {
     if (!selectedActionModal) return;
     const ref = selectedActionModal.referral;
-    redirectReferral(ref.id, currentFacility.name, redirectToFacility, redirectReason, arrivalStaff);
-    showToast(`Referral redirected to ${redirectToFacility}. Records re-routed.`);
+    const res = redirectReferral(ref.id, currentFacility.name, redirectTarget, redirectReason, arrivalStaff);
+    if (res.success) {
+      showToast(`Referral redirected to ${redirectTarget}. Records re-routed.`);
+    } else {
+      showToast(`Action failed: ${res.reason}`, "error");
+    }
     setSelectedActionModal(null);
   };
 
@@ -147,9 +175,9 @@ const FacilityDashboard = () => {
     if (!selectedActionModal) return;
     const ref = selectedActionModal.referral;
 
-    recordClinicalOutcome(ref.id, {
+    const res = recordClinicalOutcome(ref.id, {
       clinicianName,
-      clinicianRole: "MD / CNM",
+      clinicianRole: "MD / MS (OBG)",
       referralType: ref.referralType,
       maternalStatus,
       deliveryType: ref.referralType === PatientType.MATERNAL ? deliveryType : null,
@@ -158,21 +186,18 @@ const FacilityDashboard = () => {
       clinicalNotes: clinicalNotes || "Clinical assessment completed. Patient stabilized.",
     });
 
-    showToast(`Clinical assessment and outcome recorded for ${ref.patientName}. 42-day care plan active.`);
+    if (res.success) {
+      showToast(`Clinical assessment and outcome recorded for ${ref.patientName}. 42-day care plan active.`);
+    } else {
+      showToast(`Action failed: ${res.reason}`, "error");
+    }
     setSelectedActionModal(null);
   };
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Header Banner */}
       <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -195,7 +220,7 @@ const FacilityDashboard = () => {
           <select
             value={activeFacilityId}
             onChange={(e) => setActiveFacilityId(e.target.value)}
-            className="p-2 rounded-lg bg-surface-container-low text-xs border border-surface-container focus:outline-none font-medium"
+            className="w-full sm:w-auto sm:min-w-[300px] p-2 rounded-lg bg-surface-container-low text-xs border border-surface-container focus:outline-none font-medium"
           >
             {facilities.map((f) => (
               <option key={f.id} value={f.id}>
@@ -206,81 +231,134 @@ const FacilityDashboard = () => {
         </div>
       </div>
 
+      {/* Facility Hub: capacity and where the work is */}
+      {!activeTab && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-surface-container-lowest p-5 rounded-xl shadow-xs border border-surface-container/60">
+              <span className="text-xs font-medium text-on-surface-variant">Beds Free</span>
+              <div className="font-headline-lg text-2xl font-bold text-primary mt-1">
+                {currentFacility.bedsAvailable} <span className="text-sm font-medium text-on-surface-variant">of {currentFacility.totalBeds}</span>
+              </div>
+            </div>
+            <div className="bg-surface-container-lowest p-5 rounded-xl shadow-xs border border-surface-container/60">
+              <span className="text-xs font-medium text-on-surface-variant">Intake Status</span>
+              <div className="font-title-sm text-sm font-bold text-secondary mt-2">{currentFacility.status}</div>
+            </div>
+            <div className="bg-surface-container-lowest p-5 rounded-xl shadow-xs border border-surface-container/60">
+              <span className="text-xs font-medium text-on-surface-variant">Intake Desk Phone</span>
+              <div className="font-title-sm text-sm font-bold text-primary mt-2">{currentFacility.phone}</div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="font-title-sm text-sm font-bold text-primary">Inbound Referral Queues</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+              {FACILITY_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className="bg-surface-container-lowest p-5 rounded-xl shadow-xs border border-surface-container/60 text-left hover:border-secondary/50 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-secondary text-[20px]">{tab.icon}</span>
+                  <div className="font-headline-lg text-2xl font-bold text-primary mt-1">{queueCounts[tab.id]}</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">{tab.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest p-5 rounded-xl shadow-xs border border-surface-container/60 space-y-2">
+            <h2 className="font-title-sm text-sm font-bold text-primary">Clinical Capabilities</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {currentFacility.capabilities.map((capability) => (
+                <span key={capability} className="text-xs px-2 py-0.5 rounded bg-surface-container-low text-primary">
+                  {capability}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Tabs Queue */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-surface-container-low rounded-xl text-xs font-semibold">
-        <button
-          onClick={() => setActiveTab("pending")}
-          className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-            activeTab === "pending"
-              ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
-              : "text-on-surface-variant hover:text-primary"
-          }`}
-        >
-          <span>Pending Acknowledgement</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-error-container text-on-error-container text-[10px]">
-            {pendingAcknowledgement.length}
-          </span>
-        </button>
+      {activeTab && (
+        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-surface-container-low rounded-xl text-xs font-semibold">
+          <button
+            onClick={() => setActiveTab("pending")}
+            className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+              activeTab === "pending"
+                ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
+                : "text-on-surface-variant hover:text-primary"
+            }`}
+          >
+            <span>Pending Acknowledgement</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-error-container text-on-error-container text-[10px]">
+              {pendingAcknowledgement.length}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab("intransit")}
-          className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-            activeTab === "intransit"
-              ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
-              : "text-on-surface-variant hover:text-primary"
-          }`}
-        >
-          <span>Accepted / In-Transit</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-secondary-fixed text-on-secondary-fixed text-[10px]">
-            {inTransitArrivals.length}
-          </span>
-        </button>
+          <button
+            onClick={() => setActiveTab("intransit")}
+            className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+              activeTab === "intransit"
+                ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
+                : "text-on-surface-variant hover:text-primary"
+            }`}
+          >
+            <span>Accepted / In-Transit</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-secondary-fixed text-on-secondary-fixed text-[10px]">
+              {inTransitArrivals.length}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab("arrived")}
-          className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-            activeTab === "arrived"
-              ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
-              : "text-on-surface-variant hover:text-primary"
-          }`}
-        >
-          <span>Arrived / In Assessment</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-surface-container text-primary text-[10px]">
-            {arrivedInAssessment.length}
-          </span>
-        </button>
+          <button
+            onClick={() => setActiveTab("arrived")}
+            className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+              activeTab === "arrived"
+                ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
+                : "text-on-surface-variant hover:text-primary"
+            }`}
+          >
+            <span>Arrived / In Assessment</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-surface-container text-primary text-[10px]">
+              {arrivedInAssessment.length}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab("completed")}
-          className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-            activeTab === "completed"
-              ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
-              : "text-on-surface-variant hover:text-primary"
-          }`}
-        >
-          <span>Completed</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-surface-container text-primary text-[10px]">
-            {completedHandovers.length}
-          </span>
-        </button>
+          <button
+            onClick={() => setActiveTab("completed")}
+            className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+              activeTab === "completed"
+                ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
+                : "text-on-surface-variant hover:text-primary"
+            }`}
+          >
+            <span>Completed</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-surface-container text-primary text-[10px]">
+              {completedHandovers.length}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab("redirected")}
-          className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-            activeTab === "redirected"
-              ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
-              : "text-on-surface-variant hover:text-primary"
-          }`}
-        >
-          <span>Diverted / Declined</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-surface-container text-primary text-[10px]">
-            {rejectedRedirected.length}
-          </span>
-        </button>
-      </div>
+          <button
+            onClick={() => setActiveTab("redirected")}
+            className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+              activeTab === "redirected"
+                ? "bg-surface-container-lowest text-primary shadow-xs font-bold"
+                : "text-on-surface-variant hover:text-primary"
+            }`}
+          >
+            <span>Diverted / Declined</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-surface-container text-primary text-[10px]">
+              {rejectedRedirected.length}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Referral Cards Stack */}
-      <div className="space-y-3">
+      <div className={activeTab ? "space-y-3" : "hidden"}>
         {displayedList.length === 0 ? (
           <div className="bg-surface-container-lowest p-10 rounded-2xl border border-surface-container text-center text-sm text-on-surface-variant">
             No inbound referrals currently in this queue for {currentFacility.name}.
@@ -306,7 +384,7 @@ const FacilityDashboard = () => {
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        r.priority === "Urgent" || r.priority === "STAT"
+                        isHighAcuity(r.priority)
                           ? "bg-error-container text-on-error-container"
                           : "bg-surface-container text-primary"
                       }`}
@@ -480,16 +558,14 @@ const FacilityDashboard = () => {
               <label className="text-xs font-semibold text-primary block mb-1">Target Facility</label>
               <select
                 className="w-full p-2.5 rounded-lg bg-surface-container-low text-xs border border-surface-container focus:outline-none"
-                value={redirectToFacility}
+                value={redirectTarget}
                 onChange={(e) => setRedirectToFacility(e.target.value)}
               >
-                {facilities
-                  .filter((f) => f.name !== currentFacility.name)
-                  .map((f) => (
-                    <option key={f.id} value={f.name}>
-                      {f.name} ({f.type})
-                    </option>
-                  ))}
+                {redirectOptions.map((f) => (
+                  <option key={f.id} value={f.name}>
+                    {f.name} ({f.type})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -639,7 +715,7 @@ const FacilityDashboard = () => {
                 >
                   <option value="ADMITTED">Admitted to Inpatient Ward</option>
                   <option value="DISCHARGED_HOME">Discharged Home (Initiate 42-Day Protocol)</option>
-                  <option value="TRANSFERRED_QUATERNARY">Transferred to Level IV Quaternary Center</option>
+                  <option value="TRANSFERRED_QUATERNARY">Transferred to Level IV Quaternary Centre</option>
                 </select>
               </div>
 

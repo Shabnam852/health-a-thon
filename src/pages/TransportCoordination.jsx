@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { TransportStatus } from "../domain/enums.js";
+import Toast, { useToast } from "../components/Toast.jsx";
+import { TransportStatus, isHighAcuity } from "../domain/enums.js";
+import { canDispatchTransport, hasArrivedAtFacility } from "../domain/workflow.js";
 
 const TransportCoordination = () => {
   const {
@@ -16,80 +18,81 @@ const TransportCoordination = () => {
   const [activeTab, setActiveTab] = useState("all"); // 'all' | 'active' | 'completed' | 'fleet'
   const [selectedFailureModal, setSelectedFailureModal] = useState(null);
   const [failureReason, setFailureReason] = useState("");
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   // Referrals with transport requests or active transit
   const transitReferrals = referrals.filter(
-    (r) => r.transit != null || r.transitBarrier || r.status === "FOLLOW_UP_REQUIRED"
+    (r) => r.transit != null || r.transitBarrier
   );
 
   const filteredReferrals = transitReferrals.filter((r) => {
     if (activeTab === "active") {
       return (
-        r.transit?.status === TransportStatus.REQUESTED ||
+        !hasArrivedAtFacility(r) &&
+        (r.transit?.status === TransportStatus.REQUESTED ||
         r.transit?.status === TransportStatus.ASSIGNED ||
         r.transit?.status === TransportStatus.DISPATCHED ||
-        r.transit?.status === TransportStatus.PICKED_UP
+        r.transit?.status === TransportStatus.PICKED_UP)
       );
     }
     if (activeTab === "completed") {
-      return r.transit?.status === TransportStatus.ARRIVED;
+      return r.transit?.status === TransportStatus.ARRIVED || hasArrivedAtFacility(r);
     }
     return true;
   });
 
   const handleQuickDispatch = (ref, vehicle) => {
-    dispatchTransport(ref.id, {
+    const res = dispatchTransport(ref.id, {
       vehicle: `${vehicle.name} (${vehicle.driver})`,
       driver: vehicle.driver,
       driverPhone: vehicle.driverPhone,
       eta: "12 mins",
-      requiresInfantCarSeat: ref.referralType === "Child",
+      requiresNeonatalKit: ref.referralType === "Child",
       pickupAddress: ref.patientAddress || "Patient Residence",
       destinationFacility: ref.toFacility,
     });
+    if (!res.success) return showToast(`Action failed: ${res.reason}`, "error");
     showToast(`${vehicle.name} dispatched for ${ref.patientName}! Driver: ${vehicle.driver}.`);
   };
 
   const handlePickup = (ref) => {
-    recordTransportPickup(ref.id);
+    const res = recordTransportPickup(ref.id);
+    if (!res.success) return showToast(`Action failed: ${res.reason}`, "error");
     showToast(`Patient pickup confirmed for ${ref.patientName}. En route to ${ref.toFacility}.`);
   };
 
   const handleArrival = (ref) => {
-    confirmArrival(ref.id, {
+    const res = confirmArrival(ref.id, {
       department: ref.department || "Emergency Intake Bay",
       room: "Triage Receiving 01",
       verifiedBy: "Intake Transport Coordinator",
       notes: "Patient safely delivered by MediRide transport.",
     });
+    if (!res.success) return showToast(`Action failed: ${res.reason}`, "error");
     showToast(`Safe arrival confirmed for ${ref.patientName} at ${ref.toFacility}!`);
+  };
+
+  const closeFailureModal = () => {
+    setSelectedFailureModal(null);
+    setFailureReason("");
   };
 
   const handleConfirmFailure = () => {
     if (!selectedFailureModal) return;
-    recordTransportFailure(selectedFailureModal.id, failureReason || "Mechanical breakdown / patient unable to travel");
-    showToast(`Transit disruption recorded for ${selectedFailureModal.patientName}. Escalated to coordinator.`);
-    setSelectedFailureModal(null);
-    setFailureReason("");
+    const res = recordTransportFailure(selectedFailureModal.id, failureReason || "Mechanical breakdown / patient unable to travel");
+    if (res.success) {
+      showToast(`Transit disruption recorded for ${selectedFailureModal.patientName}. Escalated to coordinator.`);
+    } else {
+      showToast(`Action failed: ${res.reason}`, "error");
+    }
+    closeFailureModal();
   };
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Header Banner */}
       <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -203,9 +206,9 @@ const TransportCoordination = () => {
               const tr = r.transit;
               const isDispatched = tr?.status === TransportStatus.DISPATCHED;
               const isPickedUp = tr?.status === TransportStatus.PICKED_UP;
-              const isArrived = tr?.status === TransportStatus.ARRIVED || r.status === "ARRIVAL_CONFIRMED";
+              const isArrived = tr?.status === TransportStatus.ARRIVED || hasArrivedAtFacility(r);
               const isFailed = tr?.status === TransportStatus.FAILED;
-              const isNeedsDispatch = !tr || tr.status === TransportStatus.REQUESTED;
+              const isNeedsDispatch = canDispatchTransport(r);
 
               return (
                 <div
@@ -219,7 +222,7 @@ const TransportCoordination = () => {
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container text-primary">
                         {r.referralType}
                       </span>
-                      {r.priority === "Urgent" || r.priority === "STAT" ? (
+                      {isHighAcuity(r.priority) ? (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-error-container text-on-error-container">
                           {r.priority}
                         </span>
@@ -236,7 +239,7 @@ const TransportCoordination = () => {
                       <div className="text-xs text-secondary flex items-center gap-2 pt-1 font-medium">
                         <span className="material-symbols-outlined text-[16px]">directions_car</span>
                         <span>Vehicle: {tr.vehicle || "Assigned Unit"}</span>
-                        <span>• Driver: {tr.driver || "Marcus Ross"}</span>
+                        <span>• Driver: {tr.driver || "Not assigned"}</span>
                         {tr.eta && <span>• ETA: <strong>{tr.eta}</strong></span>}
                       </div>
                     )}
@@ -254,7 +257,7 @@ const TransportCoordination = () => {
                       </button>
                     )}
 
-                    {isDispatched && (
+                    {isDispatched && !isArrived && (
                       <button
                         onClick={() => handlePickup(r)}
                         className="px-3 py-1.5 rounded-lg bg-primary text-white font-label-md text-xs font-semibold hover:bg-primary-container transition-colors flex items-center gap-1"
@@ -264,7 +267,7 @@ const TransportCoordination = () => {
                       </button>
                     )}
 
-                    {isPickedUp && (
+                    {isPickedUp && !isArrived && (
                       <button
                         onClick={() => handleArrival(r)}
                         className="px-3 py-1.5 rounded-lg bg-secondary text-white font-label-md text-xs font-semibold hover:bg-on-secondary-container transition-colors flex items-center gap-1 shadow-xs"
@@ -274,7 +277,7 @@ const TransportCoordination = () => {
                       </button>
                     )}
 
-                    {!isArrived && !isFailed && (
+                    {!isArrived && !isFailed && (isDispatched || isPickedUp) && (
                       <button
                         onClick={() => setSelectedFailureModal(r)}
                         className="px-2.5 py-1.5 rounded-lg bg-surface-container text-error font-label-md text-xs hover:bg-error-container hover:text-on-error-container transition-colors"
@@ -290,7 +293,7 @@ const TransportCoordination = () => {
                       </span>
                     )}
 
-                    {isFailed && (
+                    {isFailed && !isArrived && (
                       <span className="inline-flex items-center gap-1 text-xs text-error font-bold px-2.5 py-1 rounded-full bg-error-container">
                         <span className="material-symbols-outlined text-[14px]">warning</span>
                         Transit Disrupted
@@ -326,13 +329,13 @@ const TransportCoordination = () => {
             <textarea
               className="w-full p-3 rounded-lg bg-surface-container-low text-xs border border-surface-container focus:outline-none focus:ring-2 focus:ring-secondary/40"
               rows={3}
-              placeholder="e.g., Road impassable due to snow squall, vehicle flat tire, patient unable to board..."
+              placeholder="e.g., Road impassable due to waterlogging, vehicle flat tire, patient unable to board..."
               value={failureReason}
               onChange={(e) => setFailureReason(e.target.value)}
             />
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setSelectedFailureModal(null)}
+                onClick={closeFailureModal}
                 className="px-4 py-2 rounded-lg bg-surface-container text-xs font-medium text-primary"
               >
                 Cancel

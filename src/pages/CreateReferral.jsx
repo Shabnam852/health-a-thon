@@ -1,42 +1,131 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext";
+import { PatientType, ReferralStatus } from "../domain/enums.js";
+import Toast, { useToast } from "../components/Toast.jsx";
+
+// The vitals each chart displays. A dyad uses the maternal chart.
+const MATERNAL_VITALS = [
+  { key: "bp", label: "Blood Pressure", placeholder: "e.g. 128/82" },
+  { key: "fhr", label: "Fetal Heart Rate (bpm)", placeholder: "e.g. 142" },
+  { key: "urine", label: "Urine Protein", placeholder: "e.g. +1 Protein" },
+  { key: "bpp", label: "Biophysical Profile", placeholder: "e.g. 8/8" },
+];
+const NEONATAL_VITALS = [
+  { key: "tsb", label: "Total Bilirubin", placeholder: "e.g. 18.4 mg/dL" },
+  { key: "weight", label: "Weight", placeholder: "e.g. 2,980g" },
+  { key: "temp", label: "Temperature", placeholder: "e.g. 36.8 °C" },
+  { key: "hr", label: "Heart Rate", placeholder: "e.g. 138 bpm" },
+];
+
+// Sample values for the demo. Switching patient type swaps only the fields still holding a sample.
+const MATERNAL_SAMPLE = {
+  patientName: "Fathima Begum, 29 yrs",
+  gestationalAge: "36 Weeks, 2 Days",
+  obstetricHistory: "G3P2 (Two Prior Term Deliveries)",
+  indication:
+    "Persistent Premature Rupture of Membranes (PPROM) confirmed via sterile speculum pool exam and positive nitrazine. Patient experiencing irregular mild contractions q 8-10 mins. GBS status unknown. Requires prompt evaluation in Level III obstetric triage for latency antibiotics and continuous fetal cardiotocography.",
+  targetDepartment: "Labor & Delivery Triage / High-Risk Antenatal Unit",
+};
+const SAMPLES = {
+  [PatientType.MATERNAL]: MATERNAL_SAMPLE,
+  [PatientType.DYAD]: MATERNAL_SAMPLE,
+  [PatientType.CHILD]: {
+    patientName: "Baby of Fathima Begum, 3 Days Old",
+    gestationalAge: "38 Weeks, 5 Days",
+    obstetricHistory: "Term vaginal delivery",
+    indication: "Newborn with progressive jaundice and poor feeding at 3 days of life. Requires prompt evaluation for intensive phototherapy.",
+    targetDepartment: "Neonatal ICU / Phototherapy Unit",
+  },
+};
+
+const LANGUAGES = ["Hindi", "Kannada", "Tamil", "Telugu", "Malayalam", "Urdu", "Bengali", "Bhojpuri", "English"];
+
+const STEPS = [
+  { step: 1, title: "Patient & Clinical Context" },
+  { step: 2, title: "Receiving Facility & Service" },
+  { step: 3, title: "Social & Logistics Check" },
+  { step: 4, title: "Handover & Dispatch" },
+];
+
+// Standard gestational age bands; nothing is shown if the weeks cannot be read.
+const gestationBand = (text) => {
+  const weeks = parseInt(text, 10);
+  if (!weeks) return null;
+  if (weeks < 34) return "Preterm";
+  if (weeks < 37) return "Late Preterm";
+  if (weeks < 39) return "Early Term";
+  if (weeks < 41) return "Term";
+  return "Late Term";
+};
 
 const CreateReferral = () => {
   const navigate = useNavigate();
   const { referrals, addReferral, setActiveReferralId } = useReferrals();
 
   const [activeStep, setActiveStep] = useState(1);
-  const [patientType, setPatientType] = useState("Maternal");
+  const [patientType, setPatientType] = useState(PatientType.MATERNAL);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [priorityLevel, setPriorityLevel] = useState("URGENT");
   const [hasTransport, setHasTransport] = useState(false);
   const [interpreterNeeded, setInterpreterNeeded] = useState(true);
 
   // Form Fields
   const [mrn, setMrn] = useState(`MRN-${Math.floor(100000 + Math.random() * 900000)}`);
-  const [patientName, setPatientName] = useState("Fatima Zahra, 29 yrs");
-  const [gestationalAge, setGestationalAge] = useState("36 Weeks, 2 Days");
-  const [obstetricHistory, setObstetricHistory] = useState("G3P2 (Two Prior Term Deliveries)");
-  const [phone, setPhone] = useState("(555) 382-9012");
-  const [emergencyContact, setEmergencyContact] = useState("Tariq Zahra (Spouse) - (555) 382-9014");
-  const [language, setLanguage] = useState("Arabic");
-  const [address, setAddress] = useState("742 Meadowbrook Ave, Apt 3B, Detroit, MI 48214");
-  const [indication, setIndication] = useState(
-    "Persistent Premature Rupture of Membranes (PPROM) confirmed via sterile speculum pool exam and positive nitrazine. Patient experiencing irregular mild contractions q 8-10 mins. GBS status unknown. Requires prompt evaluation in Level III obstetric triage for latency antibiotics and continuous fetal cardiotocography."
-  );
+  const [patientName, setPatientName] = useState(MATERNAL_SAMPLE.patientName);
+  const [gestationalAge, setGestationalAge] = useState(MATERNAL_SAMPLE.gestationalAge);
+  const [obstetricHistory, setObstetricHistory] = useState(MATERNAL_SAMPLE.obstetricHistory);
+  const [phone, setPhone] = useState("+91 90000 29012");
+  const [emergencyContact, setEmergencyContact] = useState("Tariq Ahmed (Spouse) - +91 90000 29014");
+  const [language, setLanguage] = useState("Urdu");
+  const [address, setAddress] = useState("42, 3rd Cross, Frazer Town, Bengaluru 560005");
+  const [indication, setIndication] = useState(MATERNAL_SAMPLE.indication);
   const [receivingFacility, setReceivingFacility] = useState(
-    "St. Jude Regional Perinatal Center (Level III Perinatal & NICU)"
+    "Sanjeevani Regional Perinatal Centre (Level III Perinatal & NICU)"
   );
-  const [targetDepartment, setTargetDepartment] = useState(
-    "Labor & Delivery Triage / High-Risk Antenatal Unit"
+  const [targetDepartment, setTargetDepartment] = useState(MATERNAL_SAMPLE.targetDepartment);
+
+  const [vitals, setVitals] = useState({ bp: "128/82", fhr: "142" });
+  const vitalFields = patientType === PatientType.CHILD ? NEONATAL_VITALS : MATERNAL_VITALS;
+  const recordedVitals = Object.fromEntries(
+    vitalFields.filter(({ key }) => vitals[key]?.trim()).map(({ key }) => [key, vitals[key].trim()])
   );
 
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+  const band = gestationBand(gestationalAge);
+
+  const changePatientType = (next) => {
+    const from = SAMPLES[patientType];
+    const to = SAMPLES[next];
+    if (patientName === from.patientName) setPatientName(to.patientName);
+    if (gestationalAge === from.gestationalAge) setGestationalAge(to.gestationalAge);
+    if (obstetricHistory === from.obstetricHistory) setObstetricHistory(to.obstetricHistory);
+    if (indication === from.indication) setIndication(to.indication);
+    if (targetDepartment === from.targetDepartment) setTargetDepartment(to.targetDepartment);
+    setPatientType(next);
   };
+
+  // Clicking a step jumps to its section; scrolling keeps the highlighted step in step.
+  const goToStep = (step) => {
+    setActiveStep(step);
+    document.getElementById(`step-${step}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.find((entry) => entry.isIntersecting);
+        if (visible) setActiveStep(Number(visible.target.id.replace("step-", "")));
+      },
+      { rootMargin: "-30% 0px -60% 0px" }
+    );
+    STEPS.forEach(({ step }) => {
+      const section = document.getElementById(`step-${step}`);
+      if (section) observer.observe(section);
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const generateReferralId = () => {
     return `REF-2024-${String(8820 + referrals.length + 1)}`;
@@ -44,55 +133,63 @@ const CreateReferral = () => {
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
+    if (isSubmitted) return;
+
+    const [namePart, ...ageParts] = patientName.split(",");
+    const name = namePart.trim();
+    const destination = receivingFacility.split("(")[0].trim();
+    const missing = [
+      !name && "patient name",
+      !indication.trim() && "clinical indication",
+      !destination && "receiving facility",
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      showToast(`Please enter the ${missing.join(", ")} before submitting.`, "error");
+      return;
+    }
 
     const now = new Date().toISOString();
     const newId = generateReferralId();
+    const fromClinician = "Dr. Kavitha Rao, MS (OBG)";
 
-    const newReferralRecord = {
+    addReferral({
       id: newId,
-      patientName: patientName.split(",")[0].trim() || "Fatima Zahra",
+      patientName: name,
       patientId: mrn,
-      patientAge: "29",
-      gestationalAge: gestationalAge,
+      age: ageParts.join(",").trim() || undefined,
+      gestationalAge,
+      parity: patientType === PatientType.CHILD ? "Newborn" : obstetricHistory.trim().split(" ")[0] || undefined,
       referralType: patientType,
-      urgency: priorityLevel === "URGENT" ? "HIGH" : priorityLevel === "STAT" ? "CRITICAL" : "MEDIUM",
       priority: priorityLevel,
-      status: "SENT",
-      fromFacility: "River West Midwifery & Birth Clinic",
-      toFacility: receivingFacility.split("(")[0].trim() || "St. Jude Regional Perinatal Center",
+      status: ReferralStatus.SENT,
+      fromFacility: "Kaveri Midwifery & Birth Clinic",
+      fromClinician,
+      toFacility: destination,
       department: targetDepartment,
       reason: indication,
-      clinicalSummary: indication,
       caregiverContact: emergencyContact,
       patientPhone: phone,
-      language: language,
-      interpreterNeeded: interpreterNeeded,
+      patientAddress: address,
+      language,
+      interpreterNeeded,
       transitBarrier: !hasTransport,
       createdAt: now,
+      vitals: recordedVitals,
       timeline: [
         {
-          status: "CREATED",
+          status: ReferralStatus.CREATED,
           date: now,
           notes: "Digital referral generated via Navexa Care Pathway Initiation channel.",
         },
         {
-          status: "SENT",
+          status: ReferralStatus.SENT,
           date: now,
           notes: `Transmitted electronically to ${receivingFacility}. Intake reserve protocol engaged.`,
         },
       ],
-      auditTrail: [
-        {
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          actor: "Dr. Evelyn Carter, CNM",
-          event: "Digital Referral Authorized & Submitted",
-          status: "Pending Intake",
-        },
-      ],
-    };
-
-    addReferral(newReferralRecord);
+    });
     setActiveReferralId(newId);
+    setIsSubmitted(true);
     showToast(`Referral #${newId} submitted! Navigating to case tracking...`);
 
     setTimeout(() => {
@@ -103,14 +200,7 @@ const CreateReferral = () => {
   return (
     <div className="flex flex-col w-full pb-16">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-on-primary px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Top Progress & Context Navigation Banner */}
       <div className="px-gutter-md py-space-md bg-surface-container-lowest shadow-sm border-b border-surface-container/60">
@@ -137,136 +227,46 @@ const CreateReferral = () => {
                 <span className="material-symbols-outlined text-[14px] text-secondary">verified_user</span>
                 Demonstration Environment • Synthetic PHI
               </span>
-              <button
-                type="button"
-                onClick={() => showToast("Draft state autosaved successfully.")}
-                className="inline-flex items-center gap-1 px-space-sm py-1 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors"
-              >
-                <span className="material-symbols-outlined text-[16px]">save</span>
-                <span>Autosaved 1 min ago</span>
-              </button>
             </div>
           </div>
 
           {/* Linear Stepper Bar */}
           <div className="pt-space-sm">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-space-sm">
-              {/* Step 1 */}
-              <div
-                onClick={() => setActiveStep(1)}
-                className={`flex items-center gap-space-sm p-space-sm rounded-lg cursor-pointer transition-all ${
-                  activeStep === 1
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center font-label-sm text-label-sm font-bold ${
-                    activeStep === 1
-                      ? "bg-secondary-fixed text-on-secondary-fixed"
-                      : "bg-surface-container-highest text-on-surface-variant"
+              {STEPS.map(({ step, title }) => (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => goToStep(step)}
+                  aria-current={activeStep === step ? "step" : undefined}
+                  className={`flex items-center gap-space-sm p-space-sm rounded-lg text-left transition-all ${
+                    activeStep === step
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
                   }`}
                 >
-                  1
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-label-sm text-label-sm font-bold truncate tracking-wide uppercase">
-                    Step 1
-                  </span>
-                  <span className="font-title-sm text-body-sm truncate">
-                    Patient & Clinical Context
-                  </span>
-                </div>
-                {activeStep === 1 && (
-                  <span className="material-symbols-outlined text-[18px] ml-auto text-secondary-fixed">
-                    arrow_forward
-                  </span>
-                )}
-              </div>
-
-              {/* Step 2 */}
-              <div
-                onClick={() => setActiveStep(2)}
-                className={`flex items-center gap-space-sm p-space-sm rounded-lg cursor-pointer transition-all ${
-                  activeStep === 2
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center font-label-sm text-label-sm font-bold ${
-                    activeStep === 2
-                      ? "bg-secondary-fixed text-on-secondary-fixed"
-                      : "bg-surface-container-highest text-on-surface-variant"
-                  }`}
-                >
-                  2
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-label-sm text-label-sm text-outline uppercase truncate">
-                    Step 2
-                  </span>
-                  <span className="font-title-sm text-body-sm text-on-surface truncate">
-                    Receiving Facility & Service
-                  </span>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div
-                onClick={() => setActiveStep(3)}
-                className={`flex items-center gap-space-sm p-space-sm rounded-lg cursor-pointer transition-all ${
-                  activeStep === 3
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center font-label-sm text-label-sm font-bold ${
-                    activeStep === 3
-                      ? "bg-secondary-fixed text-on-secondary-fixed"
-                      : "bg-surface-container-highest text-on-surface-variant"
-                  }`}
-                >
-                  3
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-label-sm text-label-sm text-outline uppercase truncate">
-                    Step 3
-                  </span>
-                  <span className="font-title-sm text-body-sm text-on-surface truncate">
-                    Social & Logistics Check
-                  </span>
-                </div>
-              </div>
-
-              {/* Step 4 */}
-              <div
-                onClick={() => setActiveStep(4)}
-                className={`flex items-center gap-space-sm p-space-sm rounded-lg cursor-pointer transition-all ${
-                  activeStep === 4
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center font-label-sm text-label-sm font-bold ${
-                    activeStep === 4
-                      ? "bg-secondary-fixed text-on-secondary-fixed"
-                      : "bg-surface-container-highest text-on-surface-variant"
-                  }`}
-                >
-                  4
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-label-sm text-label-sm text-outline uppercase truncate">
-                    Step 4
-                  </span>
-                  <span className="font-title-sm text-body-sm text-on-surface truncate">
-                    Handover & Dispatch
-                  </span>
-                </div>
-              </div>
+                  <div
+                    className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center font-label-sm text-label-sm font-bold ${
+                      activeStep === step
+                        ? "bg-secondary-fixed text-on-secondary-fixed"
+                        : "bg-surface-container-highest text-on-surface-variant"
+                    }`}
+                  >
+                    {step}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-label-sm text-label-sm font-bold truncate tracking-wide uppercase">
+                      Step {step}
+                    </span>
+                    <span className="font-title-sm text-body-sm">{title}</span>
+                  </div>
+                  {activeStep === step && (
+                    <span className="material-symbols-outlined text-[18px] ml-auto text-secondary-fixed">
+                      arrow_forward
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -303,7 +303,7 @@ const CreateReferral = () => {
           {/* Left Column: Form Authoring (8 cols) */}
           <div className="lg:col-span-8 space-y-gutter-md">
             {/* SECTION A: Patient Identification */}
-            <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
+            <div id="step-1" className="scroll-mt-24 bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-space-sm">
                   <div className="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-label-md">
@@ -331,7 +331,7 @@ const CreateReferral = () => {
                 <div className="grid grid-cols-3 gap-space-sm p-1 rounded-xl bg-surface-container-low">
                   <button
                     type="button"
-                    onClick={() => setPatientType("Maternal")}
+                    onClick={() => changePatientType("Maternal")}
                     className={`py-2 px-space-sm rounded-lg font-label-md text-label-md font-semibold flex items-center justify-center gap-2 transition-all ${
                       patientType === "Maternal"
                         ? "bg-surface-container-lowest text-primary shadow-sm"
@@ -346,9 +346,9 @@ const CreateReferral = () => {
 
                   <button
                     type="button"
-                    onClick={() => setPatientType("Neonate")}
+                    onClick={() => changePatientType(PatientType.CHILD)}
                     className={`py-2 px-space-sm rounded-lg font-label-md text-label-md font-semibold flex items-center justify-center gap-2 transition-all ${
-                      patientType === "Neonate"
+                      patientType === PatientType.CHILD
                         ? "bg-surface-container-lowest text-primary shadow-sm"
                         : "text-on-surface-variant hover:text-on-surface"
                     }`}
@@ -361,7 +361,7 @@ const CreateReferral = () => {
 
                   <button
                     type="button"
-                    onClick={() => setPatientType("Dyad")}
+                    onClick={() => changePatientType("Dyad")}
                     className={`py-2 px-space-sm rounded-lg font-label-md text-label-md font-semibold flex items-center justify-center gap-2 transition-all ${
                       patientType === "Dyad"
                         ? "bg-surface-container-lowest text-primary shadow-sm"
@@ -409,9 +409,9 @@ const CreateReferral = () => {
               </div>
 
               {/* Gestational Age & Parity Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-                <div className="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between">
-                  <div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-space-md">
+                <div className="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <span className="font-label-sm text-label-sm text-on-surface-variant block">
                       Gestational Age
                     </span>
@@ -419,24 +419,26 @@ const CreateReferral = () => {
                       type="text"
                       value={gestationalAge}
                       onChange={(e) => setGestationalAge(e.target.value)}
-                      className="font-title-sm text-title-sm text-primary font-bold bg-transparent border-0 focus:outline-none"
+                      className="w-full font-title-sm text-title-sm text-primary font-bold bg-transparent border-0 focus:outline-none"
                     />
                   </div>
-                  <span className="inline-flex items-center px-space-sm py-0.5 rounded-md bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm text-label-sm font-semibold">
-                    Late Preterm
-                  </span>
+                  {band && (
+                    <span className="shrink-0 whitespace-nowrap inline-flex items-center px-space-sm py-0.5 rounded-md bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm text-label-sm font-semibold">
+                      {band}
+                    </span>
+                  )}
                 </div>
 
-                <div className="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between">
-                  <div>
+                <div className="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <span className="font-label-sm text-label-sm text-on-surface-variant block">
-                      Obstetric History (G/P)
+                      {patientType === PatientType.CHILD ? "Birth History" : "Obstetric History (G/P)"}
                     </span>
                     <input
                       type="text"
                       value={obstetricHistory}
                       onChange={(e) => setObstetricHistory(e.target.value)}
-                      className="font-title-sm text-title-sm text-primary font-bold bg-transparent border-0 focus:outline-none"
+                      className="w-full font-title-sm text-title-sm text-primary font-bold bg-transparent border-0 focus:outline-none"
                     />
                   </div>
                   <span className="material-symbols-outlined text-outline text-[20px]">
@@ -446,7 +448,7 @@ const CreateReferral = () => {
               </div>
 
               {/* Contact Channels */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-space-md">
                 <div>
                   <label className="font-label-md text-label-md text-on-surface-variant block mb-1">
                     Primary Patient Phone
@@ -484,11 +486,22 @@ const CreateReferral = () => {
                     translate
                   </span>
                   <div>
-                    <p className="font-title-sm text-body-sm text-primary font-semibold">
-                      Language Preference: {language}
-                    </p>
+                    <label className="font-title-sm text-body-sm text-primary font-semibold flex flex-wrap items-center gap-2">
+                      <span>Language Preference:</span>
+                      <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="bg-surface-container-lowest rounded-md px-2 py-0.5 font-semibold focus:outline-none focus:ring-1 focus:ring-secondary/40"
+                      >
+                        {LANGUAGES.map((option) => (
+                          <option key={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
                     <p className="font-label-sm text-label-sm text-on-surface-variant">
-                      Requires Certified {language} Medical Interpreter for all clinical discussions.
+                      {interpreterNeeded
+                        ? `Requires Certified ${language} Medical Interpreter for all clinical discussions.`
+                        : "No interpreter requested."}
                     </p>
                   </div>
                 </div>
@@ -541,7 +554,7 @@ const CreateReferral = () => {
                   </div>
                 </div>
                 <span className="px-space-sm py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-semibold">
-                  Triage Level 2
+                  Triage: {priorityLevel}
                 </span>
               </div>
 
@@ -550,7 +563,7 @@ const CreateReferral = () => {
                 <label className="font-label-md text-label-md text-on-surface-variant block font-medium">
                   Triage Priority Window
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-space-sm">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-space-sm">
                   {/* Routine */}
                   <label
                     onClick={() => setPriorityLevel("ROUTINE")}
@@ -650,7 +663,7 @@ const CreateReferral = () => {
                     />
                     <div>
                       <span className="font-label-md text-label-md font-bold text-error block">
-                        STAT / EMERGENCY (EMS 911)
+                        STAT / EMERGENCY (Ambulance 108)
                       </span>
                       <span className="font-label-sm text-label-sm text-on-surface-variant">
                         Immediate life/limb/fetal threat in transit
@@ -677,64 +690,32 @@ const CreateReferral = () => {
 
               {/* Point-of-Care Vitals */}
               <div className="space-y-space-xs">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-x-3">
                   <span className="font-label-md text-label-md text-on-surface-variant font-medium">
-                    Point-of-Care Vitals (Taken at 14:15 EST)
+                    Point-of-Care Vitals
                   </span>
                   <span className="font-data-tabular text-data-tabular text-secondary font-semibold">
-                    All Vitals Verified
+                    {Object.keys(recordedVitals).length} of {vitalFields.length} recorded
                   </span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-space-sm">
-                  <div className="p-space-sm rounded-lg bg-surface-container-low text-center">
-                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase block">
-                      Blood Pressure
-                    </span>
-                    <span className="font-headline-md text-headline-md font-bold text-primary">
-                      128/82
-                    </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      mmHg (Normotensive)
-                    </span>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg bg-surface-container-low text-center">
-                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase block">
-                      Maternal Pulse
-                    </span>
-                    <span className="font-headline-md text-headline-md font-bold text-primary">
-                      78
-                    </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      bpm • Regular
-                    </span>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg bg-surface-container-low text-center">
-                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase block">
-                      Temperature
-                    </span>
-                    <span className="font-headline-md text-headline-md font-bold text-primary">
-                      98.6°
-                    </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      Fahrenheit (Afebrile)
-                    </span>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg bg-surface-container-high text-center">
-                    <span className="font-label-sm text-label-sm text-secondary uppercase block font-semibold">
-                      Fetal Heart Rate
-                    </span>
-                    <span className="font-headline-md text-headline-md font-bold text-secondary">
-                      142
-                    </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      bpm • Category I Baseline
-                    </span>
-                  </div>
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-space-sm">
+                  {vitalFields.map(({ key, label, placeholder }) => (
+                    <label key={key} className="p-space-sm rounded-lg bg-surface-container-low block min-w-0">
+                      <span className="font-label-sm text-label-sm text-on-surface-variant uppercase block">
+                        {label}
+                      </span>
+                      <input
+                        type="text"
+                        value={vitals[key] || ""}
+                        placeholder={placeholder}
+                        onChange={(e) => setVitals((prev) => ({ ...prev, [key]: e.target.value }))}
+                        className="w-full min-w-0 mt-1 bg-transparent font-title-sm text-title-sm font-bold text-primary placeholder:font-normal placeholder:text-on-surface-variant/70 focus:outline-none"
+                      />
+                    </label>
+                  ))}
                 </div>
               </div>
+
 
               {/* Referring Clinician Block */}
               <div className="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between">
@@ -744,10 +725,10 @@ const CreateReferral = () => {
                   </div>
                   <div>
                     <p className="font-title-sm text-body-sm text-primary font-semibold">
-                      Dr. Evelyn Carter, CNM, FACNM
+                      Dr. Kavitha Rao, MS (OBG)
                     </p>
                     <p className="font-label-sm text-label-sm text-on-surface-variant">
-                      River West Midwifery & Birth Clinic • NPI: 1948201940
+                      Kaveri Midwifery & Birth Clinic • KMC Reg. No. 48201
                     </p>
                   </div>
                 </div>
@@ -758,7 +739,7 @@ const CreateReferral = () => {
             </div>
 
             {/* SECTION C: Receiving Facility */}
-            <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
+            <div id="step-2" className="scroll-mt-24 bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-space-sm">
                   <div className="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-label-md">
@@ -778,7 +759,7 @@ const CreateReferral = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-space-md">
                 <div>
                   <label className="font-label-md text-label-md text-on-surface-variant block mb-1">
                     Receiving Facility
@@ -789,9 +770,9 @@ const CreateReferral = () => {
                       onChange={(e) => setReceivingFacility(e.target.value)}
                       className="w-full bg-surface-container-low px-space-sm py-2 rounded-lg font-body-sm text-body-sm text-primary font-semibold appearance-none focus:outline-none"
                     >
-                      <option>St. Jude Regional Perinatal Center (Level III Perinatal & NICU)</option>
-                      <option>University Medical Center Detroit (Level IV Regional Center)</option>
-                      <option>Mercy Women's & Children's Pavilion (Level II Special Care)</option>
+                      <option>Sanjeevani Regional Perinatal Centre (Level III Perinatal & NICU)</option>
+                      <option>Vidyaranya Institute of Medical Sciences (Level IV Regional Centre)</option>
+                      <option>Karuna Women & Children's Hospital (Level II Special Care)</option>
                     </select>
                     <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-[18px] text-on-surface-variant pointer-events-none">
                       expand_more
@@ -812,6 +793,7 @@ const CreateReferral = () => {
                       <option>Labor & Delivery Triage / High-Risk Antenatal Unit</option>
                       <option>Maternal-Fetal Medicine (MFM) Outpatient Suite</option>
                       <option>Antepartum Inpatient Monitoring Pod B</option>
+                      <option>Neonatal ICU / Phototherapy Unit</option>
                     </select>
                     <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-[18px] text-on-surface-variant pointer-events-none">
                       expand_more
@@ -831,12 +813,12 @@ const CreateReferral = () => {
                       Direct OB Triage Receiving Hotline
                     </span>
                     <span className="font-title-sm text-body-sm text-primary font-bold">
-                      St. Jude Charge Desk: (555) 890-3321 (Ext. 402)
+                      Sanjeevani Charge Desk: +91 90000 03321 (Ext. 402)
                     </span>
                   </div>
                 </div>
                 <a
-                  href="tel:5558903321"
+                  href="tel:+919000003321"
                   className="inline-flex items-center gap-1.5 px-space-sm py-1.5 rounded-lg bg-surface-container-lowest text-primary shadow-sm hover:bg-surface-container font-label-md text-label-md transition-colors"
                 >
                   <span className="material-symbols-outlined text-[16px]">call</span>
@@ -846,7 +828,7 @@ const CreateReferral = () => {
             </div>
 
             {/* SECTION D: Transport & Anticipated Barrier Assessment */}
-            <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
+            <div id="step-3" className="scroll-mt-24 bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-space-sm">
                   <div className="w-8 h-8 rounded-lg bg-secondary text-on-secondary flex items-center justify-center font-bold text-label-md">
@@ -929,7 +911,7 @@ const CreateReferral = () => {
                       auto_fix_high
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-space-sm">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-space-sm">
                     <div className="p-space-sm rounded-lg bg-surface-container-lowest shadow-sm">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="material-symbols-outlined text-secondary text-[18px]">
@@ -940,7 +922,7 @@ const CreateReferral = () => {
                         </span>
                       </div>
                       <p className="font-label-sm text-label-sm text-on-surface-variant">
-                        Non-Emergency Medical Transportation voucher queued for immediate pickup at clinic.
+                        Free JSSK referral transport queued for immediate pickup at clinic.
                       </p>
                     </div>
                     <div className="p-space-sm rounded-lg bg-surface-container-lowest shadow-sm">
@@ -953,7 +935,7 @@ const CreateReferral = () => {
                         </span>
                       </div>
                       <p className="font-label-sm text-label-sm text-on-surface-variant">
-                        Maya Lin, MSW (On-duty Arab/English bilingual maternal health navigator).
+                        Priya Raman, MSW (On-duty {language}/English bilingual maternal health navigator).
                       </p>
                     </div>
                   </div>
@@ -962,7 +944,7 @@ const CreateReferral = () => {
             </div>
 
             {/* SECTION E: Submission Safeguard */}
-            <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
+            <div id="step-4" className="scroll-mt-24 bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md border border-surface-container/60">
               <div className="p-space-md rounded-xl bg-error-container/20 flex items-start gap-space-sm">
                 <span className="material-symbols-outlined text-error text-[22px] flex-shrink-0 mt-0.5">
                   shield
@@ -972,7 +954,7 @@ const CreateReferral = () => {
                     Clinical Handover Safety Disclaimer
                   </p>
                   <p className="font-label-sm text-label-sm text-on-surface-variant leading-relaxed mt-0.5">
-                    Submitting this digital referral automatically registers intake queues at St. Jude Perinatal and alerts the maternal navigation team. This system does NOT replace verbal telephone handover for patients requiring immediate life-saving resuscitation or STAT emergency EMS dispatch.
+                    Submitting this digital referral automatically registers intake queues at the receiving facility and alerts the maternal navigation team. This system does NOT replace verbal telephone handover for patients requiring immediate life-saving resuscitation or STAT emergency 108 ambulance dispatch.
                   </p>
                 </div>
               </div>
@@ -981,7 +963,7 @@ const CreateReferral = () => {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-space-sm pt-space-xs">
                 <button
                   type="button"
-                  onClick={() => showToast("Referral saved as incomplete draft.")}
+                  onClick={() => showToast("Demo only: drafts are not saved.")}
                   className="w-full sm:w-auto px-space-md py-2.5 rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors flex items-center justify-center gap-2"
                 >
                   <span className="material-symbols-outlined text-[18px]">drafts</span>
@@ -992,7 +974,7 @@ const CreateReferral = () => {
                     type="button"
                     onClick={() =>
                       showToast(
-                        "Summary Preview: Fatima Zahra (36w2d), PPROM, St. Jude L&D Triage, Priority: URGENT."
+                        `Summary Preview: ${patientName.split(",")[0].trim() || "No patient name"} (${gestationalAge}), ${receivingFacility.split("(")[0].trim()}, Priority: ${priorityLevel}.`
                       )
                     }
                     className="w-full sm:w-auto px-space-md py-2.5 rounded-lg bg-surface-container-high text-primary hover:bg-surface-variant font-label-md text-label-md transition-colors flex items-center justify-center gap-2"
@@ -1002,7 +984,8 @@ const CreateReferral = () => {
                   </button>
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-space-lg py-2.5 rounded-lg bg-secondary text-on-secondary hover:bg-on-secondary-container font-label-md text-label-md font-semibold transition-all shadow-md flex items-center justify-center gap-2"
+                    disabled={isSubmitted}
+                    className="w-full sm:w-auto px-space-lg py-2.5 rounded-lg bg-secondary text-on-secondary hover:bg-on-secondary-container font-label-md text-label-md font-semibold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="material-symbols-outlined text-[18px]">send_and_archive</span>
                     <span>Submit Referral & Dispatch Navigator</span>
@@ -1034,7 +1017,7 @@ const CreateReferral = () => {
                       directions_car
                     </span>
                     <span className="font-title-sm text-body-sm text-primary font-semibold">
-                      Estimated Transit Time
+                      Sample Transit Estimate (Demo)
                     </span>
                   </div>
                   <span className="font-data-tabular text-data-tabular font-bold text-primary">
@@ -1045,16 +1028,16 @@ const CreateReferral = () => {
                   <div className="bg-secondary h-full rounded-full" style={{ width: "72%" }}></div>
                 </div>
                 <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
-                  <span>River West Clinic</span>
-                  <span>7.4 Miles via I-94 E</span>
-                  <span>St. Jude L&D</span>
+                  <span>Kaveri Clinic</span>
+                  <span>12 km via Outer Ring Road</span>
+                  <span>{receivingFacility.split("(")[0].trim()}</span>
                 </div>
               </div>
 
               {/* Destination Capabilities */}
               <div className="space-y-space-xs">
                 <span className="font-label-md text-label-md text-on-surface-variant block font-medium">
-                  Destination Capabilities (St. Jude)
+                  Destination Capabilities (Sanjeevani)
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-container font-label-sm text-label-sm text-on-surface">
@@ -1122,14 +1105,14 @@ const CreateReferral = () => {
               <div className="flex items-center gap-space-sm">
                 <img
                   className="w-12 h-12 rounded-full object-cover"
-                  alt="Maya Lin, MSW"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDr4M1mBJK2LLQOoSj2wzpIZDfYgTXIddRm1WRgORneeTYX3eVrG-wdOuWJHa0vuhHSFgP7Q6gGGYIL9t6Oi6qUhSIWkH58TWtnNnfJ9YMaSkYQX2d3kuuzQ2tdNWHyy8vOJ7zO7RbOtFd6laoGbjxhcu0zOsCmhLkpB1yPUHsXnAEJG3UX6eNShXcBE84vEQzXRKgrerj3Hijl5YuezXg7DN4saukNAeQGYU4cPt2mIgMMIjS8r3SP4A"
+                  alt="Priya Raman, MSW"
+                  src="/images/avatar-priya-raman.svg"
                 />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-title-sm text-body-sm text-primary font-bold truncate">
-                    Maya Lin, MSW
+                  <h3 className="font-title-sm text-body-sm text-primary font-bold">
+                    Priya Raman, MSW
                   </h3>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant truncate">
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">
                     Perinatal Social Navigation Lead
                   </p>
                   <div className="flex items-center gap-1 mt-0.5">
@@ -1141,7 +1124,7 @@ const CreateReferral = () => {
                 </div>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant bg-surface-container-low p-space-sm rounded-lg">
-                Will meet {patientName.split(",")[0]} at St. Jude Obstetric Triage Entrance. Coordinated bilingual Arabic orientation packet initialized.
+                Will meet {patientName.split(",")[0]} at the {receivingFacility.split("(")[0].trim()} triage entrance. Coordinated bilingual {language} orientation packet initialized.
               </p>
             </div>
 
@@ -1152,14 +1135,14 @@ const CreateReferral = () => {
                   Facility Destination Map
                 </span>
                 <span className="font-label-sm text-label-sm text-on-surface-variant">
-                  Wayne County, MI
+                  Bengaluru Urban, Karnataka
                 </span>
               </div>
               <div
                 className="w-full h-44 bg-cover bg-center rounded-lg shadow-inner relative flex items-end p-space-sm"
                 style={{
                   backgroundImage:
-                    "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAni3DIG74ZnMOuou3_Tu3APmI6f2y6FNItuvpTyAlg675Psd_NxmOAKpPMUaQq5KGECw1hCZo-aNkhldwGG4-QP8lHDZFqcpZ0J70bof7Hq-xwBPO-kSY07HLOxefh1zfkbiEq1mLshV9I-8o0lnTwJ_WtYLX2_TNec-vdsYw5IdypEjQaULR8-5N8PODRHoV24YfWhK5yjrVm4JDTnAJaWr_N0xtTLp1v_LmggLFYAj5mji6EGG5DeA')",
+                    "url('/images/route-map.svg')",
                 }}
               >
                 <div className="bg-surface-container-lowest/95 backdrop-blur px-space-sm py-1 rounded-md shadow-sm">
@@ -1180,22 +1163,22 @@ const CreateReferral = () => {
               </span>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="material-symbols-outlined text-secondary text-[18px]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="material-symbols-outlined text-secondary text-[18px] shrink-0">
                       description
                     </span>
-                    <span className="font-label-md text-label-md text-on-surface truncate">
+                    <span className="font-label-md text-label-md text-on-surface min-w-0 break-all">
                       Prenatal_Flowsheet_36w.pdf
                     </span>
                   </div>
                   <span className="font-data-tabular text-label-sm text-outline">1.2 MB</span>
                 </div>
                 <div className="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
-                  <div className="flex items-center gap-2 truncate">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className="material-symbols-outlined text-secondary text-[18px]">
                       radiology
                     </span>
-                    <span className="font-label-md text-label-md text-on-surface truncate">
+                    <span className="font-label-md text-label-md text-on-surface min-w-0 break-all">
                       US_AFI_MembraneCheck.dcm
                     </span>
                   </div>
@@ -1205,7 +1188,7 @@ const CreateReferral = () => {
 
               <button
                 type="button"
-                onClick={() => showToast("File attachment dialog opened.")}
+                onClick={() => showToast("Demo only: file attachments are not available.")}
                 className="w-full py-2 rounded-lg bg-surface-container-high text-primary hover:bg-surface-variant font-label-md text-label-md font-semibold transition-colors flex items-center justify-center gap-1.5 mt-space-xs"
               >
                 <span className="material-symbols-outlined text-[16px]">upload_file</span>

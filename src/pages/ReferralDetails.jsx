@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { ReferralStatus, PatientType } from "../domain/enums.js";
+import Toast, { useToast } from "../components/Toast.jsx";
+import { ReferralStatus, PatientType, isHighAcuity } from "../domain/enums.js";
+import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
+
+// Smaller when empty, so the message fits a narrow vitals tile.
+const VitalValue = ({ value }) =>
+  value || <span className="text-xs font-medium text-on-surface-variant">Not recorded</span>;
 
 const ReferralDetails = () => {
   const { id } = useParams();
@@ -10,18 +16,15 @@ const ReferralDetails = () => {
     getReferralById,
     confirmArrival,
     recordClinicalOutcome,
+    role,
   } = useReferrals();
 
-  const referral = id ? getReferralById(id) : getReferralById("REF-2024-8821");
+  const referral = getReferralById(id);
 
   const [activeLogFilter, setActiveLogFilter] = useState("all"); // 'all' | 'barriers' | 'clinical'
   const [modalData, setModalData] = useState(null);
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   if (!referral) {
     return (
@@ -39,11 +42,11 @@ const ReferralDetails = () => {
         </p>
         <div className="pt-2">
           <Link
-            to="/coordinator"
+            to={getRoleDefinition(role).homePath}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold shadow-xs hover:bg-primary-container transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            <span>Return to Coordinator Hub</span>
+            <span>Return to My Workspace</span>
           </Link>
         </div>
       </div>
@@ -78,14 +81,7 @@ const ReferralDetails = () => {
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Top Patient Clinical Identification Banner */}
       <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-surface-container/60 relative overflow-hidden">
@@ -111,7 +107,7 @@ const ReferralDetails = () => {
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                    referral.priority === "Urgent" || referral.priority === "STAT"
+                    isHighAcuity(referral.priority)
                       ? "bg-error-container text-on-error-container"
                       : "bg-surface-container text-primary"
                   }`}
@@ -140,19 +136,19 @@ const ReferralDetails = () => {
               <img
                 className="w-10 h-10 rounded-full object-cover"
                 alt="Care Navigator"
-                src={referral.navigator?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuDoZfH4bzWWKO46H7BwByYXNjLd4FhpN7LW57qYEUL5j3A47FUv2i09dJmjQL1-MUN4d7VztblABu5RPVUzpx8obJuR1ntnJjb4W9zE5qpFD2vmeTihz8r3qv6wjd0vqiE19y8l5GMFj-AhAZCenAQ7biqFZJWwGsbmWee9F4s5Sk-xXyQtcirTUUZU9Jw5PL2difZ0P0uXr72r6EMZvVHP30iJbdO8p4Anu7jP4zLlWygVN5Mv7nDeWQ"}
+                src={referral.navigator?.avatar || "/images/avatar-priya-raman.svg"}
               />
               <div>
                 <span className="text-[10px] uppercase font-bold text-secondary tracking-wider block">Assigned Navigator</span>
-                <h4 className="font-title-sm text-xs font-bold text-primary">{referral.navigator?.name || "Maya Lin, MSW"}</h4>
-                <p className="text-[11px] text-on-surface-variant font-data-tabular">{referral.caregiverContact || "(555) 392-1049"}</p>
+                <h4 className="font-title-sm text-xs font-bold text-primary">{referral.navigator?.name || "Priya Raman, MSW"}</h4>
+                <p className="text-[11px] text-on-surface-variant font-data-tabular">{referral.navigator?.phone || "+91 90000 21049"}</p>
               </div>
             </div>
 
             <button
-              onClick={() => showToast(`Phone call connected with ${referral.caregiverContact || "patient"}.`)}
+              onClick={() => showToast(`Demo only: no call placed to ${referral.navigator?.name || "the navigator"}.`)}
               className="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary"
-              title="Call Caregiver / Patient"
+              title="Call Navigator"
             >
               <span className="material-symbols-outlined text-[18px]">call</span>
             </button>
@@ -177,7 +173,7 @@ const ReferralDetails = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 text-center">
           {/* Gate 1 */}
           <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container">
             <div className="w-8 h-8 mx-auto rounded-full bg-secondary text-white flex items-center justify-center text-xs font-bold shadow-xs">
@@ -253,7 +249,7 @@ const ReferralDetails = () => {
             {isArrivalVerified ? (
               <div className="p-4 rounded-xl bg-surface-container-low space-y-2 text-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>Verified By: <strong className="text-primary">{referral.arrival?.verifiedBy || "Sarah Jenkins, RN"}</strong></span>
+                  <span>Verified By: <strong className="text-primary">{referral.arrival?.verifiedBy || "Anitha Joseph, RN"}</strong></span>
                   <span>Location: <strong className="text-primary">{referral.arrival?.room || "OB Assessment Bay 3B"}</strong></span>
                   <span>Timestamp: <strong className="font-data-tabular">{new Date(referral.arrival?.arrivedAt || referral.createdAt).toLocaleTimeString()}</strong></span>
                 </div>
@@ -266,13 +262,17 @@ const ReferralDetails = () => {
                 <span>Patient has not yet completed physical triage check-in.</span>
                 <button
                   onClick={() => {
-                    confirmArrival(referral.id, {
+                    const res = confirmArrival(referral.id, {
                       department: referral.toFacility,
                       room: "Intake Bay 01",
-                      verifiedBy: "Sarah Jenkins, RN",
+                      verifiedBy: "Anitha Joseph, RN",
                       notes: "Arrival verified by triage coordinator.",
                     });
-                    showToast("Arrival confirmed!");
+                    if (res.success) {
+                      showToast("Arrival confirmed!");
+                    } else {
+                      showToast(`Action failed: ${res.reason}`, "error");
+                    }
                   }}
                   className="px-3 py-1.5 rounded-lg bg-secondary text-white font-semibold text-xs hover:bg-on-secondary-container"
                 >
@@ -298,11 +298,11 @@ const ReferralDetails = () => {
 
             {referral.referralType === PatientType.CHILD ? (
               /* NEONATAL TELEMETRY POD (NO maternal BP or fetal heart rate!) */
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Total Bilirubin</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-error mt-1">
-                    {referral.vitals?.tsb || "21.4 mg/dL"}
+                    <VitalValue value={referral.vitals?.tsb} />
                   </div>
                   <span className="text-[10px] text-on-surface-variant">AAP Threshold: 18.0</span>
                 </div>
@@ -310,34 +310,34 @@ const ReferralDetails = () => {
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Weight</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-primary mt-1">
-                    {referral.vitals?.weight || "2,980g"}
+                    <VitalValue value={referral.vitals?.weight} />
                   </div>
-                  <span className="text-[10px] text-on-surface-variant">Gestational birth weight</span>
+                  <span className="text-[10px] text-on-surface-variant">Current weight</span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Temperature</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-secondary mt-1">
-                    {referral.vitals?.temp || "36.8 °C"}
+                    <VitalValue value={referral.vitals?.temp} />
                   </div>
-                  <span className="text-[10px] text-on-surface-variant">Axillary normothermic</span>
+                  <span className="text-[10px] text-on-surface-variant">Axillary</span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Heart Rate</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-primary mt-1">
-                    {referral.vitals?.hr || "138 bpm"}
+                    <VitalValue value={referral.vitals?.hr} />
                   </div>
-                  <span className="text-[10px] text-on-surface-variant">Regular sinus rate</span>
+                  <span className="text-[10px] text-on-surface-variant">Beats per minute</span>
                 </div>
               </div>
             ) : (
               /* MATERNAL OBSTETRIC POD */
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Blood Pressure</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-error mt-1">
-                    {referral.vitals?.bp || "152/98"}
+                    <VitalValue value={referral.vitals?.bp} />
                   </div>
                   <span className="text-[10px] text-on-surface-variant">Target &lt; 140/90 mmHg</span>
                 </div>
@@ -345,25 +345,25 @@ const ReferralDetails = () => {
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Fetal Heart Rate</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-secondary mt-1">
-                    {referral.vitals?.fhr || "142"} bpm
+                    <VitalValue value={referral.vitals?.fhr && (/^\d+$/.test(referral.vitals.fhr) ? `${referral.vitals.fhr} bpm` : referral.vitals.fhr)} />
                   </div>
-                  <span className="text-[10px] text-on-surface-variant">Reactive baseline</span>
+                  <span className="text-[10px] text-on-surface-variant">Beats per minute</span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Urine Dipstick</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-primary mt-1">
-                    {referral.vitals?.urine || "+2 Protein"}
+                    <VitalValue value={referral.vitals?.urine} />
                   </div>
-                  <span className="text-[10px] text-on-surface-variant">Proteinuria confirmed</span>
+                  <span className="text-[10px] text-on-surface-variant">Protein on dipstick</span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-surface-container-low">
                   <span className="text-[10px] uppercase font-bold text-on-surface-variant block">Biophysical Profile</span>
                   <div className="font-headline-lg text-xl font-data-tabular font-bold text-secondary mt-1">
-                    {referral.vitals?.bpp || "8/8"}
+                    <VitalValue value={referral.vitals?.bpp} />
                   </div>
-                  <span className="text-[10px] text-on-surface-variant">Reassuring status</span>
+                  <span className="text-[10px] text-on-surface-variant">Score out of 8</span>
                 </div>
               </div>
             )}
@@ -437,13 +437,15 @@ const ReferralDetails = () => {
                 <p className="text-xs text-on-surface-variant">
                   Clinical outcome pending. Authorized attending physician or midwife records clinical findings once treatment occurs.
                 </p>
-                <Link
-                  to="/facility"
-                  className="w-full py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary text-xs font-semibold flex items-center justify-center gap-1"
-                >
-                  <span>Open Facility Intake Desk</span>
-                  <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-                </Link>
+                {isRouteAllowedForRole(role, "/facility") && (
+                  <Link
+                    to="/facility?tab=arrived"
+                    className="w-full py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary text-xs font-semibold flex items-center justify-center gap-1"
+                  >
+                    <span>Open Facility Intake Desk</span>
+                    <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -461,15 +463,17 @@ const ReferralDetails = () => {
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant">
-                Postpartum surveillance protocol established with 4 touchpoints. Lead: {referral.followUpPlan.leadWorker}.
+                Postpartum surveillance protocol established with {referral.followUpPlan.tasks.length} touchpoints. Lead: {referral.followUpPlan.leadWorker}.
               </p>
-              <Link
-                to="/continuity"
-                className="w-full py-2 px-3 rounded-lg bg-secondary text-white text-xs font-semibold hover:bg-on-secondary-container transition-colors flex items-center justify-center gap-1"
-              >
-                <span>View Continuity Schedule</span>
-                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-              </Link>
+              {isRouteAllowedForRole(role, "/continuity") && (
+                <Link
+                  to="/continuity"
+                  className="w-full py-2 px-3 rounded-lg bg-secondary text-white text-xs font-semibold hover:bg-on-secondary-container transition-colors flex items-center justify-center gap-1"
+                >
+                  <span>View Continuity Schedule</span>
+                  <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                </Link>
+              )}
             </div>
           )}
 
