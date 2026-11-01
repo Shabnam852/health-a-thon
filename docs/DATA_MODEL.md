@@ -12,7 +12,7 @@
 The Navexa Health domain data model provides a unified, normalized, and strictly validated schema for maternal and neonatal care navigation. 
 
 ### Core Architectural Principles
-1. **Single Source of Truth:** All entities originate from and synchronize back to the master store in `ReferralContext`, persisted via `storageAdapter.js` under the versioned key `navexa_domain_v3`.
+1. **Single Source of Truth:** All entities originate from and synchronize back to the master store in `ReferralContext`, persisted via `storageAdapter.js` under the versioned key `navexa_domain_v4`.
 2. **Clinical Separation of Concerns:** Neonatal entities never inherit obstetric fields (e.g. fundal height, cervical dilation, maternal systolic BP). Newborn vitals exclusively track neonatal metrics (birth weight in grams, total serum bilirubin, APGAR, neonatal temperature).
 3. **Operational vs. Clinical Boundary:** Operational coordination models (transits, contact logs, barrier resolutions) are decoupled from formal clinical records (`ArrivalRecord`, `ClinicalOutcome`).
 4. **Lifecycle Continuity:** The conclusion of an acute hospital referral does not destroy or archive continuing postpartum surveillance. A linked `FollowUpPlan` persists independently.
@@ -99,7 +99,7 @@ Tracks specialized patient transport operations:
 ### 3.3 `BarrierStatus` & `BarrierCategory`
 Social determinants and logistical blockers:
 - **Status:** `OPEN` → `IN_PROGRESS` → `RESOLVED` → `ESCALATED`.
-- **Category:** `TRANSPORT` (lack of vehicle, wheelchair, or infant restraint), `FINANCIAL` (co-pay, gas, lost wages), `CHILDCARE` / `DEPENDENT_CARE` (unattended siblings), `LINGUISTIC` (interpreter required), `WEATHER` (severe snow/flooding), `HOUSING` (unhoused / unstable shelter).
+- **Category:** `TRANSPORT` (lack of vehicle, wheelchair, or neonatal transport kit), `FINANCIAL` (out-of-pocket costs, fuel, lost wages), `CHILDCARE` / `DEPENDENT_CARE` (unattended siblings), `LINGUISTIC` (interpreter required), `WEATHER` (severe snow/flooding), `HOUSING` (unhoused / unstable shelter).
 
 ### 3.4 `UrgencyLevel`
 - `STAT`: Immediate life threat (cord prolapse, severe eclampsia, acute neonatal respiratory distress). Response target: $<15$ minutes.
@@ -115,7 +115,7 @@ Social determinants and logistical blockers:
 - `COORDINATOR`: Regional triage and intake command center dispatcher.
 - `NAVIGATOR`: Community care coordinator and social worker.
 - `FACILITY`: Hospital triage clerk, charge nurse, or bed manager.
-- `CLINICIAN`: Licensed medical provider (MD, DO, CNM, NP, FACOG).
+- `CLINICIAN`: Licensed medical provider (MBBS, MD, MS (OBG), NPM, FICOG).
 - `PATIENT`: Patient, mother, or legal family guardian.
 - `SYSTEM_ADMIN`: Platform operations and audit administrator.
 
@@ -165,7 +165,7 @@ Social determinants and logistical blockers:
 | `driverPhone` | `string` | Yes | Direct contact phone for driver. |
 | `pickupAddress` | `string` | Yes | Origin street address. |
 | `destinationFacility` | `string` | Yes | Destination hospital wing/entrance. |
-| `requiresInfantCarSeat`| `boolean` | Yes | Flag enforcing certified rear-facing car seat installation. |
+| `requiresNeonatalKit`| `boolean` | Yes | Flag requiring a neonatal transport kit on the vehicle. |
 | `status` | `TransportStatus` | Yes | `REQUESTED`, `DISPATCHED`, `PICKED_UP`, `ARRIVED`, `FAILED`. |
 | `eta` | `string` | No | Estimated arrival time (e.g. `"14 mins"`). |
 | `dispatchedAt` | `string \| null` | No | Timestamp of driver rolling. |
@@ -197,7 +197,7 @@ Social determinants and logistical blockers:
 | `patientType` | `PatientType` | Yes | Determines validation schema for metrics. |
 | `recordedAt` | `string` (ISO) | Yes | Assessment completion timestamp. |
 | `attendingClinician` | `string` | Yes | Attending physician or nurse midwife. |
-| `clinicianRole` | `string` | Yes | Clinical title (e.g. `"FACOG"`, `"Neonatologist"`). |
+| `clinicianRole` | `string` | Yes | Clinical title (e.g. `"FICOG"`, `"Neonatologist"`). |
 | `summary` | `string` | Yes | Narrative assessment summary. |
 | `maternalMetrics` | `object \| null` | Conditional | Present if `patientType === 'MATERNAL'`. |
 | `maternalMetrics.bloodPressure` | `string` | Yes | Final stabilized blood pressure. |
@@ -249,8 +249,8 @@ Social determinants and logistical blockers:
 
 ## 5. Storage Adapter & Serialization
 
-### Key: `navexa_domain_v3`
-The data model serializes to browser `localStorage` under `navexa_domain_v3`. 
+### Key: `navexa_domain_v4`
+The data model serializes to browser `localStorage` under `navexa_domain_v4`. 
 The schema contains automatic migration guards: if corrupted or legacy v1/v2 schema data is encountered, the storage adapter falls back to `seedData.js` while emitting a diagnostic warning to the developer console.
 
 ```javascript

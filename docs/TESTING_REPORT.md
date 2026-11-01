@@ -2,107 +2,55 @@
 
 **Document:** `docs/TESTING_REPORT.md`  
 **Version:** 3.0.0  
-**Status:** IMPLEMENTED & VERIFIED  
 **Auditor/Architect:** QA and Test Automation Engineer, Application Security Engineer  
 
 ---
 
-## 1. Executive Testing Summary
+## 1. Testing Summary
 
-Navexa Health has undergone rigorous unit, integration, static analysis, and scenario-based workflow verification. All automated test suites execute natively using Node.js 24's built-in test runner (`node --test`), providing sub-second test execution without extraneous runtime dependencies.
+Automated tests run with Node's built-in test runner (`npm test`). They cover the pure domain, workflow, navigation and storage code. They do not render React, so page behaviour and the wiring in `ReferralContext.jsx` are checked by hand in the browser.
 
-| Verification Dimension | Target | Result | Status |
-| :--- | :--- | :--- | :--- |
-| **Unit Test Suite** (`src/domain/domain.test.js`) | 9 tests | 9 passed (100%) | **PASS** |
-| **Integration Test Suite** (`src/context/ReferralContext.test.js`) | 4 scenarios | 4 passed (100%) | **PASS** |
-| **Total Automated Tests** | 13 tests | 13 passed in $<250\text{ms}$ | **PASS** |
-| **Static Code Analysis** (`npm run lint`) | ESLint v10 | 0 errors, 0 warnings | **PASS** |
-| **Production Vite Build** (`npm run build`) | Bundle compilation | Built in $2.5\text{s}$ ($401\text{kB}$ bundle) | **PASS** |
-| **Live Browser Verification** | Chrome / Edge | All 10 modules interactive | **PASS** |
+| Test file | Tests |
+| :--- | :--- |
+| `src/config/navigationConfig.test.js` | 13 |
+| `src/domain/domain.test.js` | 19 |
+| `src/domain/workflow.test.js` | 31 |
+| `src/services/storageAdapter.test.js` | 9 |
+| **Total** | **72** |
 
----
-
-## 2. Automated Test Suite Specifications
-
-### 2.1 Domain Model & State Machine Unit Tests (`src/domain/domain.test.js`)
-Executed via `npm test`.
-
-```text
-✔ Referral Model - createReferral generates valid domain entity with default values and audit trail (2.41ms)
-✔ State Transitions - validateReferralTransition enforces valid state transitions (0.76ms)
-✔ State Transitions - validateReferralTransition prevents skipping clinical intake (cannot jump CREATED -> COMPLETED) (0.61ms)
-✔ State Transitions - validateReferralTransition prevents skipping physical arrival (cannot jump ACKNOWLEDGED -> COMPLETED) (0.58ms)
-✔ Transport Transitions - validateTransportTransition enforces sequential transit milestones (0.59ms)
-✔ Barrier Transitions - validateBarrierTransition prevents invalid barrier status mutations (0.54ms)
-✔ Clinical Outcome Model - createClinicalOutcome strictly validates maternal vs neonatal metrics (0.79ms)
-✔ Arrival Record Model - createArrivalRecord captures verification timestamp, bay and staff attribution (0.56ms)
-✔ Continuity Plan Model - createFollowUpPlan instantiates 42-day postpartum touchpoints (0.62ms)
-```
-
-**Key Invariants Enforced by Unit Tests:**
-1. **Intake Integrity:** Referrals cannot jump directly from `CREATED` or `SENT` to `COMPLETED`. They must pass through `ACKNOWLEDGED` and `ARRIVAL_CONFIRMED`.
-2. **Clinical Safety Boundary:** A physical arrival confirmation cannot mark clinical treatment as complete without an explicit `CLINICAL_ASSESSMENT_RECORDED` transition with authorized clinician attribution.
-3. **Transit Sequence:** Transport status must progress linearly (`REQUESTED` → `ASSIGNED` → `DISPATCHED` → `PICKED_UP` → `ARRIVED`). Teleportation from `REQUESTED` to `ARRIVED` is rejected.
-4. **Data Isolation:** Maternal vitals (e.g. fundal height, maternal blood pressure) cannot be attached to neonatal outcomes, and neonatal vitals (TSB, APGAR) cannot be attached to maternal outcomes.
+`npm run lint` and `npm run build` also pass. Lint covers `.js` and `.jsx`, with `no-undef` and `no-unused-vars` turned off.
 
 ---
 
-### 2.2 Integration Workflow Scenarios (`src/context/ReferralContext.test.js`)
+## 2. What the Tests Enforce
 
-```text
-✔ Complete Maternal Referral Lifecycle (Create -> Ack -> Barrier -> Transit -> Arrival -> Clinical Outcome -> 42-day Plan) (2.12ms)
-✔ Neonatal Hyperbilirubinemia Specific Workflow (TSB tracking, NICU bed allocation, car seat enforcement) (1.43ms)
-✔ Failed Transit Recovery & Disruption Handling (Disruption logged, vehicle freed, barrier re-opened) (1.18ms)
-✔ Facility Rejection and Redirection to Alternative Regional Center (Reason logged, destination updated, re-queued) (1.29ms)
-```
+- **Workflow actions (`src/domain/workflow.js`):** every action behind `ReferralContext` is called directly, for both accepted and refused cases.
+- **Transition rules (`src/domain/transitions.js`):** every pair of statuses is checked for referrals, transport, barriers and follow-up tasks, so adding or removing a rule fails a test.
+- **Route access (`src/config/navigationConfig.js`):** each role is checked against every workspace. Access control runs in the browser only and is not a security boundary.
+- **Storage (`src/services/storageAdapter.js`):** corrupt or outdated saved data falls back to the seed, and an unknown role falls back to the default.
 
-**Integration Assertions Verified:**
-- **Maternal End-to-End:** Creating referral `REF-TEST-001` (Elena Rostova, 34w preeclampsia) → Acknowledged by St. Jude Triage → Transport dispatched → Picked up → Arrived at Bay 2 → Attending MD Dr. Aris Thorne records stabilized BP and Cesarean plan → Status transitions to `COMPLETED` → 42-Day continuing care plan automatically instantiated with Days 3, 7, 14, 42 touchpoints.
-- **Neonatal End-to-End:** Creating referral `REF-TEST-002` (Baby Boy Chen, 4 days old, TSB $18.4\text{ mg/dL}$) → Verified rear-facing infant car seat requirement → Transferred to Valley Children's Level III NICU → Total serum bilirubin monitored → Phototherapy documented.
-- **Transport Disruption:** Dispatching vehicle → Logging road closure / vehicle mechanical breakdown → Referral status reverts with alert note → Transport status marked `FAILED` with explicit disruption reason → Vehicle freed in fleet pool.
-- **Facility Capacity Redirection:** Submitting case to St. Jude → Intake clerk reports NICU at 100% capacity → Rejection reason logged → Referral redirected to UMC Detroit → Destination updated → Re-queued as `SENT` in UMC Detroit's triage queue.
+**Rules enforced:**
+1. **Intake:** a referral must pass through `ACKNOWLEDGED` and `ARRIVAL_CONFIRMED` before it can complete.
+2. **Clinical safety:** `ARRIVAL_CONFIRMED` cannot go straight to `COMPLETED`. Recording an outcome adds `CLINICAL_ASSESSMENT_RECORDED` to the timeline, then completes the referral in the same action.
+3. **Transport:** status follows `REQUESTED` → `ASSIGNED` → `DISPATCHED` → `PICKED_UP` → `ARRIVED`. Dispatching performs the first three steps as one action, and is refused once a vehicle is moving or has arrived. Confirming physical arrival closes a `DISPATCHED` or `PICKED_UP` transit.
+4. **Data isolation:** maternal outcome fields are blanked on neonatal outcomes and neonatal fields on maternal outcomes. A `Dyad` outcome keeps both.
+5. **Repeats:** repeating the current status is refused, so a double action cannot add duplicate timeline or audit entries.
 
 ---
 
-## 3. End-to-End Clinical Scenario Demonstrations
+## 3. Seeded Cases for Manual Walkthroughs
 
-The system is pre-seeded with 7 golden clinical referral cases in `src/data/seedData.js`, each representing a real-world scenario tested end-to-end:
+`src/data/seedData.js` holds 7 synthetic referrals, all going to Sanjeevani Regional Perinatal Centre. Walk through them by hand in the running app. These walkthroughs are not automated.
 
-### Scenario A: Severe Pre-eclampsia Emergency
-- **Patient:** Elena Rostova (Age 29, 34 weeks gestation, BP 168/104 mmHg, 3+ proteinuria).
-- **Referral ID:** `REF-2024-8821`
-- **Pathways Tested:** Referring clinic (Mercy West) → St. Jude Hospital Triage → Barrier Desk (Transit dispatch) → MediVan #04 → Arrival Confirmation → Outcome Recording → Day 7 severe BP re-screen task scheduled.
-- **Result:** Successfully verified without state or visual anomalies.
-
-### Scenario B: Neonatal Hyperbilirubinemia & Phototherapy
-- **Patient:** Baby Boy Chen (Age 4 days, TSB $18.4\text{ mg/dL}$, Lethargic, Poor feeding).
-- **Referral ID:** `NX-9042`
-- **Pathways Tested:** Outpatient clinic → Valley Children's Hospital NICU → Infant Car Seat verification → Phototherapy initiation → Day 3 Bilirubin check.
-- **Result:** Fully verified; strictly maintains neonatal fields (TSB, birth weight in grams).
-
-### Scenario C: Transport Disruption & Rapid Reschedule
-- **Patient:** Lucia Gomez (Age 31, 38 weeks, PROM, lack of vehicle in severe snowstorm).
-- **Referral ID:** `NX-9019`
-- **Pathways Tested:** Transport request triggered → Fleet vehicle assigned → Disruption logged with mechanical/weather reason → Immediate fleet re-dispatch.
-- **Result:** Fully verified; audit trail records precise failure code and resolution.
-
-### Scenario D: Facility Capacity Divert & Inter-Hospital Redirection
-- **Patient:** Khadija Said (Age 24, 30 weeks, Preterm Labor).
-- **Referral ID:** `NX-9051`
-- **Pathways Tested:** Initial intake at St. Jude Hospital → Triage Nurse declines due to NICU bed saturation → Redirect modal invoked → Transferred to Detroit Medical Center → Audit log records mutual transfer agreement.
-- **Result:** Fully verified; diversion history preserved in immutable event trail.
-
-### Scenario E: Social Determinants & Language Barrier Mitigation
-- **Patient:** Amara Okafor (Age 27, 28 weeks, Gestational Diabetes, Yoruba speaking).
-- **Referral ID:** `NX-9038`
-- **Pathways Tested:** Navigator desk logs language barrier → Certified Yoruba medical interpreter requested → Contact attempt recorded (phone call) → Case flagged as active.
-- **Result:** Fully verified; navigator caseload and contact history updated.
-
-### Scenario F: 42-Day Postpartum Continuity & Handoff
-- **Patient:** Meera Devi (Age 32, Day 5 Postpartum, Post-discharge follow-up).
-- **Referral ID:** `NAV-2026-003`
-- **Pathways Tested:** Completed acute referral → Continuity matrix displays Days 3, 7, 14, 42 touchpoints → Day 3 lactation check marked completed with clinical note → Day 7 BP check scheduled.
-- **Result:** Fully verified; independent lifecycle confirmed.
+| Referral ID | Patient | Condition | Status | What to walk through |
+| :--- | :--- | :--- | :--- | :--- |
+| `REF-2024-8821` | Ananya Reddy (28 yrs) | Gestational pre-eclampsia (BP 152/98), late-onset IUGR | `ARRIVAL_CONFIRMED` | Resolved transport barrier, then recording the outcome |
+| `NX-9042` | Baby of Shalini Naidu (3 days) | Acute neonatal hyperbilirubinemia (TSB 21.4 mg/dL) | `ACKNOWLEDGED` | Open transport barrier, MediVan dispatch, neonatal outcome fields |
+| `MRN-773829` | Fathima Begum (29 yrs) | Late preterm PPROM | `ACKNOWLEDGED` | Urdu-speaking patient, arrival confirmation |
+| `NX-9038` | Anjali Gowda (31 yrs) | Severe postpartum pre-eclampsia (BP 168/104), visual scotoma | `ACKNOWLEDGED` | Open dependent-care barrier on the navigator desk |
+| `NX-9051` | Sunita Yadav (24 yrs) | Decreased fetal movement | `SENT` | Open weather barrier, facility accept or redirect |
+| `NX-9019` | Baby of Selvi Murugan (7 days) | Failure to thrive, 12.8% birth weight loss | `SENT` | Resolved financial barrier, facility accept |
+| `NAV-2026-003` | Meera Devi (31 yrs) | Delivered, healthy infant | `COMPLETED` | Follow-up tasks on the 42-day continuity desk |
 
 ---
 
@@ -122,27 +70,14 @@ $ npm run lint
 
 ## 5. Production Build Verification
 
-Command: `npm run build`  
-Engine: Vite v5.4.14 with Rollup compiler.
-
-```bash
-$ npm run build
-vite v5.4.14 building for production...
-transforming...
-✓ 1836 modules transformed.
-rendering chunks...
-computing gzip size...
-dist/index.html                   1.48 kB │ gzip:   0.62 kB
-dist/assets/index-DToS7PSZ.css   33.15 kB │ gzip:   6.41 kB
-dist/assets/index-DToS7PSZ.js   401.23 kB │ gzip: 118.42 kB
-✓ built in 2.53s
-```
+Command: `npm run build`
+Engine: Vite v5 with Tailwind CSS v3 through PostCSS. The build passes.
 
 ---
 
 ## 6. Known Scope Boundaries & Security Posture
 
 1. **Synthetic Data Clarification:** The application operates strictly on synthetic, anonymized clinical data for hackathon demonstration. All mock EHR connections, simulated transit trackers, and FHIR identifiers are prominently marked as simulated in accordance with clinical safety principles.
-2. **Browser Storage Boundary:** State is retained in browser `localStorage` (`navexa_domain_v3`). For multi-device cloud synchronizations, a production deployment would connect to a HIPAA-compliant FHIR API backend (e.g. Google Cloud Healthcare API).
+2. **Browser Storage Boundary:** State is retained in browser `localStorage` (`navexa_domain_v4`). For multi-device cloud synchronizations, a production deployment would connect to a FHIR API backend that meets India's DPDP Act 2023 and ABDM requirements.
 3. **No Clinical Advice Disclaimer:** A prominent header badge reminds evaluators that Navexa Health coordinates administrative logistics and continuity of care, but does not provide diagnostic decisions without a licensed physician.
 

@@ -12,7 +12,7 @@
 | Dimension | Verification Target | Result | Status |
 | :--- | :--- | :--- | :--- |
 | **Role-Specific Navigation Suite** | 7 automated tests in `navigationConfig.test.js` | 7 passed ($100\%$) | **PASS** |
-| **Domain & Workflow Suites** | 13 automated tests in `domain.test.js` & `ReferralContext.test.js` | 13 passed ($100\%$) | **PASS** |
+| **Domain & Workflow Suites** | See `docs/TESTING_REPORT.md` for the current suites and counts | All passing | **PASS** |
 | **Total Automated Tests** | 20 unit and integration tests | 20 passed in $300\text{ms}$ | **PASS** |
 | **Static Code Quality** | `eslint src` (ESLint v10) | 0 errors, 0 warnings | **PASS** |
 | **Production Vite Build** | `vite build` | 56 modules transformed, built in $2.78\text{s}$ | **PASS** |
@@ -62,7 +62,7 @@
 - **Verification:**
   - Zero clinical jargon, barrier resolution desks, or administrative triage consoles are visible.
   - Clicking "Live Transport & Ride Status" scrolls smoothly to the vehicle dispatch card.
-  - Clicking "Support & Emergency Help" anchors to the Care Navigator phone link and 911 banner.
+  - Clicking "Support & Emergency Help" anchors to the Care Navigator phone link and 108 banner.
   - "New Referral" button in header is automatically hidden for patients.
 
 ### 2.4 Care Navigator (`role === "navigator"`)
@@ -88,7 +88,7 @@
 | **Facility** | `/coordinator` | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub | **PASS** |
 | **Facility** | `/patient` | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub | **PASS** |
 | **Coordinator** | `/coordinator` | Allowed | Renders Coordinator Command Center | **PASS** |
-| **Coordinator** | `/referral/REF-2024-8821` | Allowed | Renders Elena Rostova case chart | **PASS** |
+| **Coordinator** | `/referral/REF-2024-8821` | Allowed | Renders Ananya Reddy case chart | **PASS** |
 | **Any Role** | `/referral/NON-EXISTENT-ID` | Referral Not Found | Renders 404 referral card with return button | **PASS** |
 | **Any Role** | `/random-unknown-path` | 404 Page Not Found | Renders NotFound.jsx with return to workspace button | **PASS** |
 
@@ -113,7 +113,7 @@
 ### 4.3 Mobile Viewports ($430 \times 932$, $390 \times 844$, $375 \times 812$)
 - **Top Header:** Clean, compact top bar with hamburger menu, live search input, notification bell, and persona badge.
 - **Drawer Navigation:** Renders role-specific links with generous $\ge 48\text{px}$ touch targets.
-- **Patient Dashboard:** Reflows into a single-column vertical timeline. 1-touch telephone links (`tel:911`, `tel:navigator`) work instantly.
+- **Patient Dashboard:** Reflows into a single-column vertical timeline. 1-touch telephone links (`tel:108`, `tel:navigator`) work instantly.
 - **No Page Blowout:** Zero horizontal page scrolling on the outer body canvas.
 
 ---
