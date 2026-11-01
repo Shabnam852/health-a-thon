@@ -25,7 +25,7 @@ const roles = [
     id: "patient",
     title: "Patient & Family",
     subtitle: "Continuous Care Journey",
-    description: "View live arrival roadmap, transport vehicle ETA, assigned care navigator (Maya Lin, MSW), and digital check-in QR pass.",
+    description: "View live arrival roadmap, transport vehicle ETA, assigned care navigator (Priya Raman, MSW), and digital check-in QR pass.",
     route: "/patient",
     icon: "family_restroom",
     badge: "Patient Experience",
@@ -131,7 +131,7 @@ const RoleSelection = () => {
               Direct Stitch Screen Navigation
             </span>
             <span className="font-label-sm text-xs text-on-surface-variant">
-              All 5 Stitch Screens Implemented
+              All 10 Screens Implemented
             </span>
           </div>
 

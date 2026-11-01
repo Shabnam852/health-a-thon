@@ -289,6 +289,32 @@ export const getRoleDefinition = (role) => {
   return roleDefinitions[role] || roleDefinitions[RoleId.COORDINATOR];
 };
 
+// Matches a whole path segment, so "/patient" covers "/patient/1" but not "/patient-admin".
+const matchesPrefix = (pathname, prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+
+/**
+ * Returns the one nav item for the current location, or null.
+ * The item whose path and query fit best wins; matchPrefix is only for pages below an item.
+ */
+export const getActiveNavItem = (items, pathname, search = "") => {
+  const current = new URLSearchParams(search);
+  let best = null;
+  let bestParams = -1;
+
+  for (const item of items) {
+    const [itemPath, itemQuery = ""] = item.path.split("?");
+    if (itemPath !== pathname) continue;
+    const params = [...new URLSearchParams(itemQuery)];
+    if (params.length > bestParams && params.every(([key, value]) => current.get(key) === value)) {
+      best = item;
+      bestParams = params.length;
+    }
+  }
+  if (best) return best;
+
+  return items.find((item) => item.matchPrefix && matchesPrefix(pathname, item.matchPrefix)) || null;
+};
+
 /**
  * Checks whether a pathname is permitted for a specific role.
  */
@@ -299,7 +325,17 @@ export const isRouteAllowedForRole = (role, pathname) => {
   const def = getRoleDefinition(role);
   if (!def || !def.allowedPrefixes) return true;
 
-  return def.allowedPrefixes.some((prefix) => pathname.startsWith(prefix));
+  return def.allowedPrefixes.some((prefix) => matchesPrefix(pathname, prefix));
+};
+
+/**
+ * True when a pathname belongs to a workspace of any role. Everything else is a 404.
+ */
+export const isKnownRoute = (pathname) => {
+  if (pathname === "/" || pathname === "") return true;
+  return Object.values(roleDefinitions).some((def) =>
+    def.allowedPrefixes.some((prefix) => matchesPrefix(pathname, prefix))
+  );
 };
 
 /**

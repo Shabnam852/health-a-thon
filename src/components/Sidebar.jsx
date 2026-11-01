@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import {
+  getActiveNavItem,
   getNavigationForRole,
   getRoleDefinition,
   roleDefinitions,
@@ -15,6 +16,7 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
   const currentRole = role || "coordinator";
   const roleDef = getRoleDefinition(currentRole);
   const navItems = getNavigationForRole(currentRole);
+  const activeItem = getActiveNavItem(navItems, location.pathname, location.search);
 
   const handleRoleChange = (e) => {
     const newRole = e.target.value;
@@ -84,10 +86,7 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
           </div>
 
           {navItems.map((item) => {
-            const currentFull = location.pathname + location.search;
-            const isExact = currentFull === item.path;
-            const isPrefix = item.matchPrefix && location.pathname.startsWith(item.matchPrefix);
-            const isActive = isExact || isPrefix;
+            const isActive = item === activeItem;
 
             return (
               <Link
@@ -127,7 +126,7 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <p className="font-title-sm text-xs text-primary font-bold truncate">
+              <p className="font-title-sm text-xs text-primary font-bold">
                 {roleDef.title}
               </p>
               <span className="w-2 h-2 rounded-full bg-secondary"></span>

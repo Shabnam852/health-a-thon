@@ -26,7 +26,7 @@ The platform defines four distinct primary operational personas:
 | :--- | :--- | :--- | :--- | :--- |
 | `coordinator` | **Care Coordinator** | Coordinator | System-wide referral coordination, acuity prioritization, shift logs, capacity monitoring. | `/coordinator` |
 | `facility` | **Receiving Healthcare Facility** | Facility Operations | Inbound transfer triage, bed hold, rejection/diversion, physical arrival confirmation, clinical outcomes. | `/facility` |
-| `patient` | **Patient & Family** | Patient Journey | Reassuring, plain-language care progress, transit vehicle ETA, emergency 911 advisory, 42-day follow-up. | `/patient` |
+| `patient` | **Patient & Family** | Patient Journey | Reassuring, plain-language care progress, transit vehicle ETA, emergency 108 advisory, 42-day follow-up. | `/patient` |
 | `navigator` | **Care Navigator** | Community Caseload | Patient outreach logging (calls/visits), medical interpreter booking, SDOH barrier mitigation, transit dispatch. | `/navigator` |
 
 ---
@@ -54,7 +54,7 @@ The coordinator's sidebar focuses strictly on triage command, barrier oversight,
 ### 3.2 Receiving Facility Navigation (`role === 'facility'`)
 The hospital triage and intake sidebar focuses strictly on clinical admissions and handover:
 
-1. **Facility Operations Hub** (`/facility`): Facility switcher (St. Jude, Valley Children's, etc.), active bed counters, triage controls.
+1. **Facility Operations Hub** (`/facility`): Facility switcher (Sanjeevani, Karuna Women & Children's, etc.), active bed counters, triage controls.
 2. **Pending Intake Queue** (`/facility?tab=pending`): Unacknowledged transfer referrals awaiting acceptance or bed hold.
 3. **In-Transit Patient Transfers** (`/facility?tab=intransit`): Inbound patients en route with active vehicle ETAs.
 4. **Physical Arrivals & Intake** (`/facility?tab=arrived`): Threshold verification modal capturing staff ID, arrival time, and triage bay.
@@ -73,7 +73,7 @@ The patient interface is intentionally minimal, calming, and free of clinical ja
 2. **Live Transport & Ride Status** (`/patient?view=transit`): Live vehicle details (MediVan #04), driver name, phone link, and real-time ETA.
 3. **What to Bring Checklist** (`/patient?view=checklist`): Interactive preparation checklist (ID, insurance, meds, slippers).
 4. **42-Day Postpartum Plan** (`/continuity`): Plain-language postpartum recovery touchpoint schedule.
-5. **Support & Emergency Help** (`/patient?view=support`): Direct 1-tap call to Care Navigator and emergency 911 banner.
+5. **Support & Emergency Help** (`/patient?view=support`): Direct 1-tap call to Care Navigator and emergency 108 banner.
 
 *Restricted from Patient:* ALL administrative triage tools (`/coordinator`, `/facility`, `/barriers`, `/transport`, `/create`, `/network`, `/navigator`).
 
@@ -84,7 +84,7 @@ The care navigator sidebar focuses on community social work and direct patient a
 
 1. **Navigator Caseload Desk** (`/navigator`): Caseload roster, contact history logger (phone/voicemail/home visit), interpreter booking.
 2. **Barrier Resolution Desk** (`/barriers`): Socioeconomic barrier diagnostics and transit voucher authorization.
-3. **Transport Fleet Dispatch** (`/transport`): Medical vehicle dispatch and car seat enforcement.
+3. **Transport Fleet Dispatch** (`/transport`): Medical vehicle dispatch and neonatal transport kit enforcement.
 4. **42-Day Postpartum Touchpoints** (`/continuity`): Post-discharge well-mother and well-baby visit surveillance.
 5. **Regional Facility Grid** (`/network`): Medical center directory for transfer routing.
 

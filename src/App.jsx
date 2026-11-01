@@ -14,6 +14,15 @@ import TransportCoordination from "./pages/TransportCoordination.jsx";
 import ContinuityOfCare from "./pages/ContinuityOfCare.jsx";
 import NavigatorWorkspace from "./pages/NavigatorWorkspace.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import { useReferrals } from "./context/ReferralContext.jsx";
+import { RoleId, getRoleDefinition } from "./config/navigationConfig.js";
+
+// There is no standalone list page, so /referrals opens the role's own queue.
+const ReferralsRedirect = () => {
+  const { role } = useReferrals();
+  const queues = { [RoleId.COORDINATOR]: "/coordinator?view=queue", [RoleId.FACILITY]: "/facility?tab=pending" };
+  return <Navigate to={queues[role] || getRoleDefinition(role).homePath} replace />;
+};
 
 function App() {
   return (
@@ -52,11 +61,7 @@ function App() {
 
         <Route
           path="/referrals"
-          element={
-            <AppShell>
-              <ReferralDetails />
-            </AppShell>
-          }
+          element={<ReferralsRedirect />}
         />
 
         <Route

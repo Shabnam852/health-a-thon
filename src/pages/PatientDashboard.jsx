@@ -1,51 +1,69 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import Toast, { useToast } from "../components/Toast.jsx";
 import { ReferralStatus, TransportStatus } from "../domain/enums.js";
+import { StorageAdapter } from "../services/storageAdapter.js";
+
+const PATIENT_VIEWS = ["transit", "checklist", "support"];
+
+// How far along the ride is, for the stages on the ride screen.
+const RIDE_STAGES = ["Ride requested", "Vehicle on the way", "Picked up", "Arrived at hospital"];
+const RIDE_STAGE_BY_STATUS = {
+  [TransportStatus.REQUESTED]: 1,
+  [TransportStatus.ASSIGNED]: 1,
+  [TransportStatus.DISPATCHED]: 2,
+  [TransportStatus.PICKED_UP]: 3,
+  [TransportStatus.ARRIVED]: 4,
+};
+
+const CHECKLIST_ITEMS = [
+  { id: 1, text: "Photo ID (Aadhaar, Voter ID or Passport)" },
+  { id: 2, text: "Ayushman Bharat (PM-JAY) card or ABHA number (if available)" },
+  { id: 3, text: "Mother & Child Protection (MCP) card and current prescriptions" },
+  { id: 4, text: "Comfortable slippers and extra phone charger" },
+];
 
 const PatientDashboard = () => {
-  const { referrals, activeReferralId, setActiveReferralId } = useReferrals();
+  const { referrals, facilities, activeReferralId, setActiveReferralId } = useReferrals();
   const [searchParams] = useSearchParams();
 
   // Find active referral or default to first
   const referral =
     referrals.find((r) => r.id === activeReferralId) ||
-    referrals.find((r) => r.patientName?.includes("Fatima")) ||
+    referrals.find((r) => r.patientName?.includes("Fathima")) ||
     referrals[0];
 
   const patientFirstName = referral?.patientName?.split(" ")[0] || "Patient";
   const tr = referral?.transit;
 
   const viewFromUrl = searchParams.get("view");
+  const view = PATIENT_VIEWS.includes(viewFromUrl) ? viewFromUrl : "overview";
+
+  // Each view is its own screen, so it opens at the top.
   useEffect(() => {
-    if (viewFromUrl) {
-      const el = document.getElementById(viewFromUrl);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }
-  }, [viewFromUrl]);
+    window.scrollTo(0, 0);
+  }, [view]);
 
   // What to bring checklist state
-  const [checklist, setChecklist] = useState([
-    { id: 1, text: "Photo ID (Driver License or Passport)", checked: true },
-    { id: 2, text: "Health Insurance card or Medicaid number (if available)", checked: true },
-    { id: 3, text: "Current prenatal vitamins or prescription bottles", checked: false },
-    { id: 4, text: "Comfortable slippers and extra phone charger", checked: false },
-  ]);
+  const [savedChecklists, setSavedChecklists] = useState(() => StorageAdapter.getChecklists());
+  const checklist = CHECKLIST_ITEMS.map((item) => ({
+    ...item,
+    checked: Boolean(savedChecklists[referral?.id]?.[item.id]),
+  }));
 
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
   const toggleChecklistItem = (id) => {
-    setChecklist((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item))
-    );
+    const key = referral?.id;
+    const next = {
+      ...savedChecklists,
+      [key]: { ...savedChecklists[key], [id]: !savedChecklists[key]?.[id] },
+    };
+    setSavedChecklists(next);
+    StorageAdapter.saveChecklists(next);
   };
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   // Determine stage progress from actual domain status
   const isDoctorSent = referral?.status !== ReferralStatus.CREATED;
@@ -64,17 +82,19 @@ const PatientDashboard = () => {
     referral?.status === ReferralStatus.COMPLETED;
   const isCareCompleted = referral?.status === ReferralStatus.COMPLETED;
 
+  const rideStage = isArrivalConfirmed ? RIDE_STAGES.length : RIDE_STAGE_BY_STATUS[tr?.status] || 0;
+  const rideSummary = isArrivalConfirmed
+    ? "Arrived at hospital"
+    : tr?.status === TransportStatus.FAILED
+    ? "Disrupted: another ride is being arranged"
+    : RIDE_STAGES[rideStage - 1] || "Being arranged";
+  const packedCount = checklist.filter((item) => item.checked).length;
+  const receivingFacility = facilities.find((f) => f.name === referral?.toFacility);
+
   return (
     <div className="flex flex-col w-full pb-16">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Patient Case Selector for Demo Reviewers */}
@@ -89,7 +109,7 @@ const PatientDashboard = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-            {referrals.slice(0, 5).map((r) => (
+            {referrals.map((r) => (
               <button
                 key={r.id}
                 onClick={() => setActiveReferralId(r.id)}
@@ -126,16 +146,17 @@ const PatientDashboard = () => {
             </div>
 
             <a
-              href="tel:911"
+              href="tel:108"
               className="w-full md:w-auto px-4 py-2 rounded-lg bg-error text-white font-title-sm text-xs hover:opacity-95 shadow-xs flex items-center justify-center gap-1.5 font-bold shrink-0"
             >
               <span className="material-symbols-outlined text-[16px]">call</span>
-              <span>Call 911 / Emergency Services</span>
+              <span>Call 108 / Emergency Services</span>
             </a>
           </div>
         </section>
 
-        {/* Reassuring Hero Banner */}
+        {view === "overview" && (
+          <>
         <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-container via-primary to-primary-container text-on-primary p-6 md:p-8 shadow-md">
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 max-w-2xl">
@@ -150,7 +171,7 @@ const PatientDashboard = () => {
 
               <p className="font-body-md text-sm text-surface-container-high">
                 Your transfer to <strong className="text-white">{referral?.toFacility}</strong> is coordinated and confirmed.
-                Your dedicated guide <strong className="text-secondary-fixed">{referral?.navigator?.name || "Maya Lin, MSW"}</strong> is monitoring your arrival.
+                Your dedicated guide <strong className="text-secondary-fixed">{referral?.navigator?.name || "Priya Raman, MSW"}</strong> is monitoring your arrival.
               </p>
             </div>
 
@@ -177,7 +198,7 @@ const PatientDashboard = () => {
                   : isArrivalConfirmed
                   ? `Admitted to ${referral?.toFacility}`
                   : isTransitActive
-                  ? `Driver ${tr?.driver || "Marcus Ross"} is on the way (ETA: ${tr?.eta || "12m"})`
+                  ? `Driver ${tr?.driver || "Manjunath Gowda"} is on the way (ETA: ${tr?.eta || "12m"})`
                   : isFacilityAccepted
                   ? "Bed pod prepped for your arrival"
                   : "Awaiting facility intake review"}
@@ -186,9 +207,7 @@ const PatientDashboard = () => {
           </div>
         </header>
 
-        {/* 2-Column Main Workspace */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Reactive Care Roadmap Timeline (7 cols) */}
           <div className="lg:col-span-7 space-y-4">
             <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-xs border border-surface-container/60 space-y-6">
               <div className="flex items-center justify-between border-b border-surface-container pb-3">
@@ -240,7 +259,7 @@ const PatientDashboard = () => {
                 </div>
 
                 {/* Step 3: Transport & Travel Support */}
-                <div id="transit" className="relative group scroll-mt-24">
+                <div className="relative group">
                   <div className={`absolute -left-[31px] top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                     isTransitArrived
                       ? "bg-secondary text-white"
@@ -262,10 +281,12 @@ const PatientDashboard = () => {
                       {isTransitActive ? "MediRide Travel Support En Route" : isTransitArrived ? "Safe Transit Completed" : "Travel Assistance Available"}
                     </h3>
                     <p className="text-xs text-on-surface-variant mt-1">
-                      {tr ? (
+                      {tr?.vehicle ? (
                         <>Assigned vehicle: <strong className="text-primary">{tr.vehicle}</strong> (Driver: {tr.driver}, ETA: {tr.eta || "10m"}). Zero fare or copay required.</>
+                      ) : tr ? (
+                        "Your ride has been requested. Your care navigator will confirm the vehicle and driver soon."
                       ) : (
-                        "If you need free transportation or an infant car seat, your care navigator will arrange it directly."
+                        "If you need free transportation or a safe way to carry your newborn, your care navigator will arrange it directly."
                       )}
                     </p>
                   </div>
@@ -323,10 +344,150 @@ const PatientDashboard = () => {
             </div>
           </div>
 
-          {/* Right Column: Check-in Pass, Guide Card & Checklist (5 cols) */}
-          <div className="lg:col-span-5 space-y-4">
-            {/* Dedicated Navigator Guide Card */}
-            <div id="support" className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-3 scroll-mt-24">
+              {/* Right Column: where to go next */}
+              <div className="lg:col-span-5 space-y-4">
+                {[
+                  {
+                    to: "/patient?view=transit",
+                    icon: "directions_car",
+                    title: "Your Ride",
+                    detail: tr ? rideSummary : "No ride booked yet",
+                  },
+                  {
+                    to: "/patient?view=checklist",
+                    icon: "checklist",
+                    title: "What to Bring",
+                    detail: `${packedCount} of ${checklist.length} items packed`,
+                  },
+                  {
+                    to: "/patient?view=support",
+                    icon: "support_agent",
+                    title: "Your Care Navigator",
+                    detail: referral?.navigator?.name || "Priya Raman, MSW",
+                  },
+                ].map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 flex items-center gap-3 hover:border-secondary/50 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-secondary text-[22px] shrink-0">{item.icon}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-title-sm text-sm text-primary font-bold">{item.title}</span>
+                      <span className="block text-xs text-on-surface-variant mt-0.5">{item.detail}</span>
+                    </span>
+                    <span className="material-symbols-outlined text-on-surface-variant text-[18px] shrink-0">arrow_forward</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {view === "transit" && (
+          <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-5">
+            <div>
+              <span className="text-[11px] font-label-sm uppercase font-bold text-secondary tracking-wider">Live Transport</span>
+              <h1 className="font-headline-md text-xl font-bold text-primary">Your Ride to {referral?.toFacility}</h1>
+            </div>
+
+            {tr?.status === TransportStatus.FAILED && !isArrivalConfirmed && (
+              <div className="p-3 rounded-xl bg-error-container text-on-error-container text-xs">
+                <strong>Your ride was disrupted.</strong> {tr.failedReason} Your care navigator is arranging another one.
+              </div>
+            )}
+
+            {!tr && !isArrivalConfirmed ? (
+              <p className="text-sm text-on-surface-variant">
+                No ride is booked yet. If you need free transportation or a safe way to carry your newborn, your care navigator will arrange it.
+              </p>
+            ) : (
+              <>
+                <ol className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {RIDE_STAGES.map((stage, index) => {
+                    const isDone = index < rideStage;
+                    return (
+                      <li
+                        key={stage}
+                        className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                          isDone ? "bg-secondary/10 text-secondary" : "bg-surface-container-low text-on-surface-variant"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px] shrink-0">
+                          {isDone ? "check_circle" : "radio_button_unchecked"}
+                        </span>
+                        <span>{stage}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                {tr && (
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {[
+                      ["Vehicle", tr.vehicle || "Being assigned"],
+                      ["Driver", tr.driver || "Being assigned"],
+                      ["Driver phone", tr.driverPhone],
+                      ["Estimated arrival", isArrivalConfirmed ? "Arrived" : tr.eta],
+                      ["Pickup", tr.pickupAddress || referral?.patientAddress],
+                      ["Destination", referral?.toFacility],
+                    ]
+                      .filter(([, value]) => value)
+                      .map(([label, value]) => (
+                        <div key={label} className="p-3 rounded-xl bg-surface-container-low">
+                          <dt className="text-on-surface-variant">{label}</dt>
+                          <dd className="font-semibold text-primary mt-0.5">{value}</dd>
+                        </div>
+                      ))}
+                  </dl>
+                )}
+
+                <p className="text-xs text-on-surface-variant">Zero fare or copay required.</p>
+              </>
+            )}
+          </div>
+        )}
+
+        {view === "checklist" && (
+          <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-[11px] font-label-sm uppercase font-bold text-secondary tracking-wider">Preparation</span>
+                <h1 className="font-headline-md text-xl font-bold text-primary">What to Bring</h1>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary-fixed text-on-secondary-fixed">
+                {packedCount} of {checklist.length} packed
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {checklist.map((item) => (
+                <label
+                  key={item.id}
+                  className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors text-xs text-on-surface"
+                >
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={() => toggleChecklistItem(item.id)}
+                    className="w-4 h-4 rounded text-secondary focus:ring-secondary/40"
+                  />
+                  <span className={item.checked ? "line-through text-on-surface-variant" : ""}>
+                    {item.text}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <p className="text-xs text-on-surface-variant border-t border-surface-container pt-3">
+              At {referral?.toFacility}, show case ID <strong className="text-primary">{referral?.id}</strong> at the triage reception desk.
+            </p>
+          </div>
+        )}
+
+        {view === "support" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-3">
               <span className="text-[10px] font-label-sm font-bold uppercase text-secondary tracking-wider block">
                 Your Dedicated Care Navigator
               </span>
@@ -335,15 +496,15 @@ const PatientDashboard = () => {
                 <img
                   className="w-12 h-12 rounded-full object-cover ring-2 ring-surface-container"
                   alt="Navigator"
-                  src={referral?.navigator?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuDoZfH4bzWWKO46H7BwByYXNjLd4FhpN7LW57qYEUL5j3A47FUv2i09dJmjQL1-MUN4d7VztblABu5RPVUzpx8obJuR1ntnJjb4W9zE5qpFD2vmeTihz8r3qv6wjd0vqiE19y8l5GMFj-AhAZCenAQ7biqFZJWwGsbmWee9F4s5Sk-xXyQtcirTUUZU9Jw5PL2difZ0P0uXr72r6EMZvVHP30iJbdO8p4Anu7jP4zLlWygVN5Mv7nDeWQ"}
+                  src={referral?.navigator?.avatar || "/images/avatar-priya-raman.svg"}
                 />
                 <div>
                   <h3 className="font-title-sm text-sm text-primary font-bold">
-                    {referral?.navigator?.name || "Maya Lin, MSW"}
+                    {referral?.navigator?.name || "Priya Raman, MSW"}
                   </h3>
                   <p className="text-xs text-on-surface-variant">Lead Care Coordinator</p>
                   <p className="text-[11px] text-secondary font-medium mt-0.5">
-                    {referral?.navigator?.phone || "(555) 392-1049"}
+                    {referral?.navigator?.phone || "+91 90000 21049"}
                   </p>
                 </div>
               </div>
@@ -353,43 +514,37 @@ const PatientDashboard = () => {
               </div>
 
               <button
-                onClick={() => showToast(`Calling your navigator ${referral?.navigator?.name || "Maya Lin"}...`)}
+                onClick={() => showToast(`Demo only: no call placed to ${referral?.navigator?.name || "your navigator"}.`)}
                 className="w-full py-2 px-3 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-container transition-colors flex items-center justify-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">call</span>
-                <span>Call Navigator Maya Directly</span>
+                <span>Call Navigator {referral?.navigator?.name?.split(",")[0] || "Directly"}</span>
               </button>
             </div>
 
-            {/* What to Bring Checklist */}
-            <div id="checklist" className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-3 scroll-mt-24">
-              <h3 className="font-title-sm text-sm text-primary font-bold flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-secondary text-[18px]">checklist</span>
-                What to Bring Checklist
-              </h3>
 
-              <div className="space-y-2">
-                {checklist.map((item) => (
-                  <label
-                    key={item.id}
-                    onClick={() => toggleChecklistItem(item.id)}
-                    className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors text-xs text-on-surface"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={item.checked}
-                      onChange={() => {}}
-                      className="w-4 h-4 rounded text-secondary focus:ring-secondary/40"
-                    />
-                    <span className={item.checked ? "line-through text-on-surface-variant" : ""}>
-                      {item.text}
-                    </span>
-                  </label>
-                ))}
-              </div>
+            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-3">
+              <span className="text-[10px] font-label-sm font-bold uppercase text-secondary tracking-wider block">
+                Your Hospital & Language Support
+              </span>
+              <dl className="space-y-2 text-xs">
+                {[
+                  ["Receiving hospital", referral?.toFacility],
+                  ["Hospital phone", receivingFacility?.phone],
+                  ["Your language", referral?.language],
+                  ["Interpreter", referral?.interpreterNeeded ? "Requested for your visit" : "Not requested"],
+                ]
+                  .filter(([, value]) => value)
+                  .map(([label, value]) => (
+                    <div key={label} className="p-3 rounded-xl bg-surface-container-low">
+                      <dt className="text-on-surface-variant">{label}</dt>
+                      <dd className="font-semibold text-primary mt-0.5">{value}</dd>
+                    </div>
+                  ))}
+              </dl>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

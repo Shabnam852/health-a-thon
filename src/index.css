@@ -4,6 +4,10 @@
    Project: Navexa Health Design System (12727947044852093565)
    ========================================================= */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @layer base {
   :root {
     /* Primary deep navy structure */
@@ -84,6 +88,13 @@
     overscroll-behavior: none;
   }
 
+  /* Fields cannot wrap, so long values end in an ellipsis instead of a hard cut. */
+  input,
+  select {
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+
   main > :first-child {
     margin-top: 0 !important;
   }
@@ -93,7 +104,8 @@
   }
 }
 
-/* Material Symbols Outlined Icon Font */
+/* Material Symbols Outlined Icon Font (a layer, so text-[Npx] utilities can resize icons) */
+@layer components {
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
   font-weight: normal;
@@ -109,6 +121,7 @@
   font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
   vertical-align: middle;
+}
 }
 
 /* Tabular Numerals for Clinical Metrics */

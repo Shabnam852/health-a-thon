@@ -3,7 +3,16 @@
  * Standardized data entities with unique ID generation, defaults, and validation.
  */
 
-import { ReferralStatus, TransportStatus, BarrierStatus, UrgencyLevel, PatientType } from "./enums.js";
+import {
+  ReferralStatus,
+  TransportStatus,
+  BarrierStatus,
+  FollowUpStatus,
+  CarePlanStatus,
+  AuditRole,
+  UrgencyLevel,
+  PatientType,
+} from "./enums.js";
 
 export const generateId = (prefix = "REF") => {
   const timestamp = Date.now().toString().slice(-4);
@@ -16,11 +25,11 @@ export const generateId = (prefix = "REF") => {
  */
 export const createAuditEvent = ({
   actor = "System",
-  role = "system",
+  role = AuditRole.SYSTEM,
   action = "UPDATE",
   details = "",
   timestamp = new Date().toISOString(),
-}) => ({
+} = {}) => ({
   id: generateId("AUD"),
   actor,
   role,
@@ -42,7 +51,7 @@ export const createBarrier = ({
   resolvedAt = null,
   resolutionNotes = "",
   assignedTo = null,
-}) => ({
+} = {}) => ({
   id,
   category,
   title,
@@ -64,24 +73,24 @@ export const createTransportRequest = ({
   pickupAddress = "",
   destinationFacility = "",
   vehicleType = "MediRide Van",
-  requiresInfantCarSeat = false,
+  requiresNeonatalKit = false,
   requiresWheelchair = false,
-  vehicle = null, // e.g. "MediVan #04 (Silver Transit • Plate 7TX-489)"
-  driver = null,  // e.g. "Marcus Ross"
-  driverPhone = "(555) 481-9921",
+  vehicle = null, // e.g. "MediVan #04 (Silver Transit • Plate KA-01-AB-4892)"
+  driver = null,  // e.g. "Manjunath Gowda"
+  driverPhone = "+91 90000 19921",
   eta = null,     // e.g. "12 mins"
   dispatchedAt = null,
   pickedUpAt = null,
   arrivedAt = null,
   failedReason = null,
-}) => ({
+} = {}) => ({
   id,
   referralId,
   status,
   pickupAddress,
   destinationFacility,
   vehicleType,
-  requiresInfantCarSeat,
+  requiresNeonatalKit,
   requiresWheelchair,
   vehicle,
   driver,
@@ -103,7 +112,7 @@ export const createArrivalRecord = ({
   department = "Obstetric & Neonatal Triage",
   room = "Intake Bay 01",
   notes = "Patient arrival physically confirmed.",
-}) => ({
+} = {}) => ({
   arrivedAt,
   verifiedBy,
   staffId,
@@ -112,6 +121,22 @@ export const createArrivalRecord = ({
   notes,
 });
 
+const MATERNAL_OUTCOME_FIELDS = { maternalStatus: null, deliveryType: null, gestationalOutcome: "" };
+const NEONATAL_OUTCOME_FIELDS = {
+  neonatalStatus: null,
+  birthWeightGrams: null,
+  apgar1Min: null,
+  apgar5Min: null,
+  bilirubinMgDl: null,
+};
+
+// Blanks the fields of the other patient type. A dyad record covers both.
+const hideOtherPatientFields = (referralType) => {
+  if (referralType === PatientType.MATERNAL) return NEONATAL_OUTCOME_FIELDS;
+  if (referralType === PatientType.CHILD) return MATERNAL_OUTCOME_FIELDS;
+  return {};
+};
+
 /**
  * Creates a structured clinical assessment & outcome record.
  * Strictly separates maternal vs. neonatal outcomes.
@@ -119,7 +144,7 @@ export const createArrivalRecord = ({
 export const createClinicalOutcome = ({
   assessedAt = new Date().toISOString(),
   clinicianName = "Attending Physician / Midwife",
-  clinicianRole = "MD / CNM",
+  clinicianRole = "MD / MS (OBG)",
   referralType = PatientType.MATERNAL,
   diagnosisConfirmed = "",
   // Maternal specifics
@@ -135,7 +160,7 @@ export const createClinicalOutcome = ({
   // Common outcome disposition
   disposition = "ADMITTED",  // ADMITTED, DISCHARGED_HOME, TRANSFERRED_QUATERNARY
   clinicalNotes = "",
-}) => ({
+} = {}) => ({
   assessedAt,
   clinicianName,
   clinicianRole,
@@ -151,6 +176,7 @@ export const createClinicalOutcome = ({
   bilirubinMgDl,
   disposition,
   clinicalNotes,
+  ...hideOtherPatientFields(referralType),
 });
 
 /**
@@ -162,12 +188,12 @@ export const createFollowUpTask = ({
   dayOffset = 3, // e.g., Day 3, Day 7, Day 14, Day 42
   dueDate = null,
   targetRole = "Community Midwife / Lactation Consultant",
-  status = "PLANNED", // PLANNED, SCHEDULED, COMPLETED, MISSED, ESCALATED
+  status = FollowUpStatus.PLANNED,
   clinicalFocus = "Lactation assessment and neonatal jaundice screening",
   completedAt = null,
   completedBy = null,
   notes = "",
-}) => ({
+} = {}) => ({
   id,
   title,
   dayOffset,
@@ -190,56 +216,63 @@ export const createFollowUpPlan = ({
   patientName,
   referralType = PatientType.MATERNAL,
   establishedAt = new Date().toISOString(),
-  leadWorker = "Maya Lin, MSW",
+  leadWorker = "Priya Raman, MSW",
   tasks = [],
-}) => {
+} = {}) => {
   // Default evidence-based touchpoints if none provided
+  const maternalTasks = () => [
+      createFollowUpTask({
+        title: "Day 3 Maternal & Lactation Check",
+        dayOffset: 3,
+        clinicalFocus: "Lactation onset, early wound check, BP re-screen",
+      }),
+      createFollowUpTask({
+        title: "Day 7 BP & Surgical Healing",
+        dayOffset: 7,
+        clinicalFocus: "Rule out secondary PPH, severe preeclampsia recurrence, cesarean wound check",
+      }),
+      createFollowUpTask({
+        title: "Day 14 Emotional Health & Mental Well-being",
+        dayOffset: 14,
+        clinicalFocus: "Postpartum depression/anxiety screening (EPDS), infant feeding sustainability",
+      }),
+      createFollowUpTask({
+        title: "Day 42 Comprehensive Postpartum Exam",
+        dayOffset: 42,
+        clinicalFocus: "Pelvic exam, contraception, transition to primary well-woman care",
+      }),
+    ];
+
+  const neonatalTasks = () => [
+      createFollowUpTask({
+        title: "Day 3 Neonatal Bilirubin & Hydration",
+        dayOffset: 3,
+        clinicalFocus: "Transcutaneous bilirubin check, weight loss check (<10% threshold)",
+      }),
+      createFollowUpTask({
+        title: "Day 7 Well-Baby Weight Check",
+        dayOffset: 7,
+        clinicalFocus: "Regaining birth weight, cord care, feeding latch evaluation",
+      }),
+      createFollowUpTask({
+        title: "Day 14 Newborn Metabolic & Development",
+        dayOffset: 14,
+        clinicalFocus: "Metabolic screen verification, developmental reflexes",
+      }),
+      createFollowUpTask({
+        title: "Day 28 Neonatal Transition",
+        dayOffset: 28,
+        clinicalFocus: "One-month pediatric primary care handoff and immunization scheduling",
+      }),
+    ];
+
+  // A dyad record follows both the mother and the baby.
   const defaultTasks =
     referralType === PatientType.MATERNAL
-      ? [
-          createFollowUpTask({
-            title: "Day 3 Maternal & Lactation Check",
-            dayOffset: 3,
-            clinicalFocus: "Lactation onset, early wound check, BP re-screen",
-          }),
-          createFollowUpTask({
-            title: "Day 7 BP & Surgical Healing",
-            dayOffset: 7,
-            clinicalFocus: "Rule out secondary PPH, severe preeclampsia recurrence, cesarean wound check",
-          }),
-          createFollowUpTask({
-            title: "Day 14 Emotional Health & Mental Well-being",
-            dayOffset: 14,
-            clinicalFocus: "Postpartum depression/anxiety screening (EPDS), infant feeding sustainability",
-          }),
-          createFollowUpTask({
-            title: "Day 42 Comprehensive Postpartum Exam",
-            dayOffset: 42,
-            clinicalFocus: "Pelvic exam, contraception, transition to primary well-woman care",
-          }),
-        ]
-      : [
-          createFollowUpTask({
-            title: "Day 3 Neonatal Bilirubin & Hydration",
-            dayOffset: 3,
-            clinicalFocus: "Transcutaneous bilirubin check, weight loss check (<10% threshold)",
-          }),
-          createFollowUpTask({
-            title: "Day 7 Well-Baby Weight Check",
-            dayOffset: 7,
-            clinicalFocus: "Regaining birth weight, cord care, feeding latch evaluation",
-          }),
-          createFollowUpTask({
-            title: "Day 14 Newborn Metabolic & Development",
-            dayOffset: 14,
-            clinicalFocus: "Metabolic screen verification, developmental reflexes",
-          }),
-          createFollowUpTask({
-            title: "Day 28 Neonatal Transition",
-            dayOffset: 28,
-            clinicalFocus: "One-month pediatric primary care handoff and immunization scheduling",
-          }),
-        ];
+      ? maternalTasks()
+      : referralType === PatientType.DYAD
+      ? [...maternalTasks(), ...neonatalTasks()].sort((a, b) => a.dayOffset - b.dayOffset)
+      : neonatalTasks();
 
   return {
     id,
@@ -249,7 +282,7 @@ export const createFollowUpPlan = ({
     referralType,
     establishedAt,
     leadWorker,
-    status: "ACTIVE", // ACTIVE, COMPLETED, ESCALATED
+    status: CarePlanStatus.ACTIVE,
     tasks: tasks.length > 0 ? tasks : defaultTasks,
   };
 };
@@ -261,8 +294,8 @@ export const createReferral = ({
   id = generateId("REF-2024"),
   patientName,
   patientId = generateId("MRN"),
-  age = "28 yrs",
-  parity = "G1P0",
+  age = "Not recorded",
+  parity = "Not recorded",
   gestationalAge = "36w 0d",
   edd = "",
   condition = "",
@@ -270,7 +303,7 @@ export const createReferral = ({
   priority = UrgencyLevel.URGENT,
   status = ReferralStatus.CREATED,
   fromFacility,
-  fromClinician = "Referring Provider, MD/CNM",
+  fromClinician = "Referring Provider, MD/MS",
   toFacility,
   department = "Obstetric & Neonatal Triage",
   reason = "",
@@ -291,7 +324,7 @@ export const createReferral = ({
   followUpPlan = null,
   timeline = [],
   auditTrail = [],
-}) => ({
+} = {}) => ({
   id,
   patientName,
   patientId,
@@ -318,16 +351,16 @@ export const createReferral = ({
   createdAt,
   navigator: navigator || {
     id: "NAV-01",
-    name: "Maya Lin, MSW",
+    name: "Priya Raman, MSW",
     role: "Lead Perinatal Care Coordinator",
-    avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDoZfH4bzWWKO46H7BwByYXNjLd4FhpN7LW57qYEUL5j3A47FUv2i09dJmjQL1-MUN4d7VztblABu5RPVUzpx8obJuR1ntnJjb4W9zE5qpFD2vmeTihz8r3qv6wjd0vqiE19y8l5GMFj-AhAZCenAQ7biqFZJWwGsbmWee9F4s5Sk-xXyQtcirTUUZU9Jw5PL2difZ0P0uXr72r6EMZvVHP30iJbdO8p4Anu7jP4zLlWygVN5Mv7nDeWQ",
-    phone: "(555) 392-1049",
+    avatar: "/images/avatar-priya-raman.svg",
+    phone: "+91 90000 21049",
   },
   vitals,
   barriers: barriers.map((b) => (b.id ? b : createBarrier(b))),
   transit: transit ? (transit.id ? transit : createTransportRequest({ ...transit, referralId: id })) : null,
   arrival: arrival ? (arrival.arrivedAt ? arrival : createArrivalRecord(arrival)) : null,
-  clinicalOutcome: clinicalOutcome ? createClinicalOutcome(clinicalOutcome) : null,
+  clinicalOutcome: clinicalOutcome ? createClinicalOutcome({ referralType, ...clinicalOutcome }) : null,
   followUpPlan: followUpPlan || null,
   timeline:
     timeline.length > 0
@@ -338,6 +371,9 @@ export const createReferral = ({
             date: createdAt,
             notes: `Referral drafted by ${fromClinician} at ${fromFacility}.`,
           },
+          ...(status === ReferralStatus.CREATED
+            ? []
+            : [{ status, date: createdAt, notes: `Referral entered the system as ${status}.` }]),
         ],
   auditTrail:
     auditTrail.length > 0
@@ -345,7 +381,7 @@ export const createReferral = ({
       : [
           createAuditEvent({
             actor: fromClinician,
-            role: "referring_clinician",
+            role: AuditRole.REFERRING_CLINICIAN,
             action: "REFERRAL_CREATED",
             details: `Referral initiated for ${patientName} (${priority} Acuity).`,
             timestamp: createdAt,

@@ -13,24 +13,21 @@
 stateDiagram-v2
     [*] --> CREATED: Form Initiation (/create)
     CREATED --> SENT: Automated Dispatch
+    CREATED --> REJECTED: Facility Decline
     SENT --> ACKNOWLEDGED: Facility Acknowledge (/facility)
-    SENT --> FOLLOW_UP_REQUIRED: SLA Breach / Transit Barrier Flagged
-    FOLLOW_UP_REQUIRED --> ACKNOWLEDGED: Barrier Resolved (/barriers)
+    SENT --> REJECTED: Facility Decline
+    SENT --> REDIRECTED: Re-route
     ACKNOWLEDGED --> ARRIVAL_CONFIRMED: Intake Check-In (/facility or /coordinator)
-    ARRIVAL_CONFIRMED --> COMPLETED: Record Clinical Outcome (/coordinator)
-    COMPLETED --> [*]: Terminal State (No Continuing Care)
-
-    note right of CREATED
-      Dead end in FacilityDashboard:
-      handlePrimaryAction lacks branch
-    end note
-
-    note right of COMPLETED
-      Clinical Safety Gap:
-      Terminates without 42d postpartum
-      or neonatal follow-up records
-    end note
+    ACKNOWLEDGED --> REJECTED: Facility Decline
+    ACKNOWLEDGED --> REDIRECTED: Re-route
+    REJECTED --> REDIRECTED: Re-route
+    REDIRECTED --> SENT: Resubmitted to new facility
+    ARRIVAL_CONFIRMED --> CLINICAL_ASSESSMENT_RECORDED: Record Clinical Outcome
+    CLINICAL_ASSESSMENT_RECORDED --> COMPLETED: 42-Day Plan Activated
+    COMPLETED --> [*]: Terminal State (continuing care follows)
 ```
+
+> **Note:** the diagram above shows the current rules in `src/domain/transitions.js`. The stage-by-stage audit below is a snapshot from before later fixes, so its file citations and gaps may be out of date.
 
 ---
 
@@ -60,7 +57,7 @@ stateDiagram-v2
 - **Actual Functionality:** Captures ROUTINE, URGENT, and STAT triage priorities. Urgency renders as color-coded badges in queues.
 - **Missing Functionality:** Urgency does not trigger automated priority escalation, expedited hospital notification, or ambulance dispatch. All priorities follow the exact same asynchronous queue.
 - **Data Required:** Triage level, maternal-fetal acuity indicators (BP, fetal heart rate, membrane status).
-- **Responsible Role:** Authorized Clinician (MD, CNM).
+- **Responsible Role:** Authorized Clinician (MD, MS OBG).
 - **Failure Scenarios:** Non-clinical personnel misclassifying an emergency as routine; critical cases sitting unacknowledged in general queue.
 
 ### Stage 4: Referral Submission
@@ -102,7 +99,7 @@ stateDiagram-v2
 ### Stage 8: Care Navigator Assignment
 - **Implementation Status:** `SIMULATED`
 - **File Citations:** [`src/data/demoReferral.js:19-24`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/data/demoReferral.js#L19-L24), [`src/pages/ReferralDetails.jsx:169`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L169)
-- **Actual Functionality:** Seed data contains navigator profiles (e.g., Maya Lin, MSW; Marcus Ward, RN). UI renders navigator name and role.
+- **Actual Functionality:** Seed data contains navigator profiles (e.g., Priya Raman, MSW; Arjun Nair, RN). UI renders navigator name and role.
 - **Missing Functionality:** No interface to assign, reassign, or claim cases. Newly created referrals contain no navigator object and fall back to static text.
 - **Data Required:** Navigator ID, workload capacity, specialty (maternal vs. neonatal).
 - **Responsible Role:** Care Coordinator / Supervisor.
@@ -111,7 +108,7 @@ stateDiagram-v2
 ### Stage 9: Barrier Identification
 - **Implementation Status:** `PARTIALLY IMPLEMENTED`
 - **File Citations:** [`src/pages/CreateReferral.jsx:70`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx#L70), [`src/pages/BarrierResolution.jsx:23-28`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx#L23-L28)
-- **Actual Functionality:** Form captures transit barrier checkbox. `BarrierResolution.jsx` lists barriers (transport failure, lack of car seat, language, childcare).
+- **Actual Functionality:** Form captures transit barrier checkbox. `BarrierResolution.jsx` lists barriers (transport failure, no safe newborn transport, language, childcare).
 - **Missing Functionality:** Barrier taxonomy is hardcoded in `casesData`. No structured barrier taxonomy (transport, financial, cultural/linguistic, childcare, weather) that can be attached dynamically to any referral.
 - **Data Required:** Barrier category, severity, notes.
 - **Responsible Role:** Care Navigator / Social Worker.
@@ -122,9 +119,9 @@ stateDiagram-v2
 - **File Citations:** [`src/pages/BarrierResolution.jsx:188-199`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx#L188-L199)
 - **Actual Functionality:** Action button "Dispatch Specialized Transit MediVan #04" exists and triggers toast notification.
 - **Missing Functionality:** `dispatchTransit` is invoked with string argument instead of object, causing `undefined` properties in timeline and data corruption. No real transit integration or vehicle telemetry.
-- **Data Required:** Vehicle type, driver name, vehicle plate, passenger count, car seat requirement, pickup address, ETA.
+- **Data Required:** Vehicle type, driver name, vehicle plate, passenger count, neonatal transport kit requirement, pickup address, ETA.
 - **Responsible Role:** Care Navigator / Transport Dispatcher.
-- **Failure Scenarios:** Vehicle dispatched without mandatory infant car seat; driver unable to locate rural address; transport delayed in transit.
+- **Failure Scenarios:** Vehicle dispatched without mandatory neonatal transport kit; driver unable to locate rural address; transport delayed in transit.
 
 ### Stage 11: Appointment Scheduling
 - **Implementation Status:** `ABSENT`

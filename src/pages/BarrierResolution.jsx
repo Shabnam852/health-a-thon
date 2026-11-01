@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { BarrierStatus, TransportStatus } from "../domain/enums.js";
+import Toast, { useToast } from "../components/Toast.jsx";
+import { BarrierStatus, ReferralStatus, isHighAcuity } from "../domain/enums.js";
+import { canDispatchTransport } from "../domain/workflow.js";
 
 const BarrierResolution = () => {
   const {
     referrals,
     dispatchTransport,
-    updateBarrierStatus,
     confirmArrival,
   } = useReferrals();
 
@@ -16,67 +17,10 @@ const BarrierResolution = () => {
     (r) => (r.barriers && r.barriers.length > 0) || r.transitBarrier || r.transit != null
   );
 
-  const [selectedCaseId, setSelectedCaseId] = useState(
-    () => barrierCases[0]?.id || "NX-9042"
-  );
+  const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [activeFilter, setActiveFilter] = useState("all");
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
-
-  const activeCase =
-    barrierCases.find((c) => c.id === selectedCaseId) || barrierCases[0] || referrals[0];
-
-  const primaryBarrier =
-    activeCase?.barriers?.find((b) => b.status !== BarrierStatus.RESOLVED) ||
-    activeCase?.barriers?.[0] || {
-      id: "BAR-GENERIC",
-      title: "Active Transit & Equipment Barrier",
-      category: "TRANSPORT",
-      description: "Family vehicle disabled; specialized clinical transit required.",
-      status: BarrierStatus.IN_PROGRESS,
-    };
-
-  const handleDispatchVan = () => {
-    if (!activeCase) return;
-
-    dispatchTransport(activeCase.id, {
-      vehicle: "MediVan #04 (Silver Transit • Plate 7TX-489)",
-      driver: "Marcus Ross",
-      driverPhone: "(555) 481-9921",
-      eta: "12 mins",
-      requiresInfantCarSeat: activeCase.referralType === "Child",
-      pickupAddress: activeCase.patientAddress || "318 Elm Street, Apt 2C",
-      destinationFacility: activeCase.toFacility,
-    });
-
-    if (primaryBarrier.id) {
-      updateBarrierStatus(
-        activeCase.id,
-        primaryBarrier.id,
-        BarrierStatus.RESOLVED,
-        "MediVan #04 dispatched with certified infant car seat."
-      );
-    }
-
-    showToast(`MediVan #04 dispatched for ${activeCase.patientName}! Driver Marcus Ross en route (ETA 12m).`);
-  };
-
-  const handleConfirmIntake = () => {
-    if (!activeCase) return;
-
-    confirmArrival(activeCase.id, {
-      department: activeCase.department || "St. Jude OB / Neonatal Triage",
-      room: "Intake Bay 02",
-      verifiedBy: "Sarah Jenkins, RN (Lead Coordinator)",
-      notes: "Physical arrival confirmed at hospital intake. Transit and admission barrier successfully resolved.",
-    });
-
-    showToast(`Care received! Case #${activeCase.id} successfully checked in at ${activeCase.toFacility}.`);
-  };
 
   // Filtered cases
   const filteredCases = barrierCases.filter((c) => {
@@ -87,17 +31,56 @@ const BarrierResolution = () => {
     return true;
   });
 
+  // The console always shows a case from the visible list, so its card is highlighted.
+  const activeCase = filteredCases.find((c) => c.id === selectedCaseId) || filteredCases[0] || null;
+  const canDispatch = activeCase ? canDispatchTransport(activeCase) : false;
+  const canConfirmArrival = activeCase?.status === ReferralStatus.ACKNOWLEDGED;
+
+  const primaryBarrier = activeCase?.barriers?.find((b) => b.status !== BarrierStatus.RESOLVED) || null;
+
+  const handleDispatchVan = () => {
+    if (!activeCase) return;
+
+    const res = dispatchTransport(activeCase.id, {
+      vehicle: "MediVan #04 (Silver Transit • Plate KA-01-AB-4892)",
+      driver: "Manjunath Gowda",
+      driverPhone: "+91 90000 19921",
+      eta: "12 mins",
+      requiresNeonatalKit: activeCase.referralType === "Child",
+      pickupAddress: activeCase.patientAddress || "Residence on file",
+      destinationFacility: activeCase.toFacility,
+    });
+
+    if (!res.success) {
+      showToast(`Action failed: ${res.reason}`, "error");
+      return;
+    }
+
+    showToast(`MediVan #04 dispatched for ${activeCase.patientName}! Driver Manjunath Gowda en route (ETA 12m).`);
+  };
+
+  const handleConfirmIntake = () => {
+    if (!activeCase) return;
+
+    const res = confirmArrival(activeCase.id, {
+      department: activeCase.department || "Sanjeevani OB / Neonatal Triage",
+      room: "Intake Bay 02",
+      verifiedBy: "Anitha Joseph, RN (Lead Coordinator)",
+      notes: "Physical arrival confirmed at hospital intake. Transit and admission barrier successfully resolved.",
+    });
+
+    if (!res.success) {
+      showToast(`Action failed: ${res.reason}`, "error");
+      return;
+    }
+
+    showToast(`Care received! Case #${activeCase.id} successfully checked in at ${activeCase.toFacility}.`);
+  };
+
   return (
     <div className="flex flex-col w-full pb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto space-y-6 pt-6">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Operational Alert Banner */}
       <div className="bg-primary text-white p-5 rounded-2xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -155,10 +138,15 @@ const BarrierResolution = () => {
           </div>
 
           <div className="space-y-2.5">
+            {filteredCases.length === 0 && (
+              <div className="p-5 rounded-xl bg-surface-container-lowest border border-surface-container text-xs text-on-surface-variant text-center">
+                No cases match this filter.
+              </div>
+            )}
             {filteredCases.map((c) => {
               const isSelected = c.id === activeCase?.id;
-              const isUrgent = c.priority === "Urgent" || c.priority === "STAT";
-              const barrier = c.barriers?.[0];
+              const isUrgent = isHighAcuity(c.priority);
+              const barrier = c.barriers?.find((b) => b.status !== BarrierStatus.RESOLVED) || c.barriers?.[0];
 
               return (
                 <div
@@ -232,21 +220,27 @@ const BarrierResolution = () => {
               </div>
 
               {/* Identified Barrier Card */}
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-label-sm text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px]">report</span>
-                    Active Barrier: {primaryBarrier.category}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">
-                    {primaryBarrier.status}
-                  </span>
+              {primaryBarrier ? (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-label-sm text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">report</span>
+                      Active Barrier: {primaryBarrier.category}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">
+                      {primaryBarrier.status}
+                    </span>
+                  </div>
+                  <h4 className="font-title-sm text-sm text-primary font-bold">{primaryBarrier.title}</h4>
+                  <p className="text-xs text-on-surface leading-relaxed">
+                    {primaryBarrier.description || activeCase.reason}
+                  </p>
                 </div>
-                <h4 className="font-title-sm text-sm text-primary font-bold">{primaryBarrier.title}</h4>
-                <p className="text-xs text-on-surface leading-relaxed">
-                  {primaryBarrier.description || activeCase.reason}
-                </p>
-              </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-surface-container-low text-xs text-on-surface-variant">
+                  No active barriers on this case.
+                </div>
+              )}
 
               {/* Action Playbook */}
               <div className="space-y-3">
@@ -257,20 +251,22 @@ const BarrierResolution = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     onClick={handleDispatchVan}
-                    className="p-3.5 rounded-xl bg-secondary text-white font-label-md text-xs font-semibold hover:bg-on-secondary-container transition-all shadow-xs flex items-center gap-2 text-left"
+                    disabled={!canDispatch}
+                    title={canDispatch ? undefined : "Transport is already under way or no longer needed"}
+                    className="p-3.5 rounded-xl bg-secondary text-white font-label-md text-xs font-semibold hover:bg-on-secondary-container transition-all shadow-xs flex items-center gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="material-symbols-outlined text-[22px]">local_taxi</span>
                     <div>
                       <div className="font-bold">Dispatch MediVan #04</div>
                       <div className="text-[10px] text-white/80 font-normal">
-                        Certified vehicle with infant restraint
+                        Vehicle with neonatal transport kit
                       </div>
                     </div>
                   </button>
 
                   <button
                     onClick={() => {
-                      showToast("Receiving facility notified: Bed hold extended 45 mins.");
+                      showToast("Demo only: no bed hold request was sent.");
                     }}
                     className="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-primary font-label-md text-xs font-semibold transition-all border border-surface-container flex items-center gap-2 text-left"
                   >
@@ -287,7 +283,7 @@ const BarrierResolution = () => {
 
                   <button
                     onClick={() => {
-                      showToast("On-call pediatrician / MFM requested for emergency acuity review.");
+                      showToast("Demo only: no re-triage request was sent.");
                     }}
                     className="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-primary font-label-md text-xs font-semibold transition-all border border-surface-container flex items-center gap-2 text-left"
                   >
@@ -304,7 +300,9 @@ const BarrierResolution = () => {
 
                   <button
                     onClick={handleConfirmIntake}
-                    className="p-3.5 rounded-xl bg-primary text-white font-label-md text-xs font-semibold hover:bg-primary-container transition-all shadow-xs flex items-center gap-2 text-left"
+                    disabled={!canConfirmArrival}
+                    title={canConfirmArrival ? undefined : "The facility must acknowledge the referral first, and arrival can be confirmed only once"}
+                    className="p-3.5 rounded-xl bg-primary text-white font-label-md text-xs font-semibold hover:bg-primary-container transition-all shadow-xs flex items-center gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="material-symbols-outlined text-[22px]">verified</span>
                     <div>

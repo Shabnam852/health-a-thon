@@ -45,7 +45,7 @@
 ## 2. Detailed Workflow Specifications
 
 ### Workflow 1: Referral Initiation & Submission
-- **Responsible Actor:** Referring Healthcare Clinician (MD, CNM, Midwife).
+- **Responsible Actor:** Referring Healthcare Clinician (MD, MS (OBG), Midwife).
 - **Workspace:** `/create` ([`CreateReferral.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx)).
 - **Input Data:**
   - Patient classification: `Maternal` vs `Child` vs `Dyad`.
@@ -68,14 +68,14 @@
 - **Action Options:**
   1. **Acknowledge Intake:** Mutates status to `ACKNOWLEDGED`. Reserves bed/room capacity.
   2. **Decline / Reject:** Requires mandatory clinical reason (e.g. "Level III NICU at capacity"). Mutates status to `REJECTED`.
-  3. **Redirect:** Selects alternate regional medical center (e.g. UMC Detroit) with clinical justification. Mutates status to `REDIRECTED`, archives diversion history, and resubmits to target center's queue as `SENT`.
+  3. **Redirect:** Selects alternate regional medical center (e.g. Vidyaranya Institute) with clinical justification. Mutates status to `REDIRECTED`, archives diversion history, and resubmits to target center's queue as `SENT`.
 - **Validation:** Only incoming referrals addressed to the active facility can be transitioned.
 - **Cross-Module Consequence:** Patient view updates to Step 2 ("Hospital Confirmed Ready"). Timeline records bed hold.
 
 ---
 
 ### Workflow 3: Barrier Identification & Transit Dispatch
-- **Responsible Actor:** Care Navigator / Social Worker (Maya Lin, MSW; Marcus Ward, RN).
+- **Responsible Actor:** Care Navigator / Social Worker (Priya Raman, MSW; Arjun Nair, RN).
 - **Workspaces:** `/barriers` ([`BarrierResolution.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx)) and `/transport` ([`TransportCoordination.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/TransportCoordination.jsx)).
 - **Input Data:**
   - Barrier classification: `TRANSPORT`, `FINANCIAL`, `DEPENDENT_CARE`, `LINGUISTIC`, `WEATHER`.
@@ -83,7 +83,7 @@
   - Driver attribution, contact number, pickup address, passenger count, ETA.
 - **Operational Transitions:**
   - `REQUESTED` → `ASSIGNED` → `DISPATCHED` → `PICKED_UP` → `ARRIVED` (or `FAILED`).
-- **Validation:** Neonatal transfers must flag mandatory rear-facing infant car seat requirement.
+- **Validation:** Neonatal transfers must flag mandatory neonatal transport kit requirement.
 - **Cross-Module Consequence:**
   - Patient view ([`PatientDashboard.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx)) activates Step 3 ("Ride on the Way") with real driver name and ETA.
   - Associated `TRANSPORT` barrier is automatically resolved.
@@ -101,7 +101,7 @@
 ---
 
 ### Workflow 5: Clinical Assessment & Structured Outcome Recording
-- **Responsible Actor:** Authorized Attending Clinician (MD, CNM, FACOG).
+- **Responsible Actor:** Authorized Attending Clinician (MD, MS (OBG), FICOG).
 - **Workspace:** `/facility` outcome modal or `/referral/:id`.
 - **Strict Domain Separation:**
   - **Maternal Cases:** Captures maternal stabilization status, delivery mode (`Spontaneous Vaginal`, `Cesarean`, `Antepartum Observation`), complications, and disposition.

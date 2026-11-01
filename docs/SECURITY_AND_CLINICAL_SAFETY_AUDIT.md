@@ -39,11 +39,11 @@ All patient demographic data, clinical narratives, medical history, caregiver ph
 // Data stored in plaintext in the browser's persistent storage:
 {
   id: "REF-2024-8821",
-  patientName: "Elena Rostova",
+  patientName: "Ananya Reddy",
   patientId: "MRN-882104",
   condition: "Gestational Pre-eclampsia (BP 152/98) • Late-onset IUGR",
-  reason: "Elena presented for routine 34w checkup with progressive headache...",
-  caregiverContact: "(555) 392-1049",
+  reason: "Ananya presented for routine 34w checkup with progressive headache...",
+  caregiverContact: "+91 90000 21049",
   vitals: { bp: "152/98", urine: "+2 Protein" }
 }
 ```
@@ -74,7 +74,7 @@ The application contains multiple hardcoded visual badges and copy asserting ent
 | Fictional Synthetic Patient Records | YES | NO (Must be real PHI) |
 | Single-Browser Role Switching | YES | NO (Multi-factor authenticated individual logins) |
 | In-Memory / LocalStorage Persistence | YES | NO (Encrypted relational database with BAA) |
-| Simulated SMS / Push Notifications | YES | NO (HIPAA-compliant telephony gateway with opt-in) |
+| Simulated SMS / Push Notifications | YES | NO (DPDP Act-compliant, DLT-registered telephony gateway with opt-in) |
 | In-Transit TLS 1.3 Encryption | Recommended | MANDATORY |
 | Immutable Audit Trail (21 CFR Part 11) | NO (Simulated okay) | MANDATORY |
 | Business Associate Agreement (BAA) | NO | MANDATORY |
@@ -103,22 +103,22 @@ In obstetric emergencies (e.g., eclamptic seizures, cord prolapse, severe antepa
 
 | Clinical Case | Urgency Level | Existing System Pathway | Required Emergency Protocol |
 | :--- | :---: | :--- | :--- |
-| **Fatima Zahra** (PPROM at 36w) | URGENT | Submits to `SENT` queue. Sits until receiving hospital manually acknowledges. | Immediate push notification to L&D triage charge nurse; automatic bed hold reservation; direct ambulance dispatch if contractions present. |
-| **Baby Boy Chen** (TSB 21.4 mg/dL at 3 days) | STAT / CRITICAL | Flagged as overdue in hardcoded table. Button dispatches transit with broken parameters. | Immediate stat page to accepting neonatologist; direct dispatch of neonatal transport team with incubator and phototherapy blanket; exchange transfusion preparation. |
-| **Elena Rostova** (Pre-eclampsia BP 152/98) | URGENT | Standard linear queue. Lifeline displays static arrival time. | Blood pressure escalation protocol (repeat vitals q 15 min); oral antihypertensive administration before transit; seizure precaution staging. |
+| **Fathima Begum** (PPROM at 36w) | URGENT | Submits to `SENT` queue. Sits until receiving hospital manually acknowledges. | Immediate push notification to L&D triage charge nurse; automatic bed hold reservation; direct ambulance dispatch if contractions present. |
+| **Baby of Shalini Naidu** (TSB 21.4 mg/dL at 3 days) | STAT / CRITICAL | Flagged as overdue in hardcoded table. Button dispatches transit with broken parameters. | Immediate stat page to accepting neonatologist; direct dispatch of neonatal transport team with incubator and phototherapy blanket; exchange transfusion preparation. |
+| **Ananya Reddy** (Pre-eclampsia BP 152/98) | URGENT | Standard linear queue. Lifeline displays static arrival time. | Blood pressure escalation protocol (repeat vitals q 15 min); oral antihypertensive administration before transit; seizure precaution staging. |
 
 ### 2.3 Distinction Between Administrative Coordination & Clinical Care
 
 A fundamental clinical safety principle is that **care navigators and coordinators must not diagnose patients or modify clinical care plans**.
 
-- **Observed System Confusion:** In `BarrierResolution.jsx:210-217`, the coordinator clicks "Emergency Acuity Retriage" which shows a toast claiming "Pediatrician / MFM On-Call Review Requested". However, the action is logged under the coordinator's name ("Sarah Jenkins, RN").
+- **Observed System Confusion:** In `BarrierResolution.jsx:210-217`, the coordinator clicks "Emergency Acuity Retriage" which shows a toast claiming "Pediatrician / MFM On-Call Review Requested". However, the action is logged under the coordinator's name ("Anitha Joseph, RN").
 - **Safety Requirement:** All clinical triage decisions, medication orders, and escalation authorizations must be explicitly attributed to a licensed physician or midwife, while administrative navigation (transport vouchers, language interpreters, childcare coordination) is attributed to the care navigator.
 
 ### 2.4 Clinical Rules Requiring Specialist Healthcare Validation
 
 Before presenting this system to healthcare evaluators, the following clinical parameters and thresholds must be formally validated by a board-certified obstetrician/gynecologist and neonatologist:
 
-1. **Gestational Age & Triage Routing:** When does premature rupture of membranes (PPROM) require Level III vs. Level II facility transfer? (Current threshold in demo: 36w 2d routed to St. Jude Level III).
+1. **Gestational Age & Triage Routing:** When does premature rupture of membranes (PPROM) require Level III vs. Level II facility transfer? (Current threshold in demo: 36w 2d routed to Sanjeevani Level III).
 2. **Neonatal Bilirubin Thresholds:** Total Serum Bilirubin (TSB) phototherapy vs. exchange transfusion curves based on American Academy of Pediatrics (AAP) hour-specific nomograms (Current demo: 21.4 mg/dL at 72 hours).
 3. **Severe Maternal Hypertension Parameters:** Systolic BP $\ge 160$ mmHg or Diastolic BP $\ge 110$ mmHg requiring emergency IV labetalol/hydralazine within 30–60 minutes.
 4. **Postpartum Surveillance Cadence:** Recommended touchpoints at Day 3 (lactation/jaundice), Day 7 (wound check/BP), Day 14, and Day 42 (comprehensive postpartum exam and contraception).

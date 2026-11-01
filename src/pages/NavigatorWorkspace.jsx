@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { BarrierCategory, BarrierStatus } from "../domain/enums.js";
+import Toast, { useToast } from "../components/Toast.jsx";
+import { BarrierCategory, BarrierStatus, isHighAcuity } from "../domain/enums.js";
 
 const NavigatorWorkspace = () => {
   const {
     referrals,
     recordContactAttempt,
     identifyBarrier,
-    updateBarrierStatus,
   } = useReferrals();
 
   const [activeTab, setActiveTab] = useState("all");
@@ -25,55 +25,73 @@ const NavigatorWorkspace = () => {
   const [barrierTitle, setBarrierTitle] = useState("");
   const [barrierDesc, setBarrierDesc] = useState("");
 
-  const [toastMessage, setToastMessage] = useState(null);
+  const { toast, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   const activeReferrals = referrals.filter(
     (r) => r.status !== "COMPLETED" && r.status !== "REJECTED"
   );
 
+  // Clears the form, so nothing typed for one patient carries over to the next.
+  const closeModal = () => {
+    setSelectedCaseModal(null);
+    setContactMethod("Phone Call");
+    setContactOutcome("Successful Contact");
+    setContactNotes("");
+    setBarrierCategory("TRANSPORT");
+    setBarrierTitle("");
+    setBarrierDesc("");
+  };
+
   const handleSaveContact = () => {
     if (!selectedCaseModal) return;
-    recordContactAttempt(selectedCaseModal.id, {
+    const res = recordContactAttempt(selectedCaseModal.id, {
       method: contactMethod,
       outcome: contactOutcome,
       notes: contactNotes,
-      actor: selectedCaseModal.navigator?.name || "Maya Lin, MSW",
+      actor: selectedCaseModal.navigator?.name || "Priya Raman, MSW",
     });
-    showToast(`Contact logged for ${selectedCaseModal.patientName} (${contactOutcome}).`);
-    setSelectedCaseModal(null);
-    setContactNotes("");
+    const needsTransit = res.success && contactOutcome === "Transit Barrier Identified";
+    const barrierRes = needsTransit
+      ? identifyBarrier(selectedCaseModal.id, {
+          category: BarrierCategory.TRANSPORT,
+          title: "Patient unable to travel",
+          description: contactNotes,
+          status: BarrierStatus.IDENTIFIED,
+        })
+      : res;
+    if (barrierRes.success) {
+      showToast(
+        needsTransit
+          ? `Contact logged and transport barrier raised for ${selectedCaseModal.patientName}.`
+          : `Contact logged for ${selectedCaseModal.patientName} (${contactOutcome}).`
+      );
+    } else {
+      showToast(needsTransit ? `Contact logged. ${barrierRes.reason}` : `Action failed: ${barrierRes.reason}`, "error");
+    }
+    closeModal();
   };
 
   const handleSaveBarrier = () => {
     if (!selectedCaseModal || !barrierTitle.trim()) return;
-    identifyBarrier(selectedCaseModal.id, {
+    const res = identifyBarrier(selectedCaseModal.id, {
       category: barrierCategory,
       title: barrierTitle,
       description: barrierDesc,
       status: BarrierStatus.IDENTIFIED,
     });
-    showToast(`New barrier logged for ${selectedCaseModal.patientName}.`);
-    setSelectedCaseModal(null);
-    setBarrierTitle("");
-    setBarrierDesc("");
+    if (res.success) {
+      showToast(`New barrier logged for ${selectedCaseModal.patientName}.`);
+    } else {
+      showToast(`Action failed: ${res.reason}`, "error");
+    }
+    closeModal();
   };
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-secondary/40 animate-slide-up">
-          <span className="material-symbols-outlined text-secondary-fixed text-[22px]">
-            check_circle
-          </span>
-          <span className="font-body-sm text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Header Banner */}
       <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -133,7 +151,7 @@ const NavigatorWorkspace = () => {
 
                   <p className="text-xs text-on-surface-variant">
                     {r.fromFacility} → <strong className="text-primary">{r.toFacility}</strong> • Priority:{" "}
-                    <strong className={r.priority === "Urgent" || r.priority === "STAT" ? "text-error" : "text-primary"}>
+                    <strong className={isHighAcuity(r.priority) ? "text-error" : "text-primary"}>
                       {r.priority}
                     </strong>
                   </p>
@@ -242,7 +260,7 @@ const NavigatorWorkspace = () => {
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setSelectedCaseModal(null)}
+                onClick={closeModal}
                 className="px-4 py-2 rounded-lg bg-surface-container text-xs font-medium text-primary"
               >
                 Cancel
@@ -273,7 +291,7 @@ const NavigatorWorkspace = () => {
                 value={barrierCategory}
                 onChange={(e) => setBarrierCategory(e.target.value)}
               >
-                <option value="TRANSPORT">Transportation (Vehicle breakdown, car seat deficit)</option>
+                <option value="TRANSPORT">Transportation (Vehicle breakdown, no safe newborn transport)</option>
                 <option value="FINANCIAL">Financial (Fear of copays, out-of-pocket costs)</option>
                 <option value="DEPENDENT_CARE">Dependent Care (Childcare for other siblings)</option>
                 <option value="LINGUISTIC">Linguistic (Medical interpreter needed)</option>
@@ -305,7 +323,7 @@ const NavigatorWorkspace = () => {
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setSelectedCaseModal(null)}
+                onClick={closeModal}
                 className="px-4 py-2 rounded-lg bg-surface-container text-xs font-medium text-primary"
               >
                 Cancel

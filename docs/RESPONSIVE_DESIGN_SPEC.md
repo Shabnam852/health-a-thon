@@ -93,5 +93,5 @@ The corrected layout implements a rock-solid, fixed-sidebar + sticky-header + in
 
 ### 4.2 Mobile Touch & Layout Ergonomics
 - **Touch Targets:** All interactive links, buttons, and status chips enforce a minimum touch area of $\ge 44\text{px} \times 44\text{px}$.
-- **Patient Journey Lifeline:** Reflows into a single-column vertical timeline with large touch targets, 1-tap phone dialer links (`tel:911`, `tel:navigator`), and prominent driver vehicle updates.
+- **Patient Journey Lifeline:** Reflows into a single-column vertical timeline with large touch targets, 1-tap phone dialer links (`tel:108`, `tel:navigator`), and prominent driver vehicle updates.
 - **No Horizontal Viewport Blowout:** Zero `overflow-x` on page body; table containers scroll independently inside dedicated wrapper cards.
