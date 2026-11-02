@@ -4,7 +4,7 @@
 **Audit Date:** October 16, 2026  
 **Auditor:** Antigravity Advanced Agentic AI  
 **Repository Inspected:** `d:/ANTIGRAVITY/Healthathon/health-a-thon`  
-**Execution Mode:** Read-Only Technical Audit  
+**Execution Mode:** Read-Only Technical Audit
 
 ---
 
@@ -35,6 +35,7 @@ This technical audit examined 100% of the active repository source code, build s
 ## 2. Product Overview and Intended Purpose
 
 ### 2.1 The Problem Addressed
+
 Maternal and neonatal mortality in low-resource and tiered healthcare ecosystems often stem from delays in:
 - Deciding to seek care.
 - Reaching an appropriate facility (transport, financial, geographical barriers).
@@ -44,6 +45,7 @@ Maternal and neonatal mortality in low-resource and tiered healthcare ecosystems
 Traditional healthcare referrals in these contexts rely on paper slips or informal phone calls. When a patient cannot afford transport or fears hospital visits, they vanish from the system.
 
 ### 2.2 Intended Product Concept vs. Implemented System
+
 The intended Navexa platform aims to bridge these gaps via digital tracking, proactive community navigator assignment, transport assistance, barrier resolution, arrival confirmation, and continuing care tracking.
 
 In reality, the implemented repository is an early-stage **frontend visual prototype** focused on demonstrating a linear milestone progression for hospital-bound referrals.
@@ -54,32 +56,32 @@ In reality, the implemented repository is an early-stage **frontend visual proto
 
 The following matrix evaluates every core feature against the codebase using the standardized audit labels: `IMPLEMENTED`, `PARTIALLY IMPLEMENTED`, `SIMULATED`, `UI ONLY`, `ABSENT`, or `UNVERIFIED`.
 
-| Capability / Feature | Classification | Source Code Citation & Implementation Evidence |
-| :--- | :--- | :--- |
-| **Referral Creation Form** | `IMPLEMENTED` | [CreateReferral.jsx:40-93](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx#L40-L93): Form captures patient name, ID, caregiver contact, referral type, priority, source/destination facility, reason. Form validates required fields and generates `NAV-2026-XXX` ID. |
-| **Live Referral Preview** | `IMPLEMENTED` | [CreateReferral.jsx:526-660](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx#L526-L660): Dynamic sidebar updates form inputs in real time. |
-| **Role-Based UI Partitioning** | `IMPLEMENTED` | [App.jsx:24-59](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/App.jsx#L24-L59), [RoleSelection.jsx:33-37](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/RoleSelection.jsx#L33-L37): Client-side role switching between `patient`, `facility`, `coordinator` stored in `localStorage` (`navexa_role`). |
-| **Facility Referral Queues** | `PARTIALLY IMPLEMENTED` | [FacilityDashboard.jsx:14-26](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L14-L26): Filters `incomingReferrals` and `outgoingReferrals` strictly by `toFacility === "District Hospital"` and `fromFacility === "District Hospital"`. `needsAttention` filters all referrals with `SENT` or `FOLLOW_UP_REQUIRED`. |
-| **Milestone Advancement** | `IMPLEMENTED` | [FacilityDashboard.jsx:54-89](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L54-L89), [ReferralDetails.jsx:206-251](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L206-L251): Functions mutate `status` and append to `timeline` array. |
-| **Audit Timeline Display** | `IMPLEMENTED` | [ReferralTimeline.jsx:7-36](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/ReferralTimeline.jsx#L7-L36), [ReferralDetails.jsx:477-568](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L477-L568): Renders milestone history with timestamps and notes. |
-| **Patient Referral Tracking** | `PARTIALLY IMPLEMENTED` | [PatientDashboard.jsx:186-233](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L186-L233): Visual progress rail with status messages. Hardcoded to `P-1001`; other patients cannot view their records. |
-| **Coordinator Operations Queue** | `PARTIALLY IMPLEMENTED` | [CoordinatorDashboard.jsx:9-35](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L9-L35): Categorizes referrals into Needs Attention, Monitoring, and Completed. Excludes `CREATED` status. |
-| **Care Navigator Assignment** | `ABSENT` | No navigator data entity, field, or assignment action exists in any schema or component. |
-| **Patient / Caregiver Contact Tracking** | `PARTIALLY IMPLEMENTED` | Captured in `CreateReferral.jsx:195-207`, stored in object state, but never rendered in `ReferralDetails.jsx` or any dashboard. Missing in initial `demoReferrals`. |
-| **Missed-Referral Detection** | `ABSENT` | No elapsed-time checks, SLA timers, cron schedules, or overdue warning triggers. |
-| **Missed-Appointment Follow-up** | `ABSENT` | No appointment entity, visit schedule, or appointment date fields exist. |
-| **Barrier Identification & Resolution**| `ABSENT` | No barrier taxonomy (financial, transport, cultural, medical). "Resolve Follow-up" in [CoordinatorDashboard.jsx:45-51](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L45-L51) simply resets status to `ACKNOWLEDGED`. |
-| **Home Outreach Tracking** | `ABSENT` | Zero support for community health workers (ASHA/ANM), home visits, or non-hospital encounters. |
-| **Transport Coordination** | `UI ONLY` | [PatientDashboard.jsx:601-611](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L601-L611): "Get Directions" button triggers a browser `alert()`. No transport booking or status. |
-| **Clinical Escalation** | `ABSENT` | "Urgent" priority is a static label/badge. No escalation alerts, triage protocols, or routing alterations exist for critical cases. |
-| **Facility Acknowledgement** | `IMPLEMENTED` | Receiving facility can transition status from `SENT` -> `ACKNOWLEDGED` ([FacilityDashboard.jsx:55-62](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L55-L62)). |
-| **Arrival Verification** | `IMPLEMENTED` | Receiving facility can transition status `ACKNOWLEDGED` -> `ARRIVAL_CONFIRMED` ([FacilityDashboard.jsx:64-71](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L64-L71)). |
-| **Service Outcome Recording** | `SIMULATED` | Transitioning to `COMPLETED` appends a static text string. No clinical outcome form, neonatal status, maternal survival, or discharge notes exist. |
-| **Follow-up Scheduling** | `ABSENT` | No calendar, scheduling inputs, or appointment reminders exist. |
-| **Continued Care After Closure** | `ABSENT` | When status becomes `COMPLETED`, the referral is closed and journey terminates ([ReferralDetails.jsx:110-118](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L110-L118)). No postpartum/postnatal follow-up tracking. |
-| **Referral Redirection / Rejection** | `ABSENT` | No pathway to reject an unserviceable referral, re-route to another hospital, or cancel. |
-| **Backend API / Data Persistence** | `ABSENT` | Zero HTTP endpoints, Fetch/Axios calls, or remote DB connections. In-memory state only. |
-| **Authentication & Authorization** | `SIMULATED` | Role selector writes string to `localStorage`. No credentials, tokens, or security verification. |
+| Capability / Feature                     | Classification          | Source Code Citation & Implementation Evidence                                                                                                                                                                                                                                                                                                        |
+| :--------------------------------------- | :---------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Referral Creation Form**               | `IMPLEMENTED`           | [CreateReferral.jsx:40-93](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx#L40-L93): Form captures patient name, ID, caregiver contact, referral type, priority, source/destination facility, reason. Form validates required fields and generates `NAV-2026-XXX` ID.                                                   |
+| **Live Referral Preview**                | `IMPLEMENTED`           | [CreateReferral.jsx:526-660](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx#L526-L660): Dynamic sidebar updates form inputs in real time.                                                                                                                                                                              |
+| **Role-Based UI Partitioning**           | `IMPLEMENTED`           | [App.jsx:24-59](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/App.jsx#L24-L59), [RoleSelection.jsx:33-37](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/RoleSelection.jsx#L33-L37): Client-side role switching between `patient`, `facility`, `coordinator` stored in `localStorage` (`navexa_role`).                             |
+| **Facility Referral Queues**             | `PARTIALLY IMPLEMENTED` | [FacilityDashboard.jsx:14-26](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L14-L26): Filters `incomingReferrals` and `outgoingReferrals` strictly by `toFacility === "District Hospital"` and `fromFacility === "District Hospital"`. `needsAttention` filters all referrals with `SENT` or `FOLLOW_UP_REQUIRED`. |
+| **Milestone Advancement**                | `IMPLEMENTED`           | [FacilityDashboard.jsx:54-89](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L54-L89), [ReferralDetails.jsx:206-251](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L206-L251): Functions mutate `status` and append to `timeline` array.                                           |
+| **Audit Timeline Display**               | `IMPLEMENTED`           | [ReferralTimeline.jsx:7-36](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/ReferralTimeline.jsx#L7-L36), [ReferralDetails.jsx:477-568](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L477-L568): Renders milestone history with timestamps and notes.                                               |
+| **Patient Referral Tracking**            | `PARTIALLY IMPLEMENTED` | [PatientDashboard.jsx:186-233](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L186-L233): Visual progress rail with status messages. Hardcoded to `P-1001`; other patients cannot view their records.                                                                                                                |
+| **Coordinator Operations Queue**         | `PARTIALLY IMPLEMENTED` | [CoordinatorDashboard.jsx:9-35](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L9-L35): Categorizes referrals into Needs Attention, Monitoring, and Completed. Excludes `CREATED` status.                                                                                                                        |
+| **Care Navigator Assignment**            | `ABSENT`                | No navigator data entity, field, or assignment action exists in any schema or component.                                                                                                                                                                                                                                                              |
+| **Patient / Caregiver Contact Tracking** | `PARTIALLY IMPLEMENTED` | Captured in `CreateReferral.jsx:195-207`, stored in object state, but never rendered in `ReferralDetails.jsx` or any dashboard. Missing in initial `demoReferrals`.                                                                                                                                                                                   |
+| **Missed-Referral Detection**            | `ABSENT`                | No elapsed-time checks, SLA timers, cron schedules, or overdue warning triggers.                                                                                                                                                                                                                                                                      |
+| **Missed-Appointment Follow-up**         | `ABSENT`                | No appointment entity, visit schedule, or appointment date fields exist.                                                                                                                                                                                                                                                                              |
+| **Barrier Identification & Resolution**  | `ABSENT`                | No barrier taxonomy (financial, transport, cultural, medical). "Resolve Follow-up" in [CoordinatorDashboard.jsx:45-51](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L45-L51) simply resets status to `ACKNOWLEDGED`.                                                                                           |
+| **Home Outreach Tracking**               | `ABSENT`                | Zero support for community health workers (ASHA/ANM), home visits, or non-hospital encounters.                                                                                                                                                                                                                                                        |
+| **Transport Coordination**               | `UI ONLY`               | [PatientDashboard.jsx:601-611](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L601-L611): "Get Directions" button triggers a browser `alert()`. No transport booking or status.                                                                                                                                      |
+| **Clinical Escalation**                  | `ABSENT`                | "Urgent" priority is a static label/badge. No escalation alerts, triage protocols, or routing alterations exist for critical cases.                                                                                                                                                                                                                   |
+| **Facility Acknowledgement**             | `IMPLEMENTED`           | Receiving facility can transition status from `SENT` -> `ACKNOWLEDGED` ([FacilityDashboard.jsx:55-62](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L55-L62)).                                                                                                                                                     |
+| **Arrival Verification**                 | `IMPLEMENTED`           | Receiving facility can transition status `ACKNOWLEDGED` -> `ARRIVAL_CONFIRMED` ([FacilityDashboard.jsx:64-71](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L64-L71)).                                                                                                                                             |
+| **Service Outcome Recording**            | `SIMULATED`             | Transitioning to `COMPLETED` appends a static text string. No clinical outcome form, neonatal status, maternal survival, or discharge notes exist.                                                                                                                                                                                                    |
+| **Follow-up Scheduling**                 | `ABSENT`                | No calendar, scheduling inputs, or appointment reminders exist.                                                                                                                                                                                                                                                                                       |
+| **Continued Care After Closure**         | `ABSENT`                | When status becomes `COMPLETED`, the referral is closed and journey terminates ([ReferralDetails.jsx:110-118](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L110-L118)). No postpartum/postnatal follow-up tracking.                                                                                                 |
+| **Referral Redirection / Rejection**     | `ABSENT`                | No pathway to reject an unserviceable referral, re-route to another hospital, or cancel.                                                                                                                                                                                                                                                              |
+| **Backend API / Data Persistence**       | `ABSENT`                | Zero HTTP endpoints, Fetch/Axios calls, or remote DB connections. In-memory state only.                                                                                                                                                                                                                                                               |
+| **Authentication & Authorization**       | `SIMULATED`             | Role selector writes string to `localStorage`. No credentials, tokens, or security verification.                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -116,24 +118,28 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ```
 
 #### 1. Patient / Caregiver (`role: "patient"`)
+
 - **Permitted Routes:** `/patient`
 - **Dashboard View:** Shows active referral journey for hardcoded `P-1001`, current status message, milestone progress rail (1 to 5), "Request Human Help" button (`window.alert`), and "Get Directions" button (`window.alert`).
 - **Restrictions:** Cannot access `/facility`, `/coordinator`, `/create`, or `/referral/:id`. Redirected to `/patient` if attempted.
 - **Navbar:** Displays "Dashboard", "Need Help?" action button, active role pill, and "Switch Role" button.
 
 #### 2. Healthcare Facility (`role: "facility"`)
+
 - **Permitted Routes:** `/facility`, `/create`, `/referral/:id`
 - **Dashboard View:** Displays facility metrics (Incoming, Outgoing, Needs Attention) filtered for "District Hospital", referral cards with milestone progress bars, inline primary action buttons to advance statuses, and a "+ New Referral" CTA.
 - **Actions:** Can create referrals at `/create`, advance statuses (`SENT` -> `ACKNOWLEDGED` -> `ARRIVAL_CONFIRMED` -> `COMPLETED`), and view full details at `/referral/:id`.
 - **Restrictions:** Cannot access `/coordinator` or `/patient`. Redirected to `/facility` if attempted.
 
 #### 3. Coordinator (`role: "coordinator"`)
+
 - **Permitted Routes:** `/coordinator`, `/referral/:id`
 - **Dashboard View:** Operations center with tabbed queues: "Needs Attention" (`SENT`, `FOLLOW_UP_REQUIRED`), "Being Monitored" (`ACKNOWLEDGED`, `ARRIVAL_CONFIRMED`), and "Completed" (`COMPLETED`).
 - **Actions:** Can click "Start Follow-up" (moves `SENT` -> `FOLLOW_UP_REQUIRED`), click "Resolve Follow-up" (moves `FOLLOW_UP_REQUIRED` -> `ACKNOWLEDGED`), and view `/referral/:id`.
 - **Restrictions:** Cannot access `/facility`, `/create`, or `/patient`. Redirected to `/coordinator` if attempted.
 
 ### 4.2 Security & Permission Assessment
+
 - Role enforcement is 100% client-side inside React Router.
 - Anyone can open browser developer tools and execute `localStorage.setItem("navexa_role", "facility")` or `"coordinator"` to access all dashboards and mutate referral data.
 - Facilities can view and mutate referrals belonging to any other facility; there is no tenancy isolation.
@@ -143,6 +149,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ## 5. Complete Screen Inventory
 
 ### Screen 1: Role Selection (`RoleSelection.jsx`)
+
 - **Route:** `/` (Public)
 - **Source File:** [src/pages/RoleSelection.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/RoleSelection.jsx)
 - **Intended Role:** Unauthenticated visitor / Demo operator.
@@ -151,11 +158,12 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 - **Available Actions:** Clicking any role card invokes `handleRoleSelect(role)` -> calls `setRole(role.id)` -> navigates to corresponding route (`/patient`, `/facility`, `/coordinator`).
 - **State Involved:** `ReferralContext`: `setRole()`, which persists to `localStorage.getItem("navexa_role")`.
 - **States:** No empty/loading/error states needed.
-- **Known Limitations:** Prototype disclaimer at bottom: *"Prototype mode — role selection is simulated for demonstration."*
+- **Known Limitations:** Prototype disclaimer at bottom: _"Prototype mode — role selection is simulated for demonstration."_
 
 ---
 
 ### Screen 2: Patient Dashboard (`PatientDashboard.jsx`)
+
 - **Route:** `/patient`
 - **Source File:** [src/pages/PatientDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx)
 - **Intended Role:** Patient or Family Caregiver.
@@ -166,7 +174,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
   - "Get Directions": Fires `window.alert("Demo navigation to " + activeReferral.toFacility)`.
 - **State Involved:** `ReferralContext`: `referrals` (read-only).
 - **Screens Affected:** None (actions do not mutate state).
-- **Empty State:** Implemented ([PatientDashboard.jsx:201-219](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L201-L219)). Displays checkmark icon and *"No active referral"* if no matching record is found.
+- **Empty State:** Implemented ([PatientDashboard.jsx:201-219](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L201-L219)). Displays checkmark icon and _"No active referral"_ if no matching record is found.
 - **Critical Defects:**
   - Line 190 hardcodes `const patientId = "P-1001";`. Referrals created for any other patient ID will never display.
   - If a patient has multiple referrals, it only displays the first uncompleted referral ([PatientDashboard.jsx:196-199](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L196-L199)).
@@ -174,6 +182,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ---
 
 ### Screen 3: Facility Dashboard (`FacilityDashboard.jsx`)
+
 - **Route:** `/facility`
 - **Source File:** [src/pages/FacilityDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx)
 - **Intended Role:** Referring or Receiving Facility Healthcare Staff.
@@ -197,6 +206,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ---
 
 ### Screen 4: Coordinator Dashboard (`CoordinatorDashboard.jsx`)
+
 - **Route:** `/coordinator`
 - **Source File:** [src/pages/CoordinatorDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx)
 - **Intended Role:** Centralized Referral Coordinator / System Operator.
@@ -204,12 +214,12 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 - **Data Displayed:** Dynamic counts for Needs Attention, Monitoring, and Completed. Cards show referral ID, patient name, type, priority, route, tone-based status pill, progress bar percentage, operational issue explanation, assigned follow-up owner (`"Referral Coordinator"`), and action buttons.
 - **Available Actions:**
   - Tab Switcher: Sets `view` to `"attention"`, `"monitoring"`, or `"completed"`.
-  - "Start Follow-up" (on `SENT` referrals): Updates status to `FOLLOW_UP_REQUIRED` with note: *"Coordinator follow-up started because the referral has not received the expected acknowledgement."*
-  - "Resolve Follow-up" (on `FOLLOW_UP_REQUIRED` referrals): Updates status to `ACKNOWLEDGED` with note: *"Coordinator completed the operational follow-up and the referral can continue."*
+  - "Start Follow-up" (on `SENT` referrals): Updates status to `FOLLOW_UP_REQUIRED` with note: _"Coordinator follow-up started because the referral has not received the expected acknowledgement."_
+  - "Resolve Follow-up" (on `FOLLOW_UP_REQUIRED` referrals): Updates status to `ACKNOWLEDGED` with note: _"Coordinator completed the operational follow-up and the referral can continue."_
   - "View Referral": Navigates to `/referral/:id`.
 - **State Involved:** `ReferralContext`: `referrals`, `updateReferralStatus`.
 - **Screens Affected:** Immediately updates `FacilityDashboard`, `ReferralDetails`, and `PatientDashboard`.
-- **Empty States:** Implemented for all three tabs with custom messages (*"All clear"*, *"Nothing is being monitored"*, *"No completed referrals yet"*).
+- **Empty States:** Implemented for all three tabs with custom messages (_"All clear"_, _"Nothing is being monitored"_, _"No completed referrals yet"_).
 - **Critical Defects:**
   - `CREATED` status is omitted from all three filter categories ([CoordinatorDashboard.jsx:9-35](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L9-L35)). Any un-sent referral is completely invisible to coordinators.
   - If a patient is acknowledged but never arrives at the hospital, the coordinator has NO button to initiate follow-up from this screen (action button only appears when `referral.status === "SENT"`).
@@ -217,6 +227,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ---
 
 ### Screen 5: Create Referral (`CreateReferral.jsx`)
+
 - **Route:** `/create`
 - **Source File:** [src/pages/CreateReferral.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx)
 - **Intended Role:** Referring Healthcare Facility Worker (Facility role).
@@ -238,6 +249,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ---
 
 ### Screen 6: Referral Details (`ReferralDetails.jsx`)
+
 - **Route:** `/referral/:id`
 - **Source File:** [src/pages/ReferralDetails.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx)
 - **Intended Role:** Facility staff and Coordinators.
@@ -263,21 +275,25 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ### Auxiliary Components
 
 #### 1. `Navbar.jsx`
+
 - **Source File:** [src/components/Navbar.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/Navbar.jsx)
 - Renders sticky glassmorphism header, Navexa brand logo (links to `/`), role-specific navigation links, active role badge with dot indicator, and "Switch Role" button.
 - Handles logout via context `logout()` which clears `localStorage` and routes to `/`.
 
 #### 2. `ReferralCard.jsx`
+
 - **Source File:** [src/components/ReferralCard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/ReferralCard.jsx)
 - Reusable generic referral card component.
 - Note: `FacilityDashboard.jsx` does not import or use this component; it implements its own internal nested `ReferralCard` component ([FacilityDashboard.jsx:118-241](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L118-L241)). Consequently, `src/components/ReferralCard.jsx` is currently **dead code** (unused across the entire application).
 
 #### 3. `ReferralTimeline.jsx`
+
 - **Source File:** [src/components/ReferralTimeline.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/ReferralTimeline.jsx)
 - Reusable timeline renderer.
 - Note: `ReferralDetails.jsx` and `PatientDashboard.jsx` both implement their own specialized timeline rendering logic inline. `ReferralTimeline.jsx` is also currently **dead code** (unused across the application).
 
 #### 4. `StatusBadge.jsx`
+
 - **Source File:** [src/components/StatusBadge.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/StatusBadge.jsx)
 - Renders rounded status pills using a color mapping (`STATUS_CONFIG`). Used only inside `ReferralCard.jsx` (which is itself unused).
 
@@ -340,6 +356,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ```
 
 ### 6.3 Unsupported / Dead-End Paths in Current Code
+
 1. **Patient Missing / Transport Failure:** If a patient cannot reach the facility after acknowledgement, there is no code path to record transport failure, assign an outreach worker, or flag the case from `ACKNOWLEDGED` status in `ReferralDetails`.
 2. **Facility Capacity Reached / Specialization Unavailable:** The receiving facility cannot click "Redirect" or "Decline". They must either leave it in `SENT` or acknowledge it regardless of capacity.
 3. **Clinical Deterioration in Transit:** No escalation mechanism to alert tertiary emergency response or re-route an ambulance.
@@ -350,6 +367,7 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ## 7. Actual Architecture and Component Hierarchy
 
 ### 7.1 Architecture Overview
+
 - **Framework:** React 18.3.1
 - **Build Tool:** Vite 5.3.4 (configured in [vite.config.js](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/vite.config.js))
 - **Routing:** React Router DOM 6.24.1 (`BrowserRouter` in [main.jsx:10](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/main.jsx#L10))
@@ -413,32 +431,34 @@ Role management is orchestrated by [ReferralContext.jsx:23-36](file:///d:/ANTIGR
 ## 8. Data Entities and Relationships
 
 ### 8.1 The Referral Entity Schema
+
 Currently, the **Referral** object is the sole data entity in the application. There are no separate tables or objects for Patients, Facilities, Users, or Navigators.
 
 ```typescript
 interface Referral {
-  id: string;               // Unique string, e.g., "NAV-2026-001"
-  patientName: string;      // E.g., "Ananya Sharma"
-  patientId: string;        // E.g., "P-1001"
-  caregiverContact?: string;// E.g., "9876543210" (Captured in /create, omitted in demo records)
-  fromFacility: string;     // E.g., "Primary Health Centre"
-  toFacility: string;       // E.g., "District Hospital"
+  id: string; // Unique string, e.g., "NAV-2026-001"
+  patientName: string; // E.g., "Ananya Sharma"
+  patientId: string; // E.g., "P-1001"
+  caregiverContact?: string; // E.g., "9876543210" (Captured in /create, omitted in demo records)
+  fromFacility: string; // E.g., "Primary Health Centre"
+  toFacility: string; // E.g., "District Hospital"
   referralType: "Maternal" | "Child";
   priority: "Routine" | "Urgent";
   status: "CREATED" | "SENT" | "ACKNOWLEDGED" | "ARRIVAL_CONFIRMED" | "COMPLETED" | "FOLLOW_UP_REQUIRED";
-  createdAt: string;        // ISO 8601 string, e.g. "2026-10-01T09:00:00Z"
-  reason: string;           // Freeform narrative text
-  timeline: TimelineEvent[];// Chronological array of milestone transitions
+  createdAt: string; // ISO 8601 string, e.g. "2026-10-01T09:00:00Z"
+  reason: string; // Freeform narrative text
+  timeline: TimelineEvent[]; // Chronological array of milestone transitions
 }
 
 interface TimelineEvent {
-  status: string;           // Status transitioned into
-  date: string;             // ISO 8601 string timestamp
-  notes: string;            // Descriptive explanation of the event
+  status: string; // Status transitioned into
+  date: string; // ISO 8601 string timestamp
+  notes: string; // Descriptive explanation of the event
 }
 ```
 
 ### 8.2 Origin and Lifespan of Data
+
 1. **Seed Data:** 3 records defined in [src/data/demoReferral.js](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/data/demoReferral.js):
    - `NAV-2026-001`: Ananya Sharma (`P-1001`), Maternal, Urgent, Primary Health Centre -> District Hospital, Status: `SENT`.
    - `NAV-2026-002`: Rahul Das (`P-1002`), Child, Urgent, District Hospital -> Tertiary Care Hospital, Status: `ACKNOWLEDGED`.
@@ -455,17 +475,18 @@ The application uses string matching rather than a formalized finite state machi
 
 ### 9.1 State Transition Matrix
 
-| Initial State | Allowed Action | Trigger Component / File | Resulting State | Appended Timeline Note |
-| :--- | :--- | :--- | :--- | :--- |
-| `CREATED` | "Send Referral" | [ReferralDetails.jsx:209-214](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L209-L214) | `SENT` | *"Referral sent to the receiving facility."* |
-| `SENT` | "Acknowledge" | [FacilityDashboard.jsx:55-62](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L55-L62), [ReferralDetails.jsx:216-222](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L216-L222) | `ACKNOWLEDGED` | *"Receiving facility acknowledged the referral."* |
-| `SENT` | "Flag for Follow-up" / "Start Follow-up" | [ReferralDetails.jsx:253-259](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L253-L259), [CoordinatorDashboard.jsx:37-43](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L37-L43) | `FOLLOW_UP_REQUIRED` | *"Referral requires operational follow-up because acknowledgement has not been received."* |
-| `FOLLOW_UP_REQUIRED` | "Resolve Follow-up" / "Mark Follow-up Resolved" | [FacilityDashboard.jsx:82-88](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L82-L88), [CoordinatorDashboard.jsx:45-51](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L45-L51), [ReferralDetails.jsx:240-246](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L240-L246) | `ACKNOWLEDGED` | *"Coordinator completed the operational follow-up and the referral can continue."* |
-| `ACKNOWLEDGED` | "Confirm Arrival" | [FacilityDashboard.jsx:64-71](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L64-L71), [ReferralDetails.jsx:224-230](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L224-L230) | `ARRIVAL_CONFIRMED` | *"Patient arrival confirmed at the receiving facility."* |
-| `ARRIVAL_CONFIRMED`| "Complete Referral" | [FacilityDashboard.jsx:73-80](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L73-L80), [ReferralDetails.jsx:232-238](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L232-L238) | `COMPLETED` | *"Referral care/service completed and recorded."* |
-| `COMPLETED` | *(None — Terminal)* | [ReferralDetails.jsx:111-118](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L111-L118) | `COMPLETED` | Terminal state. No further actions permitted. |
+| Initial State        | Allowed Action                                  | Trigger Component / File                                                                                                                                                                                                                                                                                                                                                        | Resulting State      | Appended Timeline Note                                                                     |
+| :------------------- | :---------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------- | :----------------------------------------------------------------------------------------- |
+| `CREATED`            | "Send Referral"                                 | [ReferralDetails.jsx:209-214](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L209-L214)                                                                                                                                                                                                                                                         | `SENT`               | _"Referral sent to the receiving facility."_                                               |
+| `SENT`               | "Acknowledge"                                   | [FacilityDashboard.jsx:55-62](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L55-L62), [ReferralDetails.jsx:216-222](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L216-L222)                                                                                                                                | `ACKNOWLEDGED`       | _"Receiving facility acknowledged the referral."_                                          |
+| `SENT`               | "Flag for Follow-up" / "Start Follow-up"        | [ReferralDetails.jsx:253-259](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L253-L259), [CoordinatorDashboard.jsx:37-43](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L37-L43)                                                                                                                          | `FOLLOW_UP_REQUIRED` | _"Referral requires operational follow-up because acknowledgement has not been received."_ |
+| `FOLLOW_UP_REQUIRED` | "Resolve Follow-up" / "Mark Follow-up Resolved" | [FacilityDashboard.jsx:82-88](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L82-L88), [CoordinatorDashboard.jsx:45-51](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L45-L51), [ReferralDetails.jsx:240-246](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L240-L246) | `ACKNOWLEDGED`       | _"Coordinator completed the operational follow-up and the referral can continue."_         |
+| `ACKNOWLEDGED`       | "Confirm Arrival"                               | [FacilityDashboard.jsx:64-71](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L64-L71), [ReferralDetails.jsx:224-230](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L224-L230)                                                                                                                                | `ARRIVAL_CONFIRMED`  | _"Patient arrival confirmed at the receiving facility."_                                   |
+| `ARRIVAL_CONFIRMED`  | "Complete Referral"                             | [FacilityDashboard.jsx:73-80](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L73-L80), [ReferralDetails.jsx:232-238](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L232-L238)                                                                                                                                | `COMPLETED`          | _"Referral care/service completed and recorded."_                                          |
+| `COMPLETED`          | _(None — Terminal)_                             | [ReferralDetails.jsx:111-118](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L111-L118)                                                                                                                                                                                                                                                         | `COMPLETED`          | Terminal state. No further actions permitted.                                              |
 
 ### 9.2 Transition Anomalies & Edge Cases
+
 1. **Broken Button on `FacilityDashboard` for `CREATED`:**
    In [FacilityDashboard.jsx:104](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L104), if status is `CREATED`, `getPrimaryActionLabel()` returns `"View Referral"`. When clicked, `handlePrimaryAction()` runs, checks `SENT`, `ACKNOWLEDGED`, `ARRIVAL_CONFIRMED`, `FOLLOW_UP_REQUIRED`, finds no match, and terminates with no action. It fails to navigate or update status.
 2. **Invisible `CREATED` Referrals on Coordinator Dashboard:**
@@ -502,6 +523,7 @@ A central pillar of Navexa Health is supporting vulnerable maternal and neonatal
 ```
 
 #### Detailed Findings on Navigator Workflow:
+
 - In `CoordinatorDashboard.jsx:476-489`, the card footer displays an avatar with letters `"RC"` and label `"FOLLOW-UP OWNER: Referral Coordinator"`. This is static markup rendered identically on every card. There is no navigator assignment mechanism, no staff directory, and no re-assignment dropdown.
 - There are no forms or data structures to log caregiver interactions, phone call results, home visit reports, or transportation vouchers.
 - When a referral reaches `COMPLETED`, the entire journey terminates. In real-world maternal care, the postpartum period (especially the first 48 hours and up to 42 days) represents a peak period for maternal mortality (hemorrhage, sepsis, eclampsia) and neonatal mortality (hypothermia, asphyxia, infections). The existing system ceases tracking at the moment of hospital service completion.
@@ -510,21 +532,22 @@ A central pillar of Navexa Health is supporting vulnerable maternal and neonatal
 
 ## 11. Backend, APIs and Integrations
 
-| Subsystem | Implemented Status | Code Evidence / Technical Reality |
-| :--- | :--- | :--- |
-| **REST / GraphQL APIs** | `ABSENT` | No endpoints, routes, controllers, or fetch/axios calls anywhere in `src/`. |
-| **Database / ORM** | `ABSENT` | No SQL/NoSQL databases, Supabase, Firebase, Prisma, or local IndexedDB/Dexie. |
-| **Authentication** | `SIMULATED` | Simulated via `localStorage.getItem("navexa_role")`. No tokens, passwords, sessions, or backend validation. |
-| **SMS / WhatsApp / Alerts**| `ABSENT` | No Twilio, AWS SNS, Infobip, or WhatsApp Business API. "Need Help?" invokes native browser `window.alert()`. |
-| **GIS / Maps / Routing** | `UI ONLY` | "Get Directions" in `PatientDashboard.jsx:604-610` fires `alert("Demo navigation to " + activeReferral.toFacility)`. No Mapbox, Google Maps, or Leaflet scripts. |
-| **AI / Machine Learning** | `ABSENT` | No LLM APIs, OpenAI, Anthropic, Gemini, or clinical decision support engines. |
-| **Healthcare Standards** | `ABSENT` | No HL7 FHIR (Fast Healthcare Interoperability Resources) bundle exports, OpenMRS sync, or ABDM (Ayushman Bharat Digital Mission) M1/M2/M3 compliance. |
+| Subsystem                   | Implemented Status | Code Evidence / Technical Reality                                                                                                                                |
+| :-------------------------- | :----------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **REST / GraphQL APIs**     | `ABSENT`           | No endpoints, routes, controllers, or fetch/axios calls anywhere in `src/`.                                                                                      |
+| **Database / ORM**          | `ABSENT`           | No SQL/NoSQL databases, Supabase, Firebase, Prisma, or local IndexedDB/Dexie.                                                                                    |
+| **Authentication**          | `SIMULATED`        | Simulated via `localStorage.getItem("navexa_role")`. No tokens, passwords, sessions, or backend validation.                                                      |
+| **SMS / WhatsApp / Alerts** | `ABSENT`           | No Twilio, AWS SNS, Infobip, or WhatsApp Business API. "Need Help?" invokes native browser `window.alert()`.                                                     |
+| **GIS / Maps / Routing**    | `UI ONLY`          | "Get Directions" in `PatientDashboard.jsx:604-610` fires `alert("Demo navigation to " + activeReferral.toFacility)`. No Mapbox, Google Maps, or Leaflet scripts. |
+| **AI / Machine Learning**   | `ABSENT`           | No LLM APIs, OpenAI, Anthropic, Gemini, or clinical decision support engines.                                                                                    |
+| **Healthcare Standards**    | `ABSENT`           | No HL7 FHIR (Fast Healthcare Interoperability Resources) bundle exports, OpenMRS sync, or ABDM (Ayushman Bharat Digital Mission) M1/M2/M3 compliance.            |
 
 ---
 
 ## 12. UI/UX and Responsive Design Assessment
 
 ### 12.1 Visual Design and Styling System
+
 The visual styling in [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/index.css) is comprehensive (~5,660 lines) and achieves an attractive, modern aesthetic:
 - **Palette:** Clinical, reassuring tones based on primary blue (`#1769AA`), soft dark blue (`#124F7F`), teal accents (`#159A95`), warm amber for pending/attention states (`#FFF4D6`, `#946200`), and emerald greens for completed states (`#DFF5E8`, `#146C43`).
 - **Typography:** Uses clean system sans-serif font stack headed by `Inter` with strong typographic hierarchy.
@@ -532,10 +555,12 @@ The visual styling in [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-
 - **Glassmorphism:** Navigation bar uses `backdrop-filter: blur(14px)` with high-translucency white border.
 
 ### 12.2 Dashboard Readability & Information Architecture
+
 - The **Coordinator Dashboard** and **Facility Dashboard** present clear, scannable layouts with strong KPI counters and distinct visual tags for `Routine` vs `Urgent`.
 - The **Patient Dashboard** effectively reduces cognitive load by converting a clinical workflow into an accessible, step-by-step progress rail with friendly status descriptions.
 
 ### 12.3 Usability and Design Flaws
+
 1. **Dead Component Code:**
    `ReferralCard.jsx`, `ReferralTimeline.jsx`, and `StatusBadge.jsx` in `src/components/` are entirely disconnected from the actual page views. Each dashboard page duplicates its own status badges, cards, and timelines inline.
 2. **Duplicated Configuration:**
@@ -566,13 +591,14 @@ The visual styling in [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-
 
 - **Completion Without Clinical Validation:** A hospital worker can click "Complete Referral" with zero validation of whether the mother or neonate survived, received surgery, or was stabilized. Marking a referral "Completed" could lead coordinators to assume a patient is safe when they may have left against medical advice (LAMA) or suffered adverse outcomes.
 - **Inability to Flag Emergencies in Transit:** Once acknowledged, if a patient deteriorates or gets stuck en route, the system provides no mechanism for family or referring facilities to flag the referral back to the coordinator.
-- **False Sense of Security via "Need Help" Button:** The "Need Help?" button on the patient view triggers a browser alert telling the patient *"Human support request created. A care coordinator will follow up."* In reality, **nothing is created, no state is updated, and no coordinator is notified**. In a real clinical scenario, a patient facing an emergency who clicks this button would wait in vain for help that was never dispatched.
+- **False Sense of Security via "Need Help" Button:** The "Need Help?" button on the patient view triggers a browser alert telling the patient _"Human support request created. A care coordinator will follow up."_ In reality, **nothing is created, no state is updated, and no coordinator is notified**. In a real clinical scenario, a patient facing an emergency who clicks this button would wait in vain for help that was never dispatched.
 
 ---
 
 ## 14. Build and Runtime Validation Results
 
 ### 14.1 Execution Environment & Validation Log
+
 - **Node/Vite Environment:** Executed within project directory `d:/ANTIGRAVITY/Healthathon/health-a-thon`.
 - **Command Tested:** `npm run build` (`vite build`)
 - **Build Outcome:** **SUCCESS (Exit code 0)**
@@ -594,6 +620,7 @@ The visual styling in [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-
 ## 15. Bugs, Limitations and Technical Debt
 
 ### 15.1 Confirmed Bugs
+
 1. **Dead Button on Facility Dashboard (`FacilityDashboard.jsx:54-89`):**
    When a referral is in `CREATED` status, the action button displays "View Referral" but calls `handlePrimaryAction()`, which does nothing and does not navigate.
 2. **Invisible `CREATED` Referrals on Coordinator Dashboard (`CoordinatorDashboard.jsx:9-35`):**
@@ -608,6 +635,7 @@ The visual styling in [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-
    Fires an alert promising coordinator follow-up, but writes nothing to state, leaving no trace in the coordinator's queue.
 
 ### 15.2 Technical Debt & Code Redundancy
+
 1. **Dead Components:** `src/components/ReferralCard.jsx`, `ReferralTimeline.jsx`, and `StatusBadge.jsx` are completely unused across the application.
 2. **Status Logic Duplication:** Status labels, step indices, tones, and descriptions are independently hardcoded across `FacilityDashboard.jsx`, `CoordinatorDashboard.jsx`, `PatientDashboard.jsx`, and `ReferralDetails.jsx`.
 3. **In-Memory Volatility:** Lack of local storage or mock API caching means data resets on every browser refresh.
@@ -621,6 +649,7 @@ The visual styling in [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-
 To guide the next engineering phase, recommendations are structured by priority:
 
 ### Priority 0 (P0) — Critical Safety, Data-Integrity & Blocking Defects
+
 - **P0.1: Fix In-Memory Persistence & Dynamic Patient Session:**
   Persist referrals to `localStorage` (or mock IndexedDB) in `ReferralContext` so data survives page refresh. Remove hardcoded `patientId = "P-1001"`; allow selecting which patient or referral is active in the Patient view.
 - **P0.2: Fix Dead Buttons & State Transitions:**
@@ -631,6 +660,7 @@ To guide the next engineering phase, recommendations are structured by priority:
   Display `caregiverContact` prominently in `ReferralDetails.jsx` and `CoordinatorDashboard.jsx` so staff can actually contact the patient.
 
 ### Priority 1 (P1) — Essential for a Convincing End-to-End Prototype
+
 - **P1.1: Implement Care Navigator Entity & Assignment:**
   Introduce a navigator model (name, phone, catchment area). Add a dropdown in `CoordinatorDashboard` and `ReferralDetails` to assign a specific Community Health Worker / Care Navigator.
 - **P1.2: Support Redirection & Rejection:**
@@ -641,6 +671,7 @@ To guide the next engineering phase, recommendations are structured by priority:
   Delete or re-integrate `src/components/ReferralCard.jsx`, `ReferralTimeline.jsx`, and `StatusBadge.jsx`. Extract status labels, colors, and transitions into a shared `src/constants/referralStatus.js`.
 
 ### Priority 2 (P2) — Usability, Validation & Code Quality
+
 - **P2.1: Enhance Form Validation:**
   Validate phone numbers, prevent selecting the same facility for source and destination, and prevent duplicate patient IDs.
 - **P2.2: Add Elapsed Time & SLA Warnings:**
@@ -649,6 +680,7 @@ To guide the next engineering phase, recommendations are structured by priority:
   Install ESLint or remove the broken `"lint"` script. Update `<title>` in `index.html` to `"Navexa Health — Maternal & Newborn Referral Coordination"`.
 
 ### Priority 3 (P3) — Future Production Capabilities
+
 - **P3.1: Backend & Database Migration:**
   Build a Node.js / Python REST or GraphQL API backed by PostgreSQL.
 - **P3.2: FHIR Compliance:**
@@ -697,20 +729,20 @@ d:/ANTIGRAVITY/Healthathon/health-a-thon/
 
 ## 18. Important Source Files and Their Responsibilities
 
-| File Path | Primary Responsibilities & Key Exports |
-| :--- | :--- |
-| [src/main.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/main.jsx) | Application entry point. Wraps `App` with `React.StrictMode`, `BrowserRouter`, and `ReferralProvider`. |
-| [src/App.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/App.jsx) | Core router. Defines all route paths and implements `ProtectedRoute` to enforce client-side role guards. |
-| [src/context/ReferralContext.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/context/ReferralContext.jsx) | Global state store. Exports `ReferralProvider` and `useReferrals()`. Manages `referrals` in-memory and `role` in `localStorage`. |
-| [src/data/demoReferral.js](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/data/demoReferral.js) | Exports `demoReferrals` array containing 3 seed referral records (`NAV-2026-001`, `002`, `003`). |
-| [src/pages/RoleSelection.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/RoleSelection.jsx) | Role switcher landing page at `/`. Lets user simulate logging in as Patient, Facility, or Coordinator. |
-| [src/pages/PatientDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx) | Patient-facing visual progress tracker at `/patient`. Hardcoded to `P-1001`. Includes help and directions alerts. |
-| [src/pages/FacilityDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx) | Clinical staff dashboard at `/facility`. Shows incoming/outgoing queues for "District Hospital" and inline status updates. |
-| [src/pages/CoordinatorDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx) | Central coordination queue at `/coordinator`. Categorizes items into Needs Attention, Monitoring, and Completed. |
-| [src/pages/CreateReferral.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx) | Referral creation form at `/create`. Includes live preview sidebar, ID generator, and validation. |
-| [src/pages/ReferralDetails.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx) | Referral deep-dive view at `/referral/:id`. Displays patient info, visual route, timeline, and next milestone action. |
-| [src/components/Navbar.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/Navbar.jsx) | Sticky navigation bar displaying active role, role switcher, role-specific links, and emergency help trigger. |
-| [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/index.css) | Complete custom design system containing all tokens, resets, component styles, and animations. |
+| File Path                                                                                                                 | Primary Responsibilities & Key Exports                                                                                           |
+| :------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- |
+| [src/main.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/main.jsx)                                             | Application entry point. Wraps `App` with `React.StrictMode`, `BrowserRouter`, and `ReferralProvider`.                           |
+| [src/App.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/App.jsx)                                               | Core router. Defines all route paths and implements `ProtectedRoute` to enforce client-side role guards.                         |
+| [src/context/ReferralContext.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/context/ReferralContext.jsx)       | Global state store. Exports `ReferralProvider` and `useReferrals()`. Manages `referrals` in-memory and `role` in `localStorage`. |
+| [src/data/demoReferral.js](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/data/demoReferral.js)                     | Exports `demoReferrals` array containing 3 seed referral records (`NAV-2026-001`, `002`, `003`).                                 |
+| [src/pages/RoleSelection.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/RoleSelection.jsx)               | Role switcher landing page at `/`. Lets user simulate logging in as Patient, Facility, or Coordinator.                           |
+| [src/pages/PatientDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx)         | Patient-facing visual progress tracker at `/patient`. Hardcoded to `P-1001`. Includes help and directions alerts.                |
+| [src/pages/FacilityDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx)       | Clinical staff dashboard at `/facility`. Shows incoming/outgoing queues for "District Hospital" and inline status updates.       |
+| [src/pages/CoordinatorDashboard.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx) | Central coordination queue at `/coordinator`. Categorizes items into Needs Attention, Monitoring, and Completed.                 |
+| [src/pages/CreateReferral.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx)             | Referral creation form at `/create`. Includes live preview sidebar, ID generator, and validation.                                |
+| [src/pages/ReferralDetails.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx)           | Referral deep-dive view at `/referral/:id`. Displays patient info, visual route, timeline, and next milestone action.            |
+| [src/components/Navbar.jsx](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/Navbar.jsx)                   | Sticky navigation bar displaying active role, role switcher, role-specific links, and emergency help trigger.                    |
+| [src/index.css](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/index.css)                                           | Complete custom design system containing all tokens, resets, component styles, and animations.                                   |
 
 ---
 

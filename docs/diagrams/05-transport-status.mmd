@@ -1,0 +1,12 @@
+stateDiagram-v2
+  accTitle: Transport status
+  accDescr: No ride goes to DISPATCHED. DISPATCHED goes to PICKED_UP, ARRIVED or FAILED. PICKED_UP goes to ARRIVED or FAILED. FAILED can be dispatched again.
+  [*] --> NO_RIDE
+  NO_RIDE --> DISPATCHED: Dispatch van
+  DISPATCHED --> PICKED_UP: Driver picks up
+  DISPATCHED --> ARRIVED: Confirm arrival
+  PICKED_UP --> ARRIVED: Confirm arrival
+  DISPATCHED --> FAILED: Report problem
+  PICKED_UP --> FAILED: Report problem
+  FAILED --> DISPATCHED: Dispatch again
+  ARRIVED --> [*]

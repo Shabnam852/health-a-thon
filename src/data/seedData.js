@@ -3,27 +3,48 @@
  * Complete, interconnected records for all 7 demonstration patients, facilities, navigators, and fleet.
  */
 
-import { ReferralStatus, TransportStatus, BarrierStatus, UrgencyLevel, PatientType } from "../domain/enums.js";
-import { createReferral, createBarrier, createTransportRequest, createArrivalRecord, createClinicalOutcome, createFollowUpPlan } from "../domain/models.js";
+import { BarrierStatus, PatientType, ReferralStatus, TransportStatus, UrgencyLevel } from "../domain/enums.js";
+import {
+  createArrivalRecord,
+  createBarrier,
+  createClinicalOutcome,
+  createFollowUpPlan,
+  createReferral,
+  createTransportRequest,
+} from "../domain/models.js";
 
+// These hospitals are fictional. Their coordinates are only the centre of the named area.
+// "treats" and "takesUrgent" are demo values and need clinical review.
 export const initialFacilities = [
   {
     id: "FAC-SANJEEVANI",
     name: "Sanjeevani Regional Perinatal Centre",
+    treats: [PatientType.MATERNAL, PatientType.CHILD],
+    takesUrgent: true,
     type: "Level III Perinatal & NICU Hub",
     location: "Bengaluru, Karnataka • Central Hub",
+    coordinates: { lat: 12.9716, lng: 77.5946 },
     bedsAvailable: 4,
     totalBeds: 24,
     status: "Active & Accepting",
     phone: "+91 90000 03321",
     directContact: "Anitha Joseph, RN (Lead Intake Coordinator)",
-    capabilities: ["24/7 MFM On-Call", "Level III NICU", "Phototherapy Suites", "Emergency C-Section", "Dedicated Triage Bay"],
+    capabilities: [
+      "24/7 MFM On-Call",
+      "Level III NICU",
+      "Phototherapy Suites",
+      "Emergency C-Section",
+      "Dedicated Triage Bay",
+    ],
   },
   {
     id: "FAC-ASHA-KIRAN",
     name: "Asha Kiran Community Health Centre",
+    treats: [PatientType.MATERNAL, PatientType.CHILD],
+    takesUrgent: false,
     type: "Community Health Centre (CHC)",
     location: "Yelahanka • 13.5 km",
+    coordinates: { lat: 13.1007, lng: 77.5963 },
     bedsAvailable: 2,
     totalBeds: 6,
     status: "Active",
@@ -34,8 +55,11 @@ export const initialFacilities = [
   {
     id: "FAC-KAVERI",
     name: "Kaveri Midwifery & Birth Clinic",
+    treats: [PatientType.MATERNAL],
+    takesUrgent: false,
     type: "Community Midwifery & Birthing Suite",
     location: "Whitefield • 12 km",
+    coordinates: { lat: 12.9698, lng: 77.75 },
     bedsAvailable: 3,
     totalBeds: 8,
     status: "Active",
@@ -46,8 +70,11 @@ export const initialFacilities = [
   {
     id: "FAC-VIDYARANYA",
     name: "Vidyaranya Institute of Medical Sciences",
+    treats: [PatientType.MATERNAL, PatientType.CHILD],
+    takesUrgent: true,
     type: "Level IV Quaternary Referral Centre",
     location: "Bannerghatta Road • 23 km",
+    coordinates: { lat: 12.888, lng: 77.597 },
     bedsAvailable: 1,
     totalBeds: 36,
     status: "Active & Accepting",
@@ -58,8 +85,11 @@ export const initialFacilities = [
   {
     id: "FAC-KARUNA",
     name: "Karuna Women & Children's Hospital",
+    treats: [PatientType.MATERNAL, PatientType.CHILD],
+    takesUrgent: true,
     type: "Level II Special Newborn Care Unit (SNCU)",
     location: "Kengeri • 18.5 km",
+    coordinates: { lat: 12.9177, lng: 77.4838 },
     bedsAvailable: 5,
     totalBeds: 16,
     status: "Active",
@@ -107,9 +137,7 @@ export const initialFleet = [
     plate: "KA-01-AB-4892",
     driver: "Manjunath Gowda",
     driverPhone: "+91 90000 19921",
-    status: "DISPATCHED",
     equippedWith: "Neonatal Transport Kit & Oxygen Concentrator",
-    currentLocation: "2.3 km from patient pickup",
   },
   {
     id: "VEH-02",
@@ -118,9 +146,7 @@ export const initialFleet = [
     plate: "KA-05-MN-1127",
     driver: "Suresh K.",
     driverPhone: "+91 90000 10022",
-    status: "EN_ROUTE",
     equippedWith: "Wheelchair Lift & Stretcher",
-    currentLocation: "Mysuru Road Corridor",
   },
   {
     id: "VEH-01",
@@ -129,13 +155,16 @@ export const initialFleet = [
     plate: "KA-04-G-3021",
     driver: "Imran P., EMT",
     driverPhone: "+91 90000 10404",
-    status: "AVAILABLE",
     equippedWith: "Isolette Incubator & LED Phototherapy Unit",
-    currentLocation: "Sanjeevani Transport Bay",
   },
 ];
 
-export const initialSeedReferrals = [
+// The demo's clocks run from when it is built, so its alarms stay believable on any day.
+const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60 * 1000).toISOString();
+const daysAgo = (days) => minutesAgo(days * 24 * 60);
+
+// A function so that Reset restarts those clocks instead of reusing the page-load times.
+export const buildSeedReferrals = () => [
   // CASE 1: Ananya Reddy (Maternal, Pre-eclampsia, Arrival Confirmed, In Clinical Evaluation)
   createReferral({
     id: "REF-2024-8821",
@@ -154,7 +183,8 @@ export const initialSeedReferrals = [
     priority: UrgencyLevel.URGENT,
     status: ReferralStatus.ARRIVAL_CONFIRMED,
     createdAt: "2026-10-31T08:15:00Z",
-    reason: "Ananya presented for routine 34w checkup with progressive headache and pedal edema. Office BP 154/100 repeated at 152/98. Proteinuria confirmed +2. Urgent hospital transfer initiated for immediate labetalol titration and 24h maternal-fetal observation.",
+    reason:
+      "Ananya presented for routine 34w checkup with progressive headache and pedal edema. Office BP 154/100 repeated at 152/98. Proteinuria confirmed +2. Urgent hospital transfer initiated for immediate labetalol titration and 24h maternal-fetal observation.",
     caregiverName: "Karthik Reddy (Spouse)",
     caregiverContact: "+91 90000 21049",
     patientPhone: "+91 90000 21048",
@@ -184,6 +214,7 @@ export const initialSeedReferrals = [
       id: "TR-4492",
       referralId: "REF-2024-8821",
       status: TransportStatus.ARRIVED,
+      vanId: "VEH-02",
       vehicle: "Transit Van #02 (Suresh K.)",
       driver: "Suresh K.",
       arrivedAt: "2026-10-31T10:05:00Z",
@@ -196,10 +227,26 @@ export const initialSeedReferrals = [
       notes: "Clerk badge swipe verified Ananya safely seated with spouse. Baseline labs drawn.",
     }),
     timeline: [
-      { status: ReferralStatus.CREATED, date: "2026-10-31T08:15:00Z", notes: "Referral drafted by Dr. Ravi Venkatesh." },
-      { status: ReferralStatus.SENT, date: "2026-10-31T08:20:00Z", notes: "Digital referral package transmitted to Sanjeevani." },
-      { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T08:35:00Z", notes: "Sanjeevani Perinatal SCU acknowledged transfer and reserved Exam Room 3B." },
-      { status: ReferralStatus.ARRIVAL_CONFIRMED, date: "2026-10-31T10:05:00Z", notes: "Patient arrival verified at Sanjeevani OB intake." },
+      {
+        status: ReferralStatus.CREATED,
+        date: "2026-10-31T08:15:00Z",
+        notes: "Referral drafted by Dr. Ravi Venkatesh.",
+      },
+      {
+        status: ReferralStatus.SENT,
+        date: "2026-10-31T08:20:00Z",
+        notes: "Digital referral package transmitted to Sanjeevani.",
+      },
+      {
+        status: ReferralStatus.ACKNOWLEDGED,
+        date: "2026-10-31T08:35:00Z",
+        notes: "Sanjeevani Perinatal SCU acknowledged transfer and reserved Exam Room 3B.",
+      },
+      {
+        status: ReferralStatus.ARRIVAL_CONFIRMED,
+        date: "2026-10-31T10:05:00Z",
+        notes: "Patient arrival verified at Sanjeevani OB intake.",
+      },
     ],
   }),
 
@@ -221,7 +268,8 @@ export const initialSeedReferrals = [
     priority: UrgencyLevel.STAT,
     status: ReferralStatus.ACKNOWLEDGED,
     createdAt: "2026-10-31T08:45:00Z",
-    reason: "3-day-old infant shows cephalocaudal progression of jaundice and lethargy with poor latch. Total Serum Bilirubin 21.4 mg/dL exceeds AAP phototherapy and exchange transfusion threshold. Immediate intensive phototherapy required.",
+    reason:
+      "3-day-old infant shows cephalocaudal progression of jaundice and lethargy with poor latch. Total Serum Bilirubin 21.4 mg/dL exceeds AAP phototherapy and exchange transfusion threshold. Immediate intensive phototherapy required.",
     caregiverName: "Shalini Naidu (Mother)",
     caregiverContact: "+91 90000 19230",
     patientPhone: "+91 90000 19230",
@@ -241,7 +289,8 @@ export const initialSeedReferrals = [
         id: "BAR-NAIDU-1",
         category: "TRANSPORT",
         title: "Only family vehicle is a two-wheeler; no safe newborn transport",
-        description: "Mother confirmed the family's only vehicle is a two-wheeler, unsafe for a lethargic newborn. Auto-rickshaw driver declined the trip. Lacks funds for a private cab.",
+        description:
+          "Mother confirmed the family's only vehicle is a two-wheeler, unsafe for a lethargic newborn. Auto-rickshaw driver declined the trip. Lacks funds for a private cab.",
         status: BarrierStatus.IN_PROGRESS,
         identifiedAt: "2026-10-31T09:15:00Z",
         resolutionNotes: "Dispatched MediVan #04 equipped with a neonatal transport kit.",
@@ -252,6 +301,7 @@ export const initialSeedReferrals = [
       id: "TR-NAIDU-01",
       referralId: "NX-9042",
       status: TransportStatus.DISPATCHED,
+      vanId: "VEH-04",
       vehicle: "MediVan #04 (Driver Manjunath Gowda with Neonatal Transport Kit)",
       driver: "Manjunath Gowda",
       driverPhone: "+91 90000 19921",
@@ -262,9 +312,21 @@ export const initialSeedReferrals = [
       dispatchedAt: "2026-10-31T09:35:00Z",
     }),
     timeline: [
-      { status: ReferralStatus.CREATED, date: "2026-10-31T08:45:00Z", notes: "Outpatient Hyperbilirubinemia urgent direct referral generated by Dr. Venkatesh." },
-      { status: ReferralStatus.SENT, date: "2026-10-31T08:50:00Z", notes: "Referral sent to Sanjeevani NICU Phototherapy." },
-      { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T09:10:00Z", notes: "NICU charge nurse acknowledged referral and reserved Phototherapy Bed #04." },
+      {
+        status: ReferralStatus.CREATED,
+        date: "2026-10-31T08:45:00Z",
+        notes: "Outpatient Hyperbilirubinemia urgent direct referral generated by Dr. Venkatesh.",
+      },
+      {
+        status: ReferralStatus.SENT,
+        date: "2026-10-31T08:50:00Z",
+        notes: "Referral sent to Sanjeevani NICU Phototherapy.",
+      },
+      {
+        status: ReferralStatus.ACKNOWLEDGED,
+        date: "2026-10-31T09:10:00Z",
+        notes: "NICU charge nurse acknowledged referral and reserved Phototherapy Bed #04.",
+      },
     ],
   }),
 
@@ -286,7 +348,8 @@ export const initialSeedReferrals = [
     priority: UrgencyLevel.URGENT,
     status: ReferralStatus.ACKNOWLEDGED,
     createdAt: "2026-10-31T09:00:00Z",
-    reason: "Confirmed spontaneous rupture of membranes at 36w 2d. Group B Strep status unknown. Mild irregular contractions. Transfer to Level III maternity center for prophylactic antibiotic coverage and fetal monitoring.",
+    reason:
+      "Confirmed spontaneous rupture of membranes at 36w 2d. Group B Strep status unknown. Mild irregular contractions. Transfer to Level III maternity center for prophylactic antibiotic coverage and fetal monitoring.",
     caregiverName: "Tariq Ahmed (Spouse)",
     caregiverContact: "+91 90000 29014",
     patientPhone: "+91 90000 29012",
@@ -305,9 +368,10 @@ export const initialSeedReferrals = [
       id: "TR-7738-01",
       referralId: "MRN-773829",
       status: TransportStatus.PICKED_UP,
-      vehicle: "Silver Transit Van • Plate: KA-01-AB-4892",
+      vanId: "VEH-02",
+      vehicle: "Transit Van #02 (Suresh K.)",
       driver: "Suresh K.",
-      driverPhone: "+91 90000 92831",
+      driverPhone: "+91 90000 10022",
       eta: "8 mins",
       pickupAddress: "42, 3rd Cross, Frazer Town, Bengaluru 560005",
       destinationFacility: "Sanjeevani Maternity Triage",
@@ -315,9 +379,21 @@ export const initialSeedReferrals = [
       pickedUpAt: "2026-10-31T09:40:00Z",
     }),
     timeline: [
-      { status: ReferralStatus.CREATED, date: "2026-10-31T09:00:00Z", notes: "Dr. Kavitha Rao initiated high-risk transfer." },
-      { status: ReferralStatus.SENT, date: "2026-10-31T09:05:00Z", notes: "Transmitted to Sanjeevani Maternity Triage." },
-      { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T09:15:00Z", notes: "Sanjeevani accepted transfer; Bed Pod #4 West Pavilion prepped." },
+      {
+        status: ReferralStatus.CREATED,
+        date: "2026-10-31T09:00:00Z",
+        notes: "Dr. Kavitha Rao initiated high-risk transfer.",
+      },
+      {
+        status: ReferralStatus.SENT,
+        date: "2026-10-31T09:05:00Z",
+        notes: "Transmitted to Sanjeevani Maternity Triage.",
+      },
+      {
+        status: ReferralStatus.ACKNOWLEDGED,
+        date: "2026-10-31T09:15:00Z",
+        notes: "Sanjeevani accepted transfer; Bed Pod #4 West Pavilion prepped.",
+      },
     ],
   }),
 
@@ -339,7 +415,8 @@ export const initialSeedReferrals = [
     priority: UrgencyLevel.STAT,
     status: ReferralStatus.ACKNOWLEDGED,
     createdAt: "2026-10-31T07:30:00Z",
-    reason: "Postpartum mother presented with severe throbbing headache and visual scotoma. BP 168/104 in severe range. Urgent transfer for IV magnesium sulfate seizure prophylaxis and blood pressure control.",
+    reason:
+      "Postpartum mother presented with severe throbbing headache and visual scotoma. BP 168/104 in severe range. Urgent transfer for IV magnesium sulfate seizure prophylaxis and blood pressure control.",
     caregiverName: "Neighbor / Emergency Contact",
     caregiverContact: "+91 90000 29901",
     patientPhone: "+91 90000 29900",
@@ -357,16 +434,29 @@ export const initialSeedReferrals = [
         id: "BAR-GOWDA-1",
         category: "DEPENDENT_CARE",
         title: "Single mother with 2 toddler siblings at home",
-        description: "Patient living alone with two toddlers. Unable to leave home without emergency childcare supervision.",
+        description:
+          "Patient living alone with two toddlers. Unable to leave home without emergency childcare supervision.",
         status: BarrierStatus.IN_PROGRESS,
         identifiedAt: "2026-10-31T08:00:00Z",
         resolutionNotes: "Dispatched local ASHA worker and authorized family emergency childcare support.",
       }),
     ],
     timeline: [
-      { status: ReferralStatus.CREATED, date: "2026-10-31T07:30:00Z", notes: "Severe postpartum pre-eclampsia referral initiated." },
-      { status: ReferralStatus.SENT, date: "2026-10-31T07:35:00Z", notes: "Sent to Sanjeevani Maternal Assessment Pavilion." },
-      { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T07:50:00Z", notes: "Sanjeevani staged Triage Bay #02 with MgSO4 infusion protocol." },
+      {
+        status: ReferralStatus.CREATED,
+        date: "2026-10-31T07:30:00Z",
+        notes: "Severe postpartum pre-eclampsia referral initiated.",
+      },
+      {
+        status: ReferralStatus.SENT,
+        date: "2026-10-31T07:35:00Z",
+        notes: "Sent to Sanjeevani Maternal Assessment Pavilion.",
+      },
+      {
+        status: ReferralStatus.ACKNOWLEDGED,
+        date: "2026-10-31T07:50:00Z",
+        notes: "Sanjeevani staged Triage Bay #02 with MgSO4 infusion protocol.",
+      },
     ],
   }),
 
@@ -387,8 +477,9 @@ export const initialSeedReferrals = [
     referralType: PatientType.MATERNAL,
     priority: UrgencyLevel.URGENT,
     status: ReferralStatus.SENT,
-    createdAt: "2026-10-31T09:00:00Z",
-    reason: "Primigravida at 36w reports no movement for 6 hours. High maternal anxiety. Direct transfer for continuous cardiotocography and biophysical profile ultrasound.",
+    createdAt: minutesAgo(90), // Past the Urgent reply limit, so the Coordinator is alarmed.
+    reason:
+      "Primigravida at 36w reports no movement for 6 hours. High maternal anxiety. Direct transfer for continuous cardiotocography and biophysical profile ultrasound.",
     caregiverName: "Husband (Bhojpuri Speaker)",
     caregiverContact: "+91 90000 13320",
     patientPhone: "+91 90000 13319",
@@ -406,7 +497,8 @@ export const initialSeedReferrals = [
         id: "BAR-YADAV-1",
         category: "WEATHER",
         title: "Bus route suspended due to flash flooding",
-        description: "Heavy rain flooded the underpass and halted BMTC bus route 356. Family stranded at the bus station with no onward transport.",
+        description:
+          "Heavy rain flooded the underpass and halted BMTC bus route 356. Family stranded at the bus station with no onward transport.",
         status: BarrierStatus.IN_PROGRESS,
         identifiedAt: "2026-10-31T09:15:00Z",
         resolutionNotes: "Dispatched MediRide SUV with a Bhojpuri medical interpreter connected via handsfree.",
@@ -430,9 +522,12 @@ export const initialSeedReferrals = [
     department: "Pediatric Ambulatory Infusion / Rehydration Chair 5",
     referralType: PatientType.CHILD,
     priority: UrgencyLevel.URGENT,
-    status: ReferralStatus.SENT,
-    createdAt: "2026-10-31T07:00:00Z",
-    reason: "7-day-old infant shows dry mucous membranes, sunken fontanelle, and -12.8% loss from birth weight (2,700g vs 3,100g birth). Requires urgent IV rehydration and pediatric electrolyte panel.",
+    status: ReferralStatus.REJECTED,
+    declinedBy: ["Sanjeevani Regional Perinatal Centre"],
+    rejectionReason: "No rehydration chairs free",
+    createdAt: minutesAgo(40),
+    reason:
+      "7-day-old infant shows dry mucous membranes, sunken fontanelle, and -12.8% loss from birth weight (2,700g vs 3,100g birth). Requires urgent IV rehydration and pediatric electrolyte panel.",
     caregiverName: "Selvi Murugan (Mother)",
     caregiverContact: "+91 90000 21490",
     patientPhone: "+91 90000 21490",
@@ -457,6 +552,14 @@ export const initialSeedReferrals = [
         resolutionNotes: "Engaged the hospital's Arogya Mithra; confirmed cashless cover under Ayushman Bharat PM-JAY.",
       }),
     ],
+    timeline: [
+      { status: ReferralStatus.SENT, date: minutesAgo(40), notes: "Referral sent to Sanjeevani." },
+      {
+        status: ReferralStatus.REJECTED,
+        date: minutesAgo(20),
+        notes: "Sanjeevani declined: no rehydration chairs free. Floating until the patient chooses.",
+      },
+    ],
   }),
 
   // CASE 7: Meera Devi (Maternal G2P1, Completed Hospital Care, Active 42-Day Postpartum Plan)
@@ -466,7 +569,7 @@ export const initialSeedReferrals = [
     patientId: "P-1003",
     age: "31 yrs",
     parity: "G2P1",
-    gestationalAge: "Delivered (Postpartum Day 2)",
+    gestationalAge: "Delivered",
     edd: "Delivered 29 Oct",
     condition: "Post-induction Spontaneous Vaginal Delivery • Healthy Female Infant",
     fromFacility: "Asha Kiran Community Health Centre",
@@ -516,18 +619,36 @@ export const initialSeedReferrals = [
       patientId: "P-1003",
       patientName: "Meera Devi",
       referralType: PatientType.MATERNAL,
-      establishedAt: "2026-10-30T18:30:00Z",
+      establishedAt: daysAgo(6), // Puts the day 3 visit 3 days late, so it shows as missed.
       leadWorker: "Priya Raman, MSW",
     }),
     timeline: [
-      { status: ReferralStatus.CREATED, date: "2026-10-29T14:00:00Z", notes: "Referral created for scheduled induction." },
-      { status: ReferralStatus.SENT, date: "2026-10-29T14:05:00Z", notes: "Sent to Sanjeevani Regional Perinatal Centre." },
-      { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-29T14:18:00Z", notes: "Sanjeevani confirmed induction suite." },
+      {
+        status: ReferralStatus.CREATED,
+        date: "2026-10-29T14:00:00Z",
+        notes: "Referral created for scheduled induction.",
+      },
+      {
+        status: ReferralStatus.SENT,
+        date: "2026-10-29T14:05:00Z",
+        notes: "Sent to Sanjeevani Regional Perinatal Centre.",
+      },
+      {
+        status: ReferralStatus.ACKNOWLEDGED,
+        date: "2026-10-29T14:18:00Z",
+        notes: "Sanjeevani confirmed induction suite.",
+      },
       { status: ReferralStatus.ARRIVAL_CONFIRMED, date: "2026-10-29T15:00:00Z", notes: "Patient checked in at L&D." },
-      { status: ReferralStatus.COMPLETED, date: "2026-10-30T18:00:00Z", notes: "Healthy infant delivered. Mother discharged. 42-day postpartum protocol active." },
+      {
+        status: ReferralStatus.COMPLETED,
+        date: "2026-10-30T18:00:00Z",
+        notes: "Healthy infant delivered. Mother discharged. 42-day postpartum protocol active.",
+      },
     ],
   }),
 ];
+
+export const initialSeedReferrals = buildSeedReferrals();
 
 export const initialNotifications = [
   {
@@ -553,9 +674,8 @@ export const initialNotifications = [
     timestamp: "35 mins ago",
     type: "INFO",
     title: "Transit Unit Dispatched",
-    message: "MediVan #04 assigned to Fathima Begum (ETA 8 mins, Driver Suresh K.).",
+    message: "Transit Van #02 assigned to Fathima Begum (ETA 8 mins, Driver Suresh K.).",
     link: "/transport",
     read: true,
   },
 ];
-

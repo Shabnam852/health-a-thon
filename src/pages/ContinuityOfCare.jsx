@@ -1,28 +1,45 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useReferrals } from "../context/ReferralContext.jsx";
+import { FormDialog } from "../components/Dialog.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  FilterTabs,
+  Icon,
+  Page,
+  PageHeader,
+  Textarea,
+} from "../components/ui/index.js";
+import { isRouteAllowedForRole, RoleId } from "../config/navigationConfig.js";
+import { useReferrals } from "../context/ReferralContext.jsx";
+import { getFollowUpState } from "../domain/alarms.js";
 import { FollowUpStatus } from "../domain/enums.js";
-import { RoleId, isRouteAllowedForRole } from "../config/navigationConfig.js";
+
+const STATE_BADGES = {
+  [FollowUpStatus.DUE]: { tone: "highlight", label: "Due now" },
+  [FollowUpStatus.MISSED]: { tone: "danger", label: "Missed" },
+  [FollowUpStatus.ESCALATED]: { tone: "danger", label: "Escalated" },
+};
+
+const countDone = (r) => r.followUpPlan.tasks.filter((t) => t.status === FollowUpStatus.COMPLETED).length;
 
 const ContinuityOfCare = () => {
-  const { referrals, completeFollowUpTask, role, activeReferralId } = useReferrals();
+  const { referrals, completeFollowUpTask, role, activeReferralId, now } = useReferrals();
   const isPatient = role === RoleId.PATIENT;
 
-  const [selectedPlanId, setSelectedPlanId] = useState(null);
+  // Links from a patient's case set them active, so they open on that patient's plan.
+  const [selectedPlanId, setSelectedPlanId] = useState(activeReferralId);
   const [completeModalTask, setCompleteModalTask] = useState(null);
   const [completionNotes, setCompletionNotes] = useState("");
   const { toast, showToast } = useToast();
 
-
-  // Find all referrals with active followUpPlans. A patient sees only their own.
-  const referralsWithCarePlans = referrals.filter(
-    (r) => r.followUpPlan != null && (!isPatient || r.id === activeReferralId)
-  );
-
-  const activeReferral =
-    (selectedPlanId && referralsWithCarePlans.find((r) => r.id === selectedPlanId)) || referralsWithCarePlans[0] || null;
-
+  // A patient sees only their own plan.
+  const plans = referrals.filter((r) => r.followUpPlan != null && (!isPatient || r.id === activeReferralId));
+  const activeReferral = plans.find((r) => r.id === selectedPlanId) || plans[0] || null;
   const plan = activeReferral?.followUpPlan;
 
   const closeCompleteModal = () => {
@@ -32,255 +49,139 @@ const ContinuityOfCare = () => {
 
   const handleConfirmTaskCompletion = () => {
     if (!completeModalTask || !activeReferral) return;
-
     const res = completeFollowUpTask(
       activeReferral.id,
       completeModalTask.id,
-      completionNotes || "Touchpoint successfully completed and clinical findings documented."
+      completionNotes || "Touchpoint successfully completed and clinical findings documented.",
     );
-
-    if (res.success) {
-      showToast(`Touchpoint "${completeModalTask.title}" recorded as completed!`);
-    } else {
-      showToast(`Action failed: ${res.reason}`, "error");
-    }
+    if (res.success) showToast(`"${completeModalTask.title}" marked done.`);
+    else showToast(`Action failed: ${res.reason}`, "error");
     closeCompleteModal();
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-[1600px] mx-auto">
-      {/* Toast Notification */}
+    <Page width="md">
       <Toast toast={toast} />
 
-      {/* Header Banner */}
-      <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-secondary font-label-sm text-xs font-semibold uppercase tracking-wider">
-            <span className="material-symbols-outlined text-[18px]">event_available</span>
-            <span>Continuous Maternal & Neonatal Surveillance</span>
-          </div>
-          <h1 className="font-headline-lg text-2xl sm:text-3xl font-bold text-primary tracking-tight mt-1">
-            42-Day Postpartum & Neonatal Continuity
-          </h1>
-          <p className="font-body-sm text-sm text-on-surface-variant mt-1">
-            Closing a hospital referral must never close the patient's care. Track post-discharge touchpoints, home visits, and early complication screening.
-          </p>
-        </div>
+      <PageHeader title={isPatient ? "My check-ups" : "Follow-ups"} />
 
-        <div className="px-3 py-1.5 rounded-lg bg-surface-container-low text-xs font-medium text-primary border border-surface-container">
-          Active Surveillance Protocols: {referralsWithCarePlans.length}
-        </div>
-      </div>
+      {plans.length > 1 && (
+        <FilterTabs
+          label="Follow-up plans"
+          items={plans.map((r) => ({
+            id: r.id,
+            label: r.patientName,
+            count: `${countDone(r)}/${r.followUpPlan.tasks.length}`,
+          }))}
+          selected={activeReferral.id}
+          onSelect={setSelectedPlanId}
+        />
+      )}
 
-      {/* Main Grid: Left Patient Selector (4 cols) / Right Touchpoint Lifeline (8 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Active Dyad Care Plans */}
-        <div className="lg:col-span-4 space-y-3">
-          <h3 className="font-title-sm text-sm font-bold text-primary px-1">{isPatient ? "My Care Plan" : "Enrolled Patients"}</h3>
-
-          {referralsWithCarePlans.length === 0 ? (
-            <div className="p-5 rounded-xl bg-surface-container-lowest border border-surface-container text-xs text-on-surface-variant text-center">
-              {isPatient
-                ? "Your 42-day care plan starts when your hospital care is complete."
-                : "No continuous care plans active yet. Complete a referral to automatically establish a 42-day postpartum care plan."}
+      {plan ? (
+        <Card as="section" className="space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="font-display text-xl font-bold text-ink break-words">{activeReferral.patientName}</h2>
+              <p className="text-sm text-ink-muted tabular-nums">
+                {countDone(activeReferral)} of {plan.tasks.length} done
+                {plan.leadWorker ? ` · Lead: ${plan.leadWorker}` : ""}
+              </p>
             </div>
-          ) : (
-            referralsWithCarePlans.map((r) => {
-              const isSelected = r.id === activeReferral?.id;
-              const completedCount = r.followUpPlan.tasks.filter(
-                (t) => t.status === FollowUpStatus.COMPLETED
-              ).length;
-              const totalCount = r.followUpPlan.tasks.length;
+            {isRouteAllowedForRole(role, "/referral") && (
+              <Button as={Link} to={`/referral/${activeReferral.id}`} variant="link" size="sm">
+                Open chart
+              </Button>
+            )}
+          </div>
 
+          <ul className="divide-y divide-line">
+            {plan.tasks.map((task, idx) => {
+              const isDone = task.status === FollowUpStatus.COMPLETED;
+              const badge = STATE_BADGES[getFollowUpState(task, now)];
               return (
-                <div
-                  key={r.id}
-                  onClick={() => setSelectedPlanId(r.id)}
-                  className={`p-4 rounded-xl cursor-pointer transition-all border ${
-                    isSelected
-                      ? "bg-surface-container-lowest border-secondary shadow-md ring-2 ring-secondary/20"
-                      : "bg-surface-container-lowest border-surface-container hover:bg-surface-container-low"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-title-sm text-sm font-bold text-primary">{r.patientName}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed">
-                      {completedCount} / {totalCount} Done
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-on-surface-variant mt-1">
-                    {r.condition || "Postpartum surveillance"}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[11px] text-on-surface-variant pt-2 mt-2 border-t border-surface-container/60">
-                    <span>Lead: <strong>{r.followUpPlan.leadWorker}</strong></span>
-                    <span className="text-secondary font-semibold">{r.referralType}</span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Right Column: 42-Day Protocol Timeline & Tasks */}
-        <div className="lg:col-span-8 space-y-4">
-          {plan ? (
-            <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-surface-container pb-4">
-                <div>
-                  <span className="text-[11px] font-label-sm font-bold uppercase text-secondary tracking-wider">
-                    {activeReferral.referralType} 42-Day Care Plan
-                  </span>
-                  <h2 className="font-headline-md text-xl font-bold text-primary">
-                    {activeReferral.patientName} ({activeReferral.patientId})
-                  </h2>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-surface-container-high text-primary">
-                    Status: {plan.status}
-                  </span>
-                  {isRouteAllowedForRole(role, "/referral") && (
-                    <Link
-                      to={`/referral/${activeReferral.id}`}
-                      className="text-xs font-semibold text-secondary hover:underline flex items-center gap-1"
-                    >
-                      <span>Full Medical Chart</span>
-                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-                    </Link>
-                  )}
-                </div>
-              </div>
-
-              {/* Tasks List */}
-              <div className="space-y-4">
-                {plan.tasks.map((task, idx) => {
-                  const isDone = task.status === FollowUpStatus.COMPLETED;
-
-                  return (
-                    <div
-                      key={task.id}
-                      className={`p-4 rounded-xl border transition-all ${
-                        isDone
-                          ? "bg-surface-container-low/50 border-secondary/30"
-                          : "bg-surface-container-lowest border-surface-container hover:shadow-xs"
-                      }`}
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 ${
-                              isDone
-                                ? "bg-secondary text-white"
-                                : "bg-surface-container text-primary"
-                            }`}
-                          >
-                            {isDone ? (
-                              <span className="material-symbols-outlined text-[18px]">check</span>
-                            ) : (
-                              idx + 1
-                            )}
-                          </div>
-
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-title-sm text-sm text-primary font-bold">{task.title}</h4>
-                              <span className="text-[11px] font-data-tabular px-2 py-0.5 rounded bg-surface-container-low text-on-surface-variant font-medium">
-                                Target: {task.dueDate} (Day {task.dayOffset})
-                              </span>
-                            </div>
-                            <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                              {task.clinicalFocus}
-                            </p>
-                            <p className="text-[11px] text-secondary font-medium mt-0.5">
-                              Assigned: {task.targetRole}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Completion Button */}
-                        <div className="shrink-0 w-full sm:w-auto text-right">
-                          {isDone ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-secondary font-bold px-2.5 py-1 rounded-full bg-secondary-fixed">
-                              <span className="material-symbols-outlined text-[14px]">check</span>
-                              Verified Completed
-                            </span>
-                          ) : isPatient ? (
-                            <span className="text-xs font-semibold text-on-surface-variant">Your care team will record this visit</span>
-                          ) : task.status === FollowUpStatus.MISSED ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-error font-bold px-2.5 py-1 rounded-full bg-error-container">
-                              <span className="material-symbols-outlined text-[14px]">event_busy</span>
-                              Missed: reschedule first
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => setCompleteModalTask(task)}
-                              className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-primary text-white font-label-md text-xs font-semibold hover:bg-primary-container transition-colors shadow-xs"
-                            >
-                              Document Visit Complete
-                            </button>
-                          )}
-                        </div>
+                <li key={task.id} className="py-4 first:pt-0 last:pb-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span
+                        className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                          isDone ? "bg-accent text-on-fill" : "bg-subtle text-ink"
+                        }`}
+                      >
+                        {isDone ? <Icon name="check" size="sm" /> : idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-ink">{task.title}</h3>
+                        <p className="text-sm text-ink-muted tabular-nums">
+                          Due {task.dueDate} (day {task.dayOffset})
+                        </p>
+                        {badge && (
+                          <Badge tone={badge.tone} className="mt-1">
+                            {badge.label}
+                          </Badge>
+                        )}
                       </div>
+                    </div>
 
-                      {isDone && task.notes && (
-                        <div className="mt-3 pt-2.5 border-t border-surface-container text-xs text-on-surface-variant bg-surface-container-low/60 p-2.5 rounded-lg">
-                          <strong className="text-primary font-medium">Clinical Visit Findings:</strong> {task.notes}
-                        </div>
+                    <div className="shrink-0">
+                      {isDone ? (
+                        <Badge tone="accent">Done</Badge>
+                      ) : isPatient ? (
+                        <span className="text-sm text-ink-muted">Your care team will record this</span>
+                      ) : (
+                        <Button size="sm" className="w-full sm:w-auto" onClick={() => setCompleteModalTask(task)}>
+                          Mark done
+                        </Button>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-surface-container-lowest p-8 rounded-2xl border border-surface-container text-center text-sm text-on-surface-variant">
-              {isPatient
-                ? "Your care team will add your check-ups here."
-                : "Select an enrolled patient on the left to view and document their 42-day continuous care touchpoints."}
-            </div>
-          )}
-        </div>
-      </div>
+                  </div>
 
-      {/* Complete Task Modal */}
+                  {(task.clinicalFocus || task.targetRole || (isDone && task.notes)) && (
+                    <details className="mt-3 text-sm text-ink-muted">
+                      <summary className="cursor-pointer font-semibold text-ink">Details</summary>
+                      <div className="mt-2 space-y-1 break-words">
+                        {task.clinicalFocus && <p>{task.clinicalFocus}</p>}
+                        {task.targetRole && <p>Assigned to: {task.targetRole}</p>}
+                        {isDone && task.notes && (
+                          <p>
+                            <strong className="text-ink">Findings:</strong> {task.notes}
+                          </p>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : (
+        <EmptyState>
+          {isPatient
+            ? "Your check-ups will appear here once hospital care is complete."
+            : "No follow-ups yet. They start when a referral is completed."}
+        </EmptyState>
+      )}
+
       {completeModalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-surface-container-lowest rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-surface-container space-y-4">
-            <h3 className="font-headline-md text-lg text-primary font-bold">
-              Complete Touchpoint: {completeModalTask.title}
-            </h3>
-            <p className="text-xs text-on-surface-variant">
-              Document clinical and practical findings for {activeReferral.patientName}:
-            </p>
-            <textarea
-              className="w-full p-3 rounded-lg bg-surface-container-low text-xs border border-surface-container focus:outline-none focus:ring-2 focus:ring-secondary/40"
+        <FormDialog
+          title={completeModalTask.title}
+          onCancel={closeCompleteModal}
+          onSave={handleConfirmTaskCompletion}
+          saveLabel="Save"
+        >
+          <Field label={`What was found at the visit for ${activeReferral.patientName}?`}>
+            <Textarea
               rows={4}
-              placeholder="e.g., Blood pressure checked at 118/76 mmHg. Surgical wound clean, dry, intact. Infant latch verified without nipple trauma. EPDS score 4 (low risk)."
+              placeholder="e.g., Blood pressure 118/76. Wound clean and dry. Feeding well."
               value={completionNotes}
               onChange={(e) => setCompletionNotes(e.target.value)}
             />
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={closeCompleteModal}
-                className="px-4 py-2 rounded-lg bg-surface-container text-xs font-medium text-primary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmTaskCompletion}
-                className="px-4 py-2 rounded-lg bg-secondary text-white font-semibold text-xs hover:bg-on-secondary-container"
-              >
-                Save & Sign Off
-              </button>
-            </div>
-          </div>
-        </div>
+          </Field>
+        </FormDialog>
       )}
-    </div>
+    </Page>
   );
 };
 
 export default ContinuityOfCare;
-

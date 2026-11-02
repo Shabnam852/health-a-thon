@@ -1,240 +1,165 @@
-import React from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import ThemeToggle from "../components/ThemeToggle.jsx";
+import { Badge, Button, Card, Icon, Tile } from "../components/ui/index.js";
+import { useDemoStory } from "../components/useDemoStory.js";
+import { STORY_REFERRAL_ID } from "../config/demoStory.js";
+import { RoleId } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext";
+import {
+  getFamilyUpdate,
+  getJourneyHeadline,
+  getLandingStats,
+  getReferralJourney,
+  JourneyState,
+} from "../domain/landing.js";
 
-const roles = [
+const careTeam = [
   {
-    id: "coordinator",
-    title: "Care Coordinator",
-    subtitle: "Command Center & Resolution Desk",
-    description: "Monitor unresolved referrals, prioritize acuity, dispatch transit vouchers, and manage real-time intake triage.",
+    id: RoleId.COORDINATOR,
+    title: "Coordinator",
     route: "/coordinator",
     icon: "grid_view",
-    badge: "Primary Stitch View",
+    stat: "urgentNotArrived",
+    caption: "urgent, not yet arrived",
   },
   {
-    id: "facility",
-    title: "Healthcare Facility",
-    subtitle: "Intake & Clinical Handoff",
-    description: "Acknowledge incoming patient transfers, manage department beds, confirm patient arrival, and complete referral lifecycles.",
+    id: RoleId.FACILITY,
+    title: "Hospital",
     route: "/facility",
     icon: "domain",
-    badge: "Facility Operations",
-  },
-  {
-    id: "patient",
-    title: "Patient & Family",
-    subtitle: "Continuous Care Journey",
-    description: "View live arrival roadmap, transport vehicle ETA, assigned care navigator (Priya Raman, MSW), and digital check-in QR pass.",
-    route: "/patient",
-    icon: "family_restroom",
-    badge: "Patient Experience",
-  },
-  {
-    id: "navigator",
-    title: "Care Navigator",
-    subtitle: "Community Caseload & Outreach",
-    description: "Conduct patient outreach, log call & home contact history, schedule interpreters, and resolve practical barriers to care.",
-    route: "/navigator",
-    icon: "support_agent",
-    badge: "Community Navigator",
+    stat: "expectedArrivals",
+    caption: "expected to arrive",
   },
 ];
 
+const stepStyles = {
+  [JourneyState.DONE]: { dot: "bg-accent text-on-fill", icon: "check", label: "text-ink", status: "Done" },
+  [JourneyState.ACTIVE]: { dot: "bg-brand text-on-fill", icon: "more_horiz", label: "text-ink", status: "In progress" },
+  [JourneyState.AT_RISK]: {
+    dot: "bg-danger text-on-fill",
+    icon: "priority_high",
+    label: "text-danger",
+    status: "At risk",
+  },
+  [JourneyState.UPCOMING]: { dot: "bg-subtle", icon: "", label: "text-ink-muted", status: "Not yet" },
+};
+
+const JourneyStrip = ({ referral }) => (
+  <Card as="section" aria-label={`Live case: ${referral.patientName}`}>
+    <p className="text-xs font-semibold text-ink-muted">{referral.patientName}</p>
+    <h2 className="font-display text-lg sm:text-xl font-semibold text-ink mt-1">{getJourneyHeadline(referral)}</h2>
+
+    <ol className="mt-5 grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-0">
+      {getReferralJourney(referral).map((step, index) => {
+        const style = stepStyles[step.state];
+        return (
+          <li key={step.id} className="relative flex sm:flex-col items-center gap-3 sm:gap-2">
+            {index > 0 && (
+              <span
+                aria-hidden="true"
+                className={`hidden sm:block absolute top-4 right-1/2 w-full h-0.5 ${
+                  step.state === JourneyState.UPCOMING ? "bg-subtle" : "bg-accent"
+                }`}
+              />
+            )}
+            <span
+              className={`relative z-10 w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${style.dot}`}
+            >
+              <Icon name={style.icon} />
+            </span>
+            <span className={`text-sm font-semibold ${style.label}`}>
+              {step.label}
+              <span className="sr-only"> ({style.status})</span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  </Card>
+);
+
 const RoleSelection = () => {
   const navigate = useNavigate();
-  const { setRole } = useReferrals();
+  const { referrals, facilities, setRole, setActiveReferralId, setStoryStep } = useReferrals();
+  const { goToStep } = useDemoStory();
 
-  const handleRoleSelect = (selectedRole) => {
-    setRole(selectedRole.id);
-    navigate(selectedRole.route);
+  const storyReferral = referrals.find((r) => r.id === STORY_REFERRAL_ID);
+  const intakeFacility = facilities.find((f) => f.id === "FAC-SANJEEVANI") || facilities[0];
+  const stats = getLandingStats(referrals, intakeFacility?.name);
+
+  const enter = (role, route, referralId) => {
+    setStoryStep(null);
+    setRole(role);
+    if (referralId) setActiveReferralId(referralId);
+    navigate(route);
   };
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col justify-between py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto w-full">
-        {/* Brand Header */}
-        <div className="text-center space-y-3 mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-            Active Demo
-          </div>
-
-          <div className="flex items-center justify-center gap-3 mt-2">
-            <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-xl shadow-md">
+    <div className="min-h-screen bg-canvas">
+      <main id="main-content" tabIndex={-1} className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 space-y-8">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div
+              aria-hidden="true"
+              className="w-8 h-8 rounded-control bg-brand flex items-center justify-center text-on-fill font-bold text-sm"
+            >
               N
             </div>
-            <h1 className="font-headline-xl text-3xl sm:text-4xl font-bold text-primary tracking-tight font-headline-xl">
-              Navexa Health
-            </h1>
+            <span className="font-bold text-ink">Navexa Health</span>
           </div>
-
-          <p className="font-title-sm text-base text-on-surface-variant font-medium">
-            Maternal & Neonatal Healthcare Referral Coordination Platform
-          </p>
-
-          <p className="max-w-xl mx-auto font-body-md text-sm text-on-surface-variant/90 leading-relaxed">
-            "A referral sent is not care received." Choose an operational persona to enter its role-specific workspace in the running application.
-          </p>
+          <ThemeToggle iconOnly />
         </div>
 
-        {/* Persona Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {roles.map((r) => (
-            <div
-              key={r.id}
-              onClick={() => handleRoleSelect(r)}
-              className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-surface-container hover:border-secondary hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between group transform hover:-translate-y-1"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-xl bg-surface-container-high group-hover:bg-primary group-hover:text-white transition-colors flex items-center justify-center text-primary">
-                    <span className="material-symbols-outlined text-[26px]">
-                      {r.icon}
-                    </span>
-                  </div>
-                  <span className="font-label-sm text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant">
-                    {r.badge}
-                  </span>
-                </div>
+        <header className="space-y-4">
+          <Badge tone="highlight">Demo: synthetic data</Badge>
+          <h1 className="font-display text-3xl sm:text-5xl font-bold text-ink tracking-tight leading-tight">
+            A referral sent is not care received.
+          </h1>
+          <p className="text-base sm:text-lg text-ink-muted">
+            Navexa tracks every mother and newborn until care actually happens.
+          </p>
+          <Button variant="primary" onClick={() => goToStep(0)}>
+            <Icon name="play_arrow" />
+            Watch the demo
+          </Button>
+        </header>
 
-                <div>
-                  <h2 className="font-title-sm text-lg text-primary font-bold group-hover:text-secondary transition-colors">
+        {storyReferral && <JourneyStrip referral={storyReferral} />}
+
+        <section aria-label="Choose a role" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-4">
+          <div className="lg:col-span-2">
+            <h2 className="text-sm font-semibold text-ink-muted mb-2">Care team</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {careTeam.map((r) => (
+                <Tile key={r.id} onClick={() => enter(r.id, r.route)}>
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    <Icon name={r.icon} />
                     {r.title}
-                  </h2>
-                  <p className="font-label-sm text-xs text-secondary font-semibold mt-0.5">
-                    {r.subtitle}
-                  </p>
-                  <p className="font-body-sm text-xs text-on-surface-variant leading-relaxed mt-2.5">
-                    {r.description}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-surface-container flex items-center justify-between text-secondary font-label-md text-sm font-semibold group-hover:translate-x-1 transition-transform">
-                <span>Enter Workspace</span>
-                <span className="material-symbols-outlined text-[18px]">
-                  arrow_forward
-                </span>
-              </div>
+                  </span>
+                  <span className="block font-display text-3xl font-semibold tabular-nums mt-3">{stats[r.stat]}</span>
+                  <span className="block text-sm text-ink-muted">{r.caption}</span>
+                </Tile>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* Quick Screen Access Shortcuts */}
-        <div className="mt-12 bg-surface-container-low rounded-2xl p-6 border border-surface-container/70 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-title-sm text-sm font-bold text-primary flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-secondary">
-                layers
-              </span>
-              Direct Stitch Screen Navigation
-            </span>
-            <span className="font-label-sm text-xs text-on-surface-variant">
-              All 10 Screens Implemented
-            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs font-label-md">
-            <Link
-              to="/coordinator"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>1. Care Coordinator Hub</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/referral/REF-2024-8821"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>2. Referral Case Details & Timeline</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/barriers"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>3. Barrier Resolution & Missed Arrivals</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/patient"
-              onClick={() => setRole("patient")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>4. Patient & Family Journey View</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/create"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>5. Create Referral & Care Pathway</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/facility"
-              onClick={() => setRole("facility")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>6. Facility Operations View</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/navigator"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>7. Care Navigator Workspace</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/transport"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>8. Transport Coordination</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/continuity"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>9. Continuity of Care (42-Day)</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-
-            <Link
-              to="/network"
-              onClick={() => setRole("coordinator")}
-              className="p-3 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-primary font-medium flex items-center justify-between border border-surface-container/50 transition-colors"
-            >
-              <span>10. Regional Care Grid</span>
-              <span className="material-symbols-outlined text-[16px] text-secondary">launch</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="text-center mt-10">
-        <p className="font-label-sm text-xs text-on-surface-variant">
-          Navexa Health System • Google Stitch Design System Implementation • Demonstration Environment (Synthetic PHI)
-        </p>
-      </footer>
+          {storyReferral && (
+            <div className="flex flex-col">
+              <h2 className="text-sm font-semibold text-ink-muted mb-2">Patients</h2>
+              <Tile
+                className="flex-1 flex flex-col"
+                onClick={() => enter(RoleId.PATIENT, "/patient", storyReferral.id)}
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon name="family_restroom" />
+                  Family
+                </span>
+                <span className="block text-sm text-ink-muted mt-3">{getFamilyUpdate(storyReferral)}</span>
+              </Tile>
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 };

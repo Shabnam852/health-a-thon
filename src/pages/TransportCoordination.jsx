@@ -1,358 +1,183 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { useReferrals } from "../context/ReferralContext.jsx";
+import { useState } from "react";
+import CaseCard, { DetailRow } from "../components/CaseCard.jsx";
+import { FormDialog } from "../components/Dialog.jsx";
+import SendVanDialog from "../components/SendVanDialog.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { TransportStatus, isHighAcuity } from "../domain/enums.js";
-import { canDispatchTransport, hasArrivedAtFacility } from "../domain/workflow.js";
+import { Button, EmptyState, Field, Page, PageHeader, Textarea } from "../components/ui/index.js";
+import { useReferrals } from "../context/ReferralContext.jsx";
+import { TransportStatus } from "../domain/enums.js";
+import { getVanStatuses } from "../domain/fleet.js";
+import {
+  canDispatchTransport,
+  getDestination,
+  hasArrivedAtFacility,
+  isFloating,
+  isRideMoving,
+} from "../domain/workflow.js";
+
+const isArrived = (r) => r.transit?.status === TransportStatus.ARRIVED || hasArrivedAtFacility(r);
+
+const TransportCase = ({ r, onSendVan, onPickup, onReport }) => {
+  const tr = r.transit;
+  const arrived = isArrived(r);
+  const failed = !arrived && tr?.status === TransportStatus.FAILED;
+  const dispatched = !arrived && tr?.status === TransportStatus.DISPATCHED;
+  const pickedUp = !arrived && tr?.status === TransportStatus.PICKED_UP;
+
+  return (
+    <CaseCard
+      referral={r}
+      summary={
+        <>
+          {failed && <span className="font-semibold text-danger">Last ride failed. </span>}
+          {tr?.vehicle && !failed
+            ? `${tr.vehicle}${tr.eta ? `, ETA ${tr.eta}` : ""}`
+            : `${r.patientAddress || "Residence on file"} → ${getDestination(r)}`}
+          {pickedUp && <span className="block">Waiting for the hospital to confirm arrival.</span>}
+        </>
+      }
+      actions={
+        <>
+          {!arrived && canDispatchTransport(r) && (
+            <Button variant="primary" onClick={() => onSendVan(r)}>
+              Send a van
+            </Button>
+          )}
+          {dispatched && (
+            <Button variant="primary" onClick={() => onPickup(r)}>
+              Picked up
+            </Button>
+          )}
+          {(dispatched || pickedUp) && <Button onClick={() => onReport(r)}>Report problem</Button>}
+        </>
+      }
+    >
+      <DetailRow label="Pickup">{r.patientAddress || "Residence on file"}</DetailRow>
+      <DetailRow label="Destination">{getDestination(r)}</DetailRow>
+      <DetailRow label="Family phone">{r.caregiverContact || r.patientPhone}</DetailRow>
+      {tr?.driver && (
+        <DetailRow label="Driver">
+          {tr.driver}
+          {tr.driverPhone && `, ${tr.driverPhone}`}
+        </DetailRow>
+      )}
+      <DetailRow label="Case">
+        {r.id}, {r.referralType}
+      </DetailRow>
+    </CaseCard>
+  );
+};
 
 const TransportCoordination = () => {
-  const {
-    referrals,
-    fleet,
-    dispatchTransport,
-    recordTransportPickup,
-    recordTransportFailure,
-    confirmArrival,
-  } = useReferrals();
+  const { referrals, fleet, recordTransportPickup, recordTransportFailure } = useReferrals();
 
-  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'active' | 'completed' | 'fleet'
-  const [selectedFailureModal, setSelectedFailureModal] = useState(null);
+  const [sendingVanFor, setSendingVanFor] = useState(null);
+  const [failing, setFailing] = useState(null);
   const [failureReason, setFailureReason] = useState("");
-  const { toast, showToast } = useToast();
+  const { toast, showToast, report } = useToast();
 
-
-  // Referrals with transport requests or active transit
-  const transitReferrals = referrals.filter(
-    (r) => r.transit != null || r.transitBarrier
-  );
-
-  const filteredReferrals = transitReferrals.filter((r) => {
-    if (activeTab === "active") {
-      return (
-        !hasArrivedAtFacility(r) &&
-        (r.transit?.status === TransportStatus.REQUESTED ||
-        r.transit?.status === TransportStatus.ASSIGNED ||
-        r.transit?.status === TransportStatus.DISPATCHED ||
-        r.transit?.status === TransportStatus.PICKED_UP)
-      );
-    }
-    if (activeTab === "completed") {
-      return r.transit?.status === TransportStatus.ARRIVED || hasArrivedAtFacility(r);
-    }
-    return true;
-  });
-
-  const handleQuickDispatch = (ref, vehicle) => {
-    const res = dispatchTransport(ref.id, {
-      vehicle: `${vehicle.name} (${vehicle.driver})`,
-      driver: vehicle.driver,
-      driverPhone: vehicle.driverPhone,
-      eta: "12 mins",
-      requiresNeonatalKit: ref.referralType === "Child",
-      pickupAddress: ref.patientAddress || "Patient Residence",
-      destinationFacility: ref.toFacility,
-    });
-    if (!res.success) return showToast(`Action failed: ${res.reason}`, "error");
-    showToast(`${vehicle.name} dispatched for ${ref.patientName}! Driver: ${vehicle.driver}.`);
-  };
+  // Every case lands in exactly one group.
+  const cases = referrals.filter((r) => r.transit != null || r.transitBarrier);
+  const done = cases.filter(isArrived);
+  const needsVan = cases.filter((r) => !isArrived(r) && canDispatchTransport(r));
+  const waitingForChoice = cases.filter((r) => !isArrived(r) && isFloating(r) && !isRideMoving(r.transit));
+  const onTheWay = cases.filter((r) => !isArrived(r) && !canDispatchTransport(r) && !waitingForChoice.includes(r));
 
   const handlePickup = (ref) => {
     const res = recordTransportPickup(ref.id);
     if (!res.success) return showToast(`Action failed: ${res.reason}`, "error");
-    showToast(`Patient pickup confirmed for ${ref.patientName}. En route to ${ref.toFacility}.`);
+    showToast(`${ref.patientName} picked up${isFloating(ref) ? "" : `, on the way to ${ref.toFacility}`}.`);
   };
 
-  const handleArrival = (ref) => {
-    const res = confirmArrival(ref.id, {
-      department: ref.department || "Emergency Intake Bay",
-      room: "Triage Receiving 01",
-      verifiedBy: "Intake Transport Coordinator",
-      notes: "Patient safely delivered by MediRide transport.",
-    });
-    if (!res.success) return showToast(`Action failed: ${res.reason}`, "error");
-    showToast(`Safe arrival confirmed for ${ref.patientName} at ${ref.toFacility}!`);
-  };
-
-  const closeFailureModal = () => {
-    setSelectedFailureModal(null);
+  const closeFailure = () => {
+    setFailing(null);
     setFailureReason("");
   };
 
   const handleConfirmFailure = () => {
-    if (!selectedFailureModal) return;
-    const res = recordTransportFailure(selectedFailureModal.id, failureReason || "Mechanical breakdown / patient unable to travel");
-    if (res.success) {
-      showToast(`Transit disruption recorded for ${selectedFailureModal.patientName}. Escalated to coordinator.`);
-    } else {
-      showToast(`Action failed: ${res.reason}`, "error");
-    }
-    closeFailureModal();
+    report(
+      recordTransportFailure(failing.id, failureReason || "Mechanical breakdown / patient unable to travel"),
+      `Problem recorded for ${failing.patientName} and sent to the coordinator.`,
+    );
+    closeFailure();
   };
 
+  const group = (title, list) =>
+    list.length > 0 && (
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-ink-muted">
+          {title} ({list.length})
+        </h2>
+        <ul className="space-y-4">
+          {list.map((r) => (
+            <TransportCase
+              key={r.id}
+              r={r}
+              onSendVan={setSendingVanFor}
+              onPickup={handlePickup}
+              onReport={setFailing}
+            />
+          ))}
+        </ul>
+      </section>
+    );
+
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-[1600px] mx-auto">
-      {/* Toast Notification */}
+    <Page>
       <Toast toast={toast} />
+      <PageHeader title="Transport" />
 
-      {/* Header Banner */}
-      <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-secondary font-label-sm text-xs font-semibold uppercase tracking-wider">
-            <span className="material-symbols-outlined text-[18px]">local_taxi</span>
-            <span>Simulated Transit Coordination Hub</span>
-          </div>
-          <h1 className="font-headline-lg text-2xl sm:text-3xl font-bold text-primary tracking-tight mt-1">
-            Maternal & Neonatal Transport Operations
-          </h1>
-          <p className="font-body-sm text-sm text-on-surface-variant mt-1">
-            Dispatch specialized medical transit, track vehicle milestones, and ensure zero care interruptions due to transit deficits.
-          </p>
-        </div>
+      {group("Needs a van", needsVan)}
+      {group("On the way", onTheWay)}
+      {group("Waiting for the patient to choose a hospital", waitingForChoice)}
+      {cases.length === 0 && <EmptyState>No transport requests.</EmptyState>}
 
-        <div className="flex items-center gap-2 self-stretch sm:self-auto">
-          <span className="px-3 py-1.5 rounded-lg bg-surface-container-low text-xs font-data-tabular font-medium text-primary border border-surface-container">
-            Fleet: 3 Units Active
-          </span>
-        </div>
-      </div>
+      {done.length > 0 && (
+        <details className="text-sm text-ink-muted">
+          <summary className="cursor-pointer font-semibold text-ink">Arrived ({done.length})</summary>
+          <ul className="mt-3 space-y-4">
+            {done.map((r) => (
+              <TransportCase key={r.id} r={r} />
+            ))}
+          </ul>
+        </details>
+      )}
 
-      {/* Fleet Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {fleet.map((veh) => (
-          <div
-            key={veh.id}
-            className="bg-surface-container-lowest p-5 rounded-xl shadow-xs border border-surface-container/60 flex flex-col justify-between space-y-3"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="font-label-sm text-[10px] uppercase font-bold text-secondary tracking-wider block">
-                  {veh.plate}
-                </span>
-                <h3 className="font-title-sm text-base text-primary font-bold">{veh.name}</h3>
-                <p className="font-body-sm text-xs text-on-surface-variant">{veh.vehicleType}</p>
-              </div>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  veh.status === "DISPATCHED" || veh.status === "EN_ROUTE"
-                    ? "bg-secondary-fixed text-on-secondary-fixed"
-                    : "bg-surface-container text-on-surface-variant"
-                }`}
-              >
-                {veh.status}
-              </span>
-            </div>
+      <details className="text-sm text-ink-muted">
+        <summary className="cursor-pointer font-semibold text-ink">Vehicles ({fleet.length})</summary>
+        <ul className="mt-2 space-y-2">
+          {getVanStatuses(fleet, referrals).map((v) => (
+            <li key={v.id} className="break-words">
+              <span className="font-semibold text-ink">{v.name}</span> ({v.plate}),{" "}
+              {v.busyWith ? `on a trip with ${v.busyWith}` : "free"}. {v.driver}, {v.driverPhone}. {v.equippedWith}
+            </li>
+          ))}
+        </ul>
+      </details>
 
-            <div className="space-y-1.5 text-xs text-on-surface-variant bg-surface-container-low p-3 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span>Driver:</span>
-                <strong className="text-primary">{veh.driver}</strong>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Phone:</span>
-                <span className="font-data-tabular">{veh.driverPhone}</span>
-              </div>
-              <div className="pt-1 border-t border-surface-container text-[11px] text-secondary font-medium">
-                {veh.equippedWith}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {sendingVanFor && (
+        <SendVanDialog referral={sendingVanFor} onClose={() => setSendingVanFor(null)} onResult={report} />
+      )}
 
-      {/* Main Transport Queue Section */}
-      <div className="bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container/60 overflow-hidden space-y-4 p-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-surface-container/60 pb-4">
-          <div>
-            <h2 className="font-title-sm text-lg text-primary font-bold">Transit Requests & Dispatches</h2>
-            <p className="text-xs text-on-surface-variant">Real-time status of patients requiring specialized transportation</p>
-          </div>
-
-          <div className="inline-flex p-1 bg-surface-container-low rounded-lg text-xs font-medium">
-            <button
-              onClick={() => setActiveTab("all")}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                activeTab === "all" ? "bg-surface-container-lowest text-primary shadow-xs font-semibold" : "text-on-surface-variant"
-              }`}
-            >
-              All Cases ({transitReferrals.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("active")}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                activeTab === "active" ? "bg-surface-container-lowest text-primary shadow-xs font-semibold" : "text-on-surface-variant"
-              }`}
-            >
-              In Flight
-            </button>
-            <button
-              onClick={() => setActiveTab("completed")}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                activeTab === "completed" ? "bg-surface-container-lowest text-primary shadow-xs font-semibold" : "text-on-surface-variant"
-              }`}
-            >
-              Arrived Safely
-            </button>
-          </div>
-        </div>
-
-        {/* Requests List */}
-        <div className="space-y-3">
-          {filteredReferrals.length === 0 ? (
-            <div className="text-center py-10 text-on-surface-variant text-sm">
-              No transport cases match the selected filter.
-            </div>
-          ) : (
-            filteredReferrals.map((r) => {
-              const tr = r.transit;
-              const isDispatched = tr?.status === TransportStatus.DISPATCHED;
-              const isPickedUp = tr?.status === TransportStatus.PICKED_UP;
-              const isArrived = tr?.status === TransportStatus.ARRIVED || hasArrivedAtFacility(r);
-              const isFailed = tr?.status === TransportStatus.FAILED;
-              const isNeedsDispatch = canDispatchTransport(r);
-
-              return (
-                <div
-                  key={r.id}
-                  className="p-4 rounded-xl border border-surface-container hover:border-secondary/50 transition-all bg-surface-container-low/30 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-title-sm text-sm text-primary font-bold">{r.patientName}</span>
-                      <span className="text-xs font-data-tabular text-on-surface-variant">({r.id})</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container text-primary">
-                        {r.referralType}
-                      </span>
-                      {isHighAcuity(r.priority) ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-error-container text-on-error-container">
-                          {r.priority}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="text-xs text-on-surface-variant flex flex-wrap items-center gap-x-4 gap-y-1">
-                      <span>Pickup: <strong className="text-on-surface">{r.patientAddress || "Residence on file"}</strong></span>
-                      <span>→ Destination: <strong className="text-on-surface">{r.toFacility}</strong></span>
-                      <span>Contact: <strong className="text-on-surface">{r.caregiverContact || r.patientPhone}</strong></span>
-                    </div>
-
-                    {tr && (
-                      <div className="text-xs text-secondary flex items-center gap-2 pt-1 font-medium">
-                        <span className="material-symbols-outlined text-[16px]">directions_car</span>
-                        <span>Vehicle: {tr.vehicle || "Assigned Unit"}</span>
-                        <span>• Driver: {tr.driver || "Not assigned"}</span>
-                        {tr.eta && <span>• ETA: <strong>{tr.eta}</strong></span>}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions Deck */}
-                  <div className="flex flex-wrap items-center gap-2 shrink-0 w-full lg:w-auto justify-end pt-2 lg:pt-0 border-t lg:border-t-0 border-surface-container">
-                    {isNeedsDispatch && (
-                      <button
-                        onClick={() => handleQuickDispatch(r, fleet[0])}
-                        className="px-3 py-1.5 rounded-lg bg-secondary text-white font-label-md text-xs font-semibold hover:bg-on-secondary-container transition-colors shadow-xs flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">local_taxi</span>
-                        <span>Dispatch MediVan #04</span>
-                      </button>
-                    )}
-
-                    {isDispatched && !isArrived && (
-                      <button
-                        onClick={() => handlePickup(r)}
-                        className="px-3 py-1.5 rounded-lg bg-primary text-white font-label-md text-xs font-semibold hover:bg-primary-container transition-colors flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">front_hand</span>
-                        <span>Confirm Patient Pickup</span>
-                      </button>
-                    )}
-
-                    {isPickedUp && !isArrived && (
-                      <button
-                        onClick={() => handleArrival(r)}
-                        className="px-3 py-1.5 rounded-lg bg-secondary text-white font-label-md text-xs font-semibold hover:bg-on-secondary-container transition-colors flex items-center gap-1 shadow-xs"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                        <span>Confirm Hospital Arrival</span>
-                      </button>
-                    )}
-
-                    {!isArrived && !isFailed && (isDispatched || isPickedUp) && (
-                      <button
-                        onClick={() => setSelectedFailureModal(r)}
-                        className="px-2.5 py-1.5 rounded-lg bg-surface-container text-error font-label-md text-xs hover:bg-error-container hover:text-on-error-container transition-colors"
-                      >
-                        Report Disruption
-                      </button>
-                    )}
-
-                    {isArrived && (
-                      <span className="inline-flex items-center gap-1 text-xs text-secondary font-bold px-2.5 py-1 rounded-full bg-secondary-fixed">
-                        <span className="material-symbols-outlined text-[14px]">check</span>
-                        Arrived Safely
-                      </span>
-                    )}
-
-                    {isFailed && !isArrived && (
-                      <span className="inline-flex items-center gap-1 text-xs text-error font-bold px-2.5 py-1 rounded-full bg-error-container">
-                        <span className="material-symbols-outlined text-[14px]">warning</span>
-                        Transit Disrupted
-                      </span>
-                    )}
-
-                    <Link
-                      to={`/referral/${r.id}`}
-                      className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container"
-                      title="View Case Chart"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">open_in_new</span>
-                    </Link>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Disruption Modal */}
-      {selectedFailureModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl border border-surface-container space-y-4">
-            <h3 className="font-headline-md text-lg text-primary font-bold flex items-center gap-2">
-              <span className="material-symbols-outlined text-error">warning</span>
-              Report Transit Disruption
-            </h3>
-            <p className="text-xs text-on-surface-variant">
-              Case #{selectedFailureModal.id} ({selectedFailureModal.patientName}). Document reason for delay or transit failure:
-            </p>
-            <textarea
-              className="w-full p-3 rounded-lg bg-surface-container-low text-xs border border-surface-container focus:outline-none focus:ring-2 focus:ring-secondary/40"
-              rows={3}
-              placeholder="e.g., Road impassable due to waterlogging, vehicle flat tire, patient unable to board..."
+      {failing && (
+        <FormDialog
+          title={`Report problem: ${failing.patientName}`}
+          danger
+          onCancel={closeFailure}
+          onSave={handleConfirmFailure}
+          saveLabel="Send to coordinator"
+        >
+          <Field label="What happened?">
+            <Textarea
+              placeholder="e.g. Flooded road, flat tire, patient could not board"
               value={failureReason}
               onChange={(e) => setFailureReason(e.target.value)}
             />
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={closeFailureModal}
-                className="px-4 py-2 rounded-lg bg-surface-container text-xs font-medium text-primary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmFailure}
-                className="px-4 py-2 rounded-lg bg-error text-white font-semibold text-xs hover:opacity-90"
-              >
-                Log Disruption & Escalate
-              </button>
-            </div>
-          </div>
-        </div>
+          </Field>
+        </FormDialog>
       )}
-    </div>
+    </Page>
   );
 };
 
 export default TransportCoordination;
-

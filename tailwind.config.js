@@ -1,107 +1,66 @@
+const color = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
+
+// Names shared by text, borders and icons. Values live in src/styles/tokens.css.
+const colors = Object.fromEntries(
+  [
+    "canvas",
+    "surface",
+    "muted",
+    "subtle",
+    "subtle-strong",
+    "line",
+    "line-strong",
+    "ink",
+    "ink-muted",
+    "brand",
+    "brand-hover",
+    "on-fill",
+    "on-fill-muted",
+    "accent",
+    "accent-soft",
+    "danger",
+    "danger-soft",
+    "danger-strong",
+    "highlight",
+    "on-highlight",
+    "focus",
+  ].map((name) => [name, color(name)]),
+);
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
-  ...{
-  "darkMode": "class",
-  "theme": {
-    "extend": {
-      "colors": {
-        "on-tertiary-fixed-variant": "#3d4947",
-        "on-primary-fixed-variant": "#2f4865",
-        "on-primary": "#ffffff",
-        "on-primary-fixed": "#001d36",
-        "primary-fixed-dim": "#afc9ea",
-        "error": "#ba1a1a",
-        "tertiary": "#121e1c",
-        "secondary-fixed-dim": "#73d7d2",
-        "surface-bright": "#f8f9ff",
-        "surface-container-low": "#eef4ff",
-        "on-tertiary-fixed": "#121e1c",
-        "on-background": "#0b1c2e",
-        "on-secondary": "#ffffff",
-        "surface": "#f8f9ff",
-        "inverse-primary": "#afc9ea",
-        "surface-container-lowest": "#ffffff",
-        "surface-variant": "#d3e4fd",
-        "inverse-on-surface": "#eaf1ff",
-        "surface-dim": "#cbdbf4",
-        "background": "#f8f9ff",
-        "surface-container-high": "#dbe9ff",
-        "secondary-container": "#8df0eb",
-        "on-tertiary-container": "#8e9b99",
-        "outline": "#74777e",
-        "outline-variant": "#c3c6ce",
-        "on-secondary-fixed": "#00201f",
-        "tertiary-fixed-dim": "#bcc9c7",
-        "on-primary-container": "#819aba",
-        "primary-container": "#17324d",
-        "on-surface": "#0b1c2e",
-        "tertiary-fixed": "#d7e5e3",
-        "error-container": "#ffdad6",
-        "on-secondary-container": "#006f6b",
-        "primary": "#001d36",
-        "on-error-container": "#93000a",
-        "secondary": "#006a67",
-        "surface-tint": "#47607e",
-        "on-tertiary": "#ffffff",
-        "surface-container": "#e5eeff",
-        "surface-container-highest": "#d3e4fd",
-        "secondary-fixed": "#90f3ee",
-        "tertiary-container": "#263331",
-        "on-error": "#ffffff",
-        "on-secondary-fixed-variant": "#00504d",
-        "inverse-surface": "#213144",
-        "on-surface-variant": "#43474d",
-        "primary-fixed": "#d1e4ff"
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors,
+      // bg-accent and bg-danger are solid fills for white text, so they differ from
+      // text-accent and text-danger, which must stay readable on the page.
+      backgroundColor: {
+        accent: color("accent-fill"),
+        "accent-hover": color("accent-fill-hover"),
+        danger: color("danger-fill"),
+        "danger-hover": color("danger-fill-hover"),
       },
-      "borderRadius": {
-        "DEFAULT": "0.25rem",
-        "lg": "0.5rem",
-        "xl": "0.75rem",
-        "full": "9999px"
+      accentColor: { control: color("accent-fill") },
+      borderRadius: { control: "var(--radius-control)", card: "var(--radius-card)" },
+      boxShadow: { card: "var(--shadow-card)", raised: "var(--shadow-raised)", overlay: "var(--shadow-overlay)" },
+      spacing: {
+        sidebar: "var(--size-sidebar)",
+        drawer: "var(--size-drawer)",
+        header: "var(--size-header)",
+        tabbar: "var(--size-tabbar)",
+        control: "var(--size-control)",
+        "control-sm": "var(--size-control-sm)",
       },
-      "spacing": {
-        "gutter-lg": "2rem",
-        "space-xs": "0.25rem",
-        "space-xl": "2.25rem",
-        "gutter-md": "1.5rem",
-        "space-sm": "0.5rem",
-        "gutter": "1rem",
-        "space-lg": "1.5rem",
-        "margin": "1rem",
-        "margin-lg": "3rem",
-        "space-md": "1rem",
-        "margin-md": "2rem"
+      minHeight: {
+        control: "var(--size-control)",
+        "control-sm": "var(--size-control-sm)",
+        tabbar: "var(--size-tabbar)",
       },
-      "fontFamily": {
-        "body-lg": ["Inter", "sans-serif"],
-        "data-tabular": ["Inter", "monospace"],
-        "label-md": ["Inter", "sans-serif"],
-        "headline-lg": ["Plus Jakarta Sans", "sans-serif"],
-        "body-md": ["Inter", "sans-serif"],
-        "title-sm": ["Plus Jakarta Sans", "sans-serif"],
-        "label-sm": ["Inter", "sans-serif"],
-        "headline-md": ["Plus Jakarta Sans", "sans-serif"],
-        "body-sm": ["Inter", "sans-serif"],
-        "headline-lg-mobile": ["Plus Jakarta Sans", "sans-serif"],
-        "headline-xl-mobile": ["Plus Jakarta Sans", "sans-serif"],
-        "headline-xl": ["Plus Jakarta Sans", "sans-serif"]
-      },
-      "fontSize": {
-        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
-        "data-tabular": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
-        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
-        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
-        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
-        "title-sm": ["15px", { "lineHeight": "22px", "fontWeight": "600" }],
-        "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "600" }],
-        "headline-md": ["18px", { "lineHeight": "26px", "fontWeight": "600" }],
-        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
-        "headline-lg-mobile": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
-        "headline-xl-mobile": ["26px", { "lineHeight": "34px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
-        "headline-xl": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
-      }
-    }
-  }
-},
+      minWidth: { control: "var(--size-control)" },
+      transitionDuration: { fast: "var(--motion-fast)" },
+      fontFamily: { display: "var(--font-display)", sans: "var(--font-sans)" },
+    },
+  },
 };

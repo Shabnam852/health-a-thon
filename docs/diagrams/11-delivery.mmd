@@ -1,0 +1,10 @@
+flowchart LR
+  accTitle: Delivery
+  accDescr: A push or pull request runs tests, lint, build and Gitleaks. If both pass on a push to the main repo, a branch deploys a Vercel preview and main deploys production. Forks and pull requests do not deploy.
+  P["Push or pull request"] --> C["Checks: test, lint, build"]
+  P --> G["Gitleaks secret scan"]
+  C --> Q{"Both pass, and a push to the main repo?"}
+  G --> Q
+  Q -->|"Branch"| V["Vercel preview"]
+  Q -->|"main"| R["Vercel production"]
+  Q -->|"Fork or pull request"| N["No deploy"]

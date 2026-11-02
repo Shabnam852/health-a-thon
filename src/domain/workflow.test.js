@@ -1,18 +1,18 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 
 import {
-  ReferralStatus,
-  TransportStatus,
-  BarrierStatus,
+  AuditRole,
   BarrierCategory,
+  BarrierStatus,
   FollowUpStatus,
   PatientType,
-  UrgencyLevel,
+  ReferralStatus,
   TimelineEvent,
-  AuditRole,
+  TransportStatus,
+  UrgencyLevel,
 } from "./enums.js";
-import { createReferral, createBarrier, createTransportRequest, createFollowUpPlan } from "./models.js";
+import { createBarrier, createFollowUpPlan, createReferral, createTransportRequest } from "./models.js";
 import * as workflow from "./workflow.js";
 
 const NOW = "2026-11-01T10:00:00.000Z";
@@ -46,7 +46,9 @@ describe("Referral lifecycle", () => {
   it("runs a maternal referral from SENT to COMPLETED with a linked 42-day plan", () => {
     let r = makeReferral({
       status: ReferralStatus.SENT,
-      barriers: [createBarrier({ id: "BAR-1", category: BarrierCategory.TRANSPORT, status: BarrierStatus.IN_PROGRESS })],
+      barriers: [
+        createBarrier({ id: "BAR-1", category: BarrierCategory.TRANSPORT, status: BarrierStatus.IN_PROGRESS }),
+      ],
     });
 
     r = applied(workflow.acknowledgeReferral(r, { actor: "Nurse A" }, NOW));
@@ -54,7 +56,9 @@ describe("Referral lifecycle", () => {
     assert.equal(r.auditTrail.at(-1).action, "FACILITY_ACKNOWLEDGED");
     assert.equal(r.auditTrail.at(-1).actor, "Nurse A");
 
-    r = applied(workflow.dispatchTransport(r, { vehicle: "MediVan #04", driver: "Manjunath Gowda", eta: "10 mins" }, NOW));
+    r = applied(
+      workflow.dispatchTransport(r, { vehicle: "MediVan #04", driver: "Manjunath Gowda", eta: "10 mins" }, NOW),
+    );
     assert.equal(r.transit.status, TransportStatus.DISPATCHED);
     assert.equal(r.barriers[0].status, BarrierStatus.RESOLVED);
 
@@ -71,7 +75,10 @@ describe("Referral lifecycle", () => {
     assert.equal(r.status, ReferralStatus.COMPLETED);
     assert.equal(r.clinicalOutcome.clinicianName, "Dr. C");
     assert.equal(r.followUpPlan.referralId, r.id);
-    assert.deepEqual(r.followUpPlan.tasks.map((t) => t.dayOffset), [3, 7, 14, 42]);
+    assert.deepEqual(
+      r.followUpPlan.tasks.map((t) => t.dayOffset),
+      [3, 7, 14, 42],
+    );
     assert.equal(r.followUpPlan.tasks[0].status, FollowUpStatus.PLANNED);
 
     const statuses = r.timeline.map((e) => e.status);
@@ -84,12 +91,20 @@ describe("Referral lifecycle", () => {
     const r = applied(
       workflow.recordClinicalOutcome(
         makeReferral({ referralType: PatientType.CHILD, status: ReferralStatus.ARRIVAL_CONFIRMED }),
-        { neonatalStatus: "PHOTOTHERAPY_INITIATED", bilirubinMgDl: 16.2, maternalStatus: "STABLE", deliveryType: "CESAREAN" },
-        NOW
-      )
+        {
+          neonatalStatus: "PHOTOTHERAPY_INITIATED",
+          bilirubinMgDl: 16.2,
+          maternalStatus: "STABLE",
+          deliveryType: "CESAREAN",
+        },
+        NOW,
+      ),
     );
 
-    assert.deepEqual(r.followUpPlan.tasks.map((t) => t.dayOffset), [3, 7, 14, 28]);
+    assert.deepEqual(
+      r.followUpPlan.tasks.map((t) => t.dayOffset),
+      [3, 7, 14, 28],
+    );
     assert.equal(r.clinicalOutcome.neonatalStatus, "PHOTOTHERAPY_INITIATED");
     assert.equal(r.clinicalOutcome.bilirubinMgDl, 16.2);
     assert.equal(r.clinicalOutcome.maternalStatus, null);
@@ -101,8 +116,8 @@ describe("Referral lifecycle", () => {
       workflow.recordClinicalOutcome(
         makeReferral({ status: ReferralStatus.ARRIVAL_CONFIRMED }),
         { referralType: PatientType.CHILD, bilirubinMgDl: 12, maternalStatus: "STABLE" },
-        NOW
-      )
+        NOW,
+      ),
     );
 
     assert.equal(r.clinicalOutcome.referralType, PatientType.MATERNAL);
@@ -110,12 +125,79 @@ describe("Referral lifecycle", () => {
     assert.equal(r.clinicalOutcome.maternalStatus, "STABLE");
   });
 
-  it("refuses arrival before the facility acknowledges, and changes nothing", () => {
-    const r = makeReferral({ status: ReferralStatus.SENT });
+  it("refuses arrival before the referral is sent, and changes nothing", () => {
+    const r = makeReferral({ status: ReferralStatus.CREATED });
     const before = structuredClone(r);
 
-    rejected(workflow.confirmArrival(r, {}, NOW), /Invalid transition from SENT to ARRIVAL_CONFIRMED/);
+    rejected(workflow.confirmArrival(r, {}, NOW), /Invalid transition from CREATED to ARRIVAL_CONFIRMED/);
     assert.deepEqual(r, before);
+  });
+
+  it("confirms arrival at a hospital other than the plan, even before anyone replied", () => {
+    for (const status of [ReferralStatus.SENT, ReferralStatus.REJECTED]) {
+      const r = applied(
+        workflow.confirmArrival(
+          makeReferral({ status, toFacility: "Sanjeevani" }),
+          { atFacility: "Karuna", verifiedBy: "Nurse" },
+          NOW,
+        ),
+      );
+      assert.equal(r.status, ReferralStatus.ARRIVAL_CONFIRMED);
+      assert.equal(r.toFacility, "Karuna");
+      assert.equal(r.redirectHistory.at(-1).divertedFrom, "Sanjeevani");
+    }
+  });
+
+  it("floats a declined referral until the patient chooses a hospital", () => {
+    const declined = applied(
+      workflow.rejectReferral(
+        makeReferral({ status: ReferralStatus.SENT, toFacility: "Sanjeevani" }),
+        { reason: "Full" },
+        NOW,
+      ),
+    );
+    assert.equal(workflow.isFloating(declined), true);
+    assert.equal(workflow.getDestination(declined), "No hospital chosen yet");
+    assert.deepEqual(declined.declinedBy, ["Sanjeevani"]);
+
+    rejected(workflow.recordPatientChoice(declined, { toFacility: "Sanjeevani" }, NOW), /already declined/);
+
+    const chosen = applied(workflow.recordPatientChoice(declined, { toFacility: "Karuna" }, NOW));
+    assert.equal(chosen.status, ReferralStatus.SENT);
+    assert.equal(chosen.toFacility, "Karuna");
+    assert.equal(chosen.patientChoice.recordedBy, "Patient or family");
+    assert.equal(chosen.auditTrail.at(-1).role, AuditRole.PATIENT);
+
+    const again = applied(workflow.rejectReferral(chosen, { reason: "Full" }, NOW));
+    assert.deepEqual(again.declinedBy, ["Sanjeevani", "Karuna"]);
+    assert.equal(again.patientChoice, null);
+  });
+
+  it("records a coordinator as only recording the patient's choice", () => {
+    const declined = makeReferral({ status: ReferralStatus.REJECTED, toFacility: "Sanjeevani" });
+    const chosen = applied(
+      workflow.recordPatientChoice(declined, { toFacility: "Karuna", recordedBy: "Care Coordinator" }, NOW),
+    );
+    assert.equal(chosen.auditTrail.at(-1).actor, "Care Coordinator");
+    assert.equal(chosen.auditTrail.at(-1).role, AuditRole.COORDINATOR);
+  });
+
+  it("refuses a choice on a referral that isn't floating", () => {
+    const sent = makeReferral({ status: ReferralStatus.SENT });
+    rejected(workflow.recordPatientChoice(sent, { toFacility: "Karuna" }, NOW), /Only a floating/);
+    rejected(workflow.recordPatientGoingElsewhere(sent, { place: "Clinic" }, NOW), /Only a floating/);
+  });
+
+  it("keeps the case open when the patient goes somewhere not on the list", () => {
+    const declined = makeReferral({ status: ReferralStatus.REJECTED });
+    rejected(workflow.recordPatientGoingElsewhere(declined, { place: "  " }, NOW), /Say where/);
+
+    const r = applied(workflow.recordPatientGoingElsewhere(declined, { place: "Town clinic" }, NOW));
+    assert.equal(workflow.isFloating(r), true);
+    assert.equal(r.patientChoice.elsewhere, "Town clinic");
+    assert.equal(r.timeline.at(-1).status, ReferralStatus.REJECTED);
+    assert.equal(r.timeline.at(-1).date, NOW);
+    assert.equal(workflow.getDestination(r), "Town clinic");
   });
 
   it("refuses an outcome before physical arrival", () => {
@@ -134,7 +216,11 @@ describe("Referral lifecycle", () => {
 
   it("rejects a referral and records the reason", () => {
     const r = applied(
-      workflow.rejectReferral(makeReferral({ status: ReferralStatus.SENT }), { actor: "Nurse", reason: "NICU full" }, NOW)
+      workflow.rejectReferral(
+        makeReferral({ status: ReferralStatus.SENT }),
+        { actor: "Nurse", reason: "NICU full" },
+        NOW,
+      ),
     );
 
     assert.equal(r.status, ReferralStatus.REJECTED);
@@ -147,24 +233,30 @@ describe("Referral lifecycle", () => {
       workflow.redirectReferral(
         makeReferral({ status: ReferralStatus.REJECTED }),
         { toFacility: "Vidyaranya Institute", reason: "No beds" },
-        NOW
-      )
+        NOW,
+      ),
     );
 
     assert.equal(r.status, ReferralStatus.SENT);
     assert.equal(r.toFacility, "Vidyaranya Institute");
-    assert.deepEqual(r.redirectHistory.map((h) => [h.divertedFrom, h.divertedTo]), [["Sanjeevani", "Vidyaranya Institute"]]);
-    assert.deepEqual(r.timeline.slice(-2).map((e) => e.status), [ReferralStatus.REDIRECTED, ReferralStatus.SENT]);
+    assert.deepEqual(
+      r.redirectHistory.map((h) => [h.divertedFrom, h.divertedTo]),
+      [["Sanjeevani", "Vidyaranya Institute"]],
+    );
+    assert.deepEqual(
+      r.timeline.slice(-2).map((e) => e.status),
+      [ReferralStatus.REDIRECTED, ReferralStatus.SENT],
+    );
   });
 
   it("refuses to redirect a completed referral, to the same facility, or to nowhere", () => {
     rejected(
       workflow.redirectReferral(makeReferral({ status: ReferralStatus.COMPLETED }), { toFacility: "Vidyaranya" }, NOW),
-      /Invalid transition from COMPLETED/
+      /Invalid transition from COMPLETED/,
     );
     rejected(
       workflow.redirectReferral(makeReferral({ status: ReferralStatus.SENT }), { toFacility: "Sanjeevani" }, NOW),
-      /already addressed/
+      /already addressed/,
     );
     rejected(workflow.redirectReferral(makeReferral({ status: ReferralStatus.SENT }), {}, NOW), /destination/);
   });
@@ -179,9 +271,17 @@ describe("Transport actions", () => {
 
   it("dispatches with no transit, or from a request, a failure or a cancellation", () => {
     const payload = { vehicle: "Van", driver: "D" };
-    assert.equal(applied(workflow.dispatchTransport(makeReferral(), payload, NOW)).transit.status, TransportStatus.DISPATCHED);
+    assert.equal(
+      applied(workflow.dispatchTransport(makeReferral(), payload, NOW)).transit.status,
+      TransportStatus.DISPATCHED,
+    );
 
-    for (const status of [TransportStatus.REQUESTED, TransportStatus.ASSIGNED, TransportStatus.FAILED, TransportStatus.CANCELLED]) {
+    for (const status of [
+      TransportStatus.REQUESTED,
+      TransportStatus.ASSIGNED,
+      TransportStatus.FAILED,
+      TransportStatus.CANCELLED,
+    ]) {
       const r = applied(workflow.dispatchTransport(withTransit(status), payload, NOW));
       assert.equal(r.transit.status, TransportStatus.DISPATCHED);
       assert.equal(r.transit.failedReason, null);
@@ -215,8 +315,8 @@ describe("Transport actions", () => {
           ],
         }),
         { vehicle: "Van", driver: "D" },
-        NOW
-      )
+        NOW,
+      ),
     );
     const byId = Object.fromEntries(r.barriers.map((b) => [b.id, b]));
 
@@ -226,8 +326,14 @@ describe("Transport actions", () => {
   });
 
   it("allows pickup only after dispatch", () => {
-    assert.equal(applied(workflow.recordTransportPickup(withTransit(TransportStatus.DISPATCHED), NOW)).transit.pickedUpAt, NOW);
-    rejected(workflow.recordTransportPickup(withTransit(TransportStatus.REQUESTED), NOW), /Invalid transport transition/);
+    assert.equal(
+      applied(workflow.recordTransportPickup(withTransit(TransportStatus.DISPATCHED), NOW)).transit.pickedUpAt,
+      NOW,
+    );
+    rejected(
+      workflow.recordTransportPickup(withTransit(TransportStatus.REQUESTED), NOW),
+      /Invalid transport transition/,
+    );
     rejected(workflow.recordTransportPickup(makeReferral(), NOW), /No transport/);
   });
 
@@ -237,7 +343,10 @@ describe("Transport actions", () => {
     assert.equal(r.transit.failedReason, "Snow squall");
     assert.equal(r.status, ReferralStatus.ACKNOWLEDGED);
 
-    rejected(workflow.recordTransportFailure(withTransit(TransportStatus.ARRIVED), "x", NOW), /Invalid transport transition/);
+    rejected(
+      workflow.recordTransportFailure(withTransit(TransportStatus.ARRIVED), "x", NOW),
+      /Invalid transport transition/,
+    );
   });
 
   it("does not overwrite a transit in progress with a new request", () => {
@@ -256,7 +365,10 @@ describe("Transport actions", () => {
     const failed = applied(workflow.confirmArrival(withTransit(TransportStatus.FAILED), {}, NOW));
     assert.equal(failed.transit.status, TransportStatus.FAILED);
 
-    assert.equal(applied(workflow.confirmArrival(makeReferral({ status: ReferralStatus.ACKNOWLEDGED }), {}, NOW)).transit, null);
+    assert.equal(
+      applied(workflow.confirmArrival(makeReferral({ status: ReferralStatus.ACKNOWLEDGED }), {}, NOW)).transit,
+      null,
+    );
   });
 });
 
@@ -265,41 +377,73 @@ describe("Barrier actions", () => {
     makeReferral({ barriers: [createBarrier({ id: "BAR-1", title: "Childcare gap", status, resolvedAt: null })] });
 
   it("adds a barrier and logs it", () => {
-    const result = workflow.identifyBarrier(makeReferral(), { title: "No safe newborn transport", category: BarrierCategory.TRANSPORT }, NOW);
+    const result = workflow.identifyBarrier(
+      makeReferral(),
+      { title: "No safe newborn transport", category: BarrierCategory.TRANSPORT },
+      NOW,
+    );
     const r = applied(result);
 
     assert.equal(result.barrier.title, "No safe newborn transport");
     assert.equal(r.barriers.length, 1);
     assert.equal(lastTimelineStatus(r), TimelineEvent.BARRIER_FLAGGED);
-    assert.equal(r.auditTrail.at(-1).role, AuditRole.NAVIGATOR);
+    assert.equal(r.auditTrail.at(-1).role, AuditRole.COORDINATOR);
+    assert.equal(r.auditTrail.at(-1).actor, "Care Coordinator");
   });
 
   it("applies the barrier rules", () => {
-    const r = applied(workflow.updateBarrierStatus(withBarrier(BarrierStatus.IN_PROGRESS), "BAR-1", BarrierStatus.RESOLVED, "Done", NOW));
+    const r = applied(
+      workflow.updateBarrierStatus(
+        withBarrier(BarrierStatus.IN_PROGRESS),
+        "BAR-1",
+        BarrierStatus.RESOLVED,
+        "Done",
+        NOW,
+      ),
+    );
     assert.equal(r.barriers[0].status, BarrierStatus.RESOLVED);
     assert.equal(r.barriers[0].resolvedAt, NOW);
     assert.equal(r.barriers[0].resolutionNotes, "Done");
 
     rejected(
       workflow.updateBarrierStatus(withBarrier(BarrierStatus.IDENTIFIED), "BAR-1", BarrierStatus.UNRESOLVED, "", NOW),
-      /Invalid barrier transition/
+      /Invalid barrier transition/,
     );
   });
 
   it("logs nothing for a barrier that does not exist", () => {
-    rejected(workflow.updateBarrierStatus(withBarrier(BarrierStatus.IN_PROGRESS), "BAR-GENERIC", BarrierStatus.RESOLVED, "", NOW), /not found/);
+    rejected(
+      workflow.updateBarrierStatus(
+        withBarrier(BarrierStatus.IN_PROGRESS),
+        "BAR-GENERIC",
+        BarrierStatus.RESOLVED,
+        "",
+        NOW,
+      ),
+      /not found/,
+    );
   });
 
   it("clears the resolved time when a barrier is reopened", () => {
-    const resolved = applied(workflow.updateBarrierStatus(withBarrier(BarrierStatus.IN_PROGRESS), "BAR-1", BarrierStatus.RESOLVED, "", NOW));
-    const reopened = applied(workflow.updateBarrierStatus(resolved, "BAR-1", BarrierStatus.IDENTIFIED, "Recurred", NOW));
+    const resolved = applied(
+      workflow.updateBarrierStatus(withBarrier(BarrierStatus.IN_PROGRESS), "BAR-1", BarrierStatus.RESOLVED, "", NOW),
+    );
+    const reopened = applied(
+      workflow.updateBarrierStatus(resolved, "BAR-1", BarrierStatus.IDENTIFIED, "Recurred", NOW),
+    );
 
     assert.equal(reopened.barriers[0].resolvedAt, null);
   });
 
   it("resolves by id or title, and never falls back to another barrier", () => {
-    assert.equal(applied(workflow.resolveBarrier(withBarrier(BarrierStatus.IN_PROGRESS), "BAR-1", "", NOW)).barriers[0].status, BarrierStatus.RESOLVED);
-    assert.equal(applied(workflow.resolveBarrier(withBarrier(BarrierStatus.IN_PROGRESS), "Childcare", "", NOW)).barriers[0].status, BarrierStatus.RESOLVED);
+    assert.equal(
+      applied(workflow.resolveBarrier(withBarrier(BarrierStatus.IN_PROGRESS), "BAR-1", "", NOW)).barriers[0].status,
+      BarrierStatus.RESOLVED,
+    );
+    assert.equal(
+      applied(workflow.resolveBarrier(withBarrier(BarrierStatus.IN_PROGRESS), "Childcare", "", NOW)).barriers[0].status,
+      BarrierStatus.RESOLVED,
+    );
 
     rejected(workflow.resolveBarrier(withBarrier(BarrierStatus.IN_PROGRESS), "typo", "", NOW), /No barrier matches/);
     rejected(workflow.resolveBarrier(withBarrier(BarrierStatus.IN_PROGRESS), "", "", NOW), /No barrier matches/);
@@ -324,7 +468,7 @@ describe("Continuity of care actions", () => {
     assert.equal(task.status, FollowUpStatus.COMPLETED);
     assert.equal(task.completedAt, NOW);
     assert.equal(task.notes, "Lactation good");
-    assert.equal(task.completedBy, r.navigator.name);
+    assert.equal(task.completedBy, "Care Coordinator");
     assert.equal(r.followUpPlan.status, "ACTIVE");
   });
 
@@ -348,14 +492,23 @@ describe("Continuity of care actions", () => {
   });
 
   it("logs contact attempts, with defaults when no details are given", () => {
-    const r = applied(workflow.recordContactAttempt(makeReferral(), { method: "SMS", outcome: "Voicemail Left", notes: "n", actor: "Priya" }, NOW));
+    const r = applied(
+      workflow.recordContactAttempt(
+        makeReferral(),
+        { method: "SMS", outcome: "Voicemail Left", notes: "n", actor: "Priya" },
+        NOW,
+      ),
+    );
     assert.deepEqual(
       [r.contactLogs[0].method, r.contactLogs[0].outcome, r.contactLogs[0].actor],
-      ["SMS", "Voicemail Left", "Priya"]
+      ["SMS", "Voicemail Left", "Priya"],
     );
     assert.equal(r.auditTrail.at(-1).action, "CONTACT_ATTEMPT");
 
-    assert.equal(applied(workflow.recordContactAttempt(makeReferral(), undefined, NOW)).contactLogs[0].method, "Phone Call");
+    assert.equal(
+      applied(workflow.recordContactAttempt(makeReferral(), undefined, NOW)).contactLogs[0].method,
+      "Phone Call",
+    );
   });
 });
 
@@ -374,7 +527,10 @@ describe("UI bug regressions", () => {
       assert.equal(workflow.dispatchTransport(referral, { vehicle: "V" }, NOW).success, false, status);
       assert.equal(workflow.requestTransport(referral, {}, NOW).success, false, status);
     }
-    assert.equal(workflow.canDispatchTransport(makeReferral({ status: ReferralStatus.ACKNOWLEDGED, transit: null })), true);
+    assert.equal(
+      workflow.canDispatchTransport(makeReferral({ status: ReferralStatus.ACKNOWLEDGED, transit: null })),
+      true,
+    );
   });
 
   it("puts a case on the transport board only for a transport barrier", () => {
@@ -399,17 +555,26 @@ describe("UI bug regressions", () => {
       transit: createTransportRequest({ referralId: "R", status: TransportStatus.DISPATCHED }),
     });
     const r = applied(workflow.recordTransportFailure(referral, "Flat tyre", NOW));
-    assert.deepEqual(r.barriers.map((b) => [b.status, b.resolvedAt, b.description]), [["IDENTIFIED", null, "Flat tyre"]]);
+    assert.deepEqual(
+      r.barriers.map((b) => [b.status, b.resolvedAt, b.description]),
+      [["IDENTIFIED", null, "Flat tyre"]],
+    );
     assert.equal(r.transitBarrier, true);
   });
 
   it("adds a transport barrier when a failed vehicle had none, and never a second open one", () => {
     const transit = createTransportRequest({ referralId: "R", status: TransportStatus.DISPATCHED });
     const none = applied(workflow.recordTransportFailure(makeReferral({ barriers: [], transit }), "Flat tyre", NOW));
-    assert.deepEqual(none.barriers.map((b) => [b.category, b.status]), [["TRANSPORT", "IDENTIFIED"]]);
+    assert.deepEqual(
+      none.barriers.map((b) => [b.category, b.status]),
+      [["TRANSPORT", "IDENTIFIED"]],
+    );
 
     const open = makeReferral({ barriers: [transportBarrier("IN_PROGRESS")], transit });
     const still = applied(workflow.recordTransportFailure(open, "Flat tyre", NOW));
-    assert.deepEqual(still.barriers.map((b) => b.status), ["IN_PROGRESS"]);
+    assert.deepEqual(
+      still.barriers.map((b) => b.status),
+      ["IN_PROGRESS"],
+    );
   });
 });

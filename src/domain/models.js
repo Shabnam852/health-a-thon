@@ -4,14 +4,14 @@
  */
 
 import {
+  AuditRole,
+  BarrierStatus,
+  CarePlanStatus,
+  FollowUpStatus,
+  PatientType,
   ReferralStatus,
   TransportStatus,
-  BarrierStatus,
-  FollowUpStatus,
-  CarePlanStatus,
-  AuditRole,
   UrgencyLevel,
-  PatientType,
 } from "./enums.js";
 
 export const generateId = (prefix = "REF") => {
@@ -75,10 +75,11 @@ export const createTransportRequest = ({
   vehicleType = "MediRide Van",
   requiresNeonatalKit = false,
   requiresWheelchair = false,
+  vanId = null, // The fleet id of the van, which is what says the van is busy.
   vehicle = null, // e.g. "MediVan #04 (Silver Transit • Plate KA-01-AB-4892)"
-  driver = null,  // e.g. "Manjunath Gowda"
+  driver = null, // e.g. "Manjunath Gowda"
   driverPhone = "+91 90000 19921",
-  eta = null,     // e.g. "12 mins"
+  eta = null, // e.g. "12 mins"
   dispatchedAt = null,
   pickedUpAt = null,
   arrivedAt = null,
@@ -92,6 +93,7 @@ export const createTransportRequest = ({
   vehicleType,
   requiresNeonatalKit,
   requiresWheelchair,
+  vanId,
   vehicle,
   driver,
   driverPhone,
@@ -149,16 +151,16 @@ export const createClinicalOutcome = ({
   diagnosisConfirmed = "",
   // Maternal specifics
   maternalStatus = "STABLE", // STABLE, OBSERVATION, ADMITTED_L_D, SURGICAL_INTERVENTION, ICU
-  deliveryType = null,       // SPONTANEOUS_VAGINAL, ASSISTED, CESAREAN, NOT_APPLICABLE
-  gestationalOutcome = "",   // e.g., "Full term delivery, no PPH"
+  deliveryType = null, // SPONTANEOUS_VAGINAL, ASSISTED, CESAREAN, NOT_APPLICABLE
+  gestationalOutcome = "", // e.g., "Full term delivery, no PPH"
   // Neonatal specifics
-  neonatalStatus = null,     // STABLE, PHOTOTHERAPY_INITIATED, NICU_ADMITTED, TRANSFERRED
+  neonatalStatus = null, // STABLE, PHOTOTHERAPY_INITIATED, NICU_ADMITTED, TRANSFERRED
   birthWeightGrams = null,
   apgar1Min = null,
   apgar5Min = null,
   bilirubinMgDl = null,
   // Common outcome disposition
-  disposition = "ADMITTED",  // ADMITTED, DISCHARGED_HOME, TRANSFERRED_QUATERNARY
+  disposition = "ADMITTED", // ADMITTED, DISCHARGED_HOME, TRANSFERRED_QUATERNARY
   clinicalNotes = "",
 } = {}) => ({
   assessedAt,
@@ -182,10 +184,19 @@ export const createClinicalOutcome = ({
 /**
  * Creates a single touchpoint task within a continuing care plan.
  */
+// A visit is due on a calendar day where the user is, not on the UTC date.
+const addLocalDays = (start, days) => {
+  const date = new Date(start);
+  date.setDate(date.getDate() + days);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 export const createFollowUpTask = ({
   id = generateId("TSK"),
   title = "Postpartum Touchpoint",
   dayOffset = 3, // e.g., Day 3, Day 7, Day 14, Day 42
+  startsAt = Date.now(),
   dueDate = null,
   targetRole = "Community Midwife / Lactation Consultant",
   status = FollowUpStatus.PLANNED,
@@ -197,7 +208,7 @@ export const createFollowUpTask = ({
   id,
   title,
   dayOffset,
-  dueDate: dueDate || new Date(Date.now() + dayOffset * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  dueDate: dueDate || addLocalDays(startsAt, dayOffset),
   targetRole,
   status,
   clinicalFocus,
@@ -221,58 +232,66 @@ export const createFollowUpPlan = ({
 } = {}) => {
   // Default evidence-based touchpoints if none provided
   const maternalTasks = () => [
-      createFollowUpTask({
-        title: "Day 3 Maternal & Lactation Check",
-        dayOffset: 3,
-        clinicalFocus: "Lactation onset, early wound check, BP re-screen",
-      }),
-      createFollowUpTask({
-        title: "Day 7 BP & Surgical Healing",
-        dayOffset: 7,
-        clinicalFocus: "Rule out secondary PPH, severe preeclampsia recurrence, cesarean wound check",
-      }),
-      createFollowUpTask({
-        title: "Day 14 Emotional Health & Mental Well-being",
-        dayOffset: 14,
-        clinicalFocus: "Postpartum depression/anxiety screening (EPDS), infant feeding sustainability",
-      }),
-      createFollowUpTask({
-        title: "Day 42 Comprehensive Postpartum Exam",
-        dayOffset: 42,
-        clinicalFocus: "Pelvic exam, contraception, transition to primary well-woman care",
-      }),
-    ];
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 3 Maternal & Lactation Check",
+      dayOffset: 3,
+      clinicalFocus: "Lactation onset, early wound check, BP re-screen",
+    }),
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 7 BP & Surgical Healing",
+      dayOffset: 7,
+      clinicalFocus: "Rule out secondary PPH, severe preeclampsia recurrence, cesarean wound check",
+    }),
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 14 Emotional Health & Mental Well-being",
+      dayOffset: 14,
+      clinicalFocus: "Postpartum depression/anxiety screening (EPDS), infant feeding sustainability",
+    }),
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 42 Comprehensive Postpartum Exam",
+      dayOffset: 42,
+      clinicalFocus: "Pelvic exam, contraception, transition to primary well-woman care",
+    }),
+  ];
 
   const neonatalTasks = () => [
-      createFollowUpTask({
-        title: "Day 3 Neonatal Bilirubin & Hydration",
-        dayOffset: 3,
-        clinicalFocus: "Transcutaneous bilirubin check, weight loss check (<10% threshold)",
-      }),
-      createFollowUpTask({
-        title: "Day 7 Well-Baby Weight Check",
-        dayOffset: 7,
-        clinicalFocus: "Regaining birth weight, cord care, feeding latch evaluation",
-      }),
-      createFollowUpTask({
-        title: "Day 14 Newborn Metabolic & Development",
-        dayOffset: 14,
-        clinicalFocus: "Metabolic screen verification, developmental reflexes",
-      }),
-      createFollowUpTask({
-        title: "Day 28 Neonatal Transition",
-        dayOffset: 28,
-        clinicalFocus: "One-month pediatric primary care handoff and immunization scheduling",
-      }),
-    ];
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 3 Neonatal Bilirubin & Hydration",
+      dayOffset: 3,
+      clinicalFocus: "Transcutaneous bilirubin check, weight loss check (<10% threshold)",
+    }),
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 7 Well-Baby Weight Check",
+      dayOffset: 7,
+      clinicalFocus: "Regaining birth weight, cord care, feeding latch evaluation",
+    }),
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 14 Newborn Metabolic & Development",
+      dayOffset: 14,
+      clinicalFocus: "Metabolic screen verification, developmental reflexes",
+    }),
+    createFollowUpTask({
+      startsAt: establishedAt,
+      title: "Day 28 Neonatal Transition",
+      dayOffset: 28,
+      clinicalFocus: "One-month pediatric primary care handoff and immunization scheduling",
+    }),
+  ];
 
   // A dyad record follows both the mother and the baby.
   const defaultTasks =
     referralType === PatientType.MATERNAL
       ? maternalTasks()
       : referralType === PatientType.DYAD
-      ? [...maternalTasks(), ...neonatalTasks()].sort((a, b) => a.dayOffset - b.dayOffset)
-      : neonatalTasks();
+        ? [...maternalTasks(), ...neonatalTasks()].sort((a, b) => a.dayOffset - b.dayOffset)
+        : neonatalTasks();
 
   return {
     id,
@@ -314,6 +333,9 @@ export const createReferral = ({
   language = "English",
   interpreterNeeded = false,
   transitBarrier = false,
+  declinedBy = [],
+  rejectionReason = null,
+  patientChoice = null,
   createdAt = new Date().toISOString(),
   navigator = null,
   vitals = {},
@@ -348,6 +370,9 @@ export const createReferral = ({
   language,
   interpreterNeeded,
   transitBarrier,
+  declinedBy,
+  rejectionReason,
+  patientChoice,
   createdAt,
   navigator: navigator || {
     id: "NAV-01",
@@ -388,4 +413,3 @@ export const createReferral = ({
           }),
         ],
 });
-

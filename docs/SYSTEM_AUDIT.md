@@ -6,7 +6,7 @@
 **Auditor:** Multidisciplinary Senior Engineering & Clinical Product Audit Team  
 **Repository Inspected:** `d:/ANTIGRAVITY/Healthathon/health-a-thon`  
 **Git Branch:** `main`  
-**Node/Package Version:** `health-a-thon@0.0.0`  
+**Node/Package Version:** `health-a-thon@0.0.0`
 
 ---
 
@@ -56,6 +56,7 @@ However, beneath the high-fidelity UI lies a stark architectural divide:
 ```
 
 #### Observations & Deficiencies:
+
 - **Zero Automated Testing Framework:** There is no Jest, Vitest, React Testing Library, Cypress, or Playwright installed. `package.json` contains no `test` script.
 - **Broken Linting Script:** The `npm run lint` script invokes `eslint .`, but `eslint` is absent from `devDependencies`. Running `npm run lint` terminates immediately with exit code 1 (`'eslint' is not recognized as an internal or external command`).
 - **CDN-Coupled CSS:** Tailwind CSS is loaded at runtime via a CDN script tag in `index.html` (`<script src="https://cdn.tailwindcss.com"></script>`) rather than being compiled at build time via PostCSS. While `npm run build` succeeds (creating a 391.4 kB JS bundle and 2.5 kB CSS bundle), any offline demonstration or firewall-restricted demo environment will fail to render styles.
@@ -101,16 +102,16 @@ health-a-thon/
 
 The application exposes 8 client-side routes via `react-router-dom` in [`src/App.jsx:17-88`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/App.jsx#L17-L88):
 
-| Route | Main Component | Layout Wrapper | Access Control | Observed State & Interactions |
-| :--- | :--- | :--- | :--- | :--- |
-| `/` | `RoleSelection.jsx` | None (Standalone) | Public | Selects persona (`coordinator`, `patient`, `facility`), stores in `localStorage.navexa_role`, redirects to relevant dashboard. |
-| `/coordinator` | `CoordinatorDashboard.jsx` | `AppShell` | None (Accessible by all) | Computes 6 KPI metrics from `useReferrals()`. Filters priority table by acuity/type. Primary row click navigates to `/referral/:id`. Quick action triggers `updateReferralStatus`. Contains non-functional view mode switcher tabs. Action buttons trigger browser alerts. |
-| `/referral/:id`| `ReferralDetails.jsx` | `AppShell` | None (Accessible by all) | Reads referral from context by URL parameter. Renders 6-gate progress stepper. Displays hardcoded maternal vitals (`152/98`, `142 bpm`) regardless of whether patient is adult or neonate. Modal buttons display mock text. Call/Chat buttons trigger browser alerts. |
-| `/barriers` | `BarrierResolution.jsx` | `AppShell` | None (Accessible by all) | Renders hardcoded `casesData` array (4 cases). **Isolated from context referrals.** Dispatches transit with string argument instead of object. Local audit trail resets on route change. |
-| `/facility` | `FacilityDashboard.jsx` | `AppShell` | None (Accessible by all) | Filters context referrals for "St. Jude" or "District Hospital". Contains dead primary action button for `CREATED` status. Advances statuses `SENT` → `ACKNOWLEDGED` → `ARRIVAL_CONFIRMED` → `COMPLETED`. |
-| `/create` | `CreateReferral.jsx` | `AppShell` | None (Accessible by all) | 4-step wizard capturing clinical, demographic, social barriers, and receiving department. Submits to `addReferral()` with status `SENT`. Navigates to `/referral/:newId`. |
-| `/patient` | `PatientDashboard.jsx` | `AppShell` | None (Accessible by all) | Reads `activeReferralId`. Renders dynamic greeting name, but **5-step journey timeline is completely hardcoded and static**. Always shows Step 3 "Ride on the Way" as in-progress. |
-| `/network` | `NetworkView.jsx` | `AppShell` | None (Accessible by all) | Static directory of 5 regional medical centers with mock bed availability and service capabilities. Search filter operates on static facility list. |
+| Route           | Main Component             | Layout Wrapper    | Access Control           | Observed State & Interactions                                                                                                                                                                                                                                              |
+| :-------------- | :------------------------- | :---------------- | :----------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`             | `RoleSelection.jsx`        | None (Standalone) | Public                   | Selects persona (`coordinator`, `patient`, `facility`), stores in `localStorage.navexa_role`, redirects to relevant dashboard.                                                                                                                                             |
+| `/coordinator`  | `CoordinatorDashboard.jsx` | `AppShell`        | None (Accessible by all) | Computes 6 KPI metrics from `useReferrals()`. Filters priority table by acuity/type. Primary row click navigates to `/referral/:id`. Quick action triggers `updateReferralStatus`. Contains non-functional view mode switcher tabs. Action buttons trigger browser alerts. |
+| `/referral/:id` | `ReferralDetails.jsx`      | `AppShell`        | None (Accessible by all) | Reads referral from context by URL parameter. Renders 6-gate progress stepper. Displays hardcoded maternal vitals (`152/98`, `142 bpm`) regardless of whether patient is adult or neonate. Modal buttons display mock text. Call/Chat buttons trigger browser alerts.      |
+| `/barriers`     | `BarrierResolution.jsx`    | `AppShell`        | None (Accessible by all) | Renders hardcoded `casesData` array (4 cases). **Isolated from context referrals.** Dispatches transit with string argument instead of object. Local audit trail resets on route change.                                                                                   |
+| `/facility`     | `FacilityDashboard.jsx`    | `AppShell`        | None (Accessible by all) | Filters context referrals for "St. Jude" or "District Hospital". Contains dead primary action button for `CREATED` status. Advances statuses `SENT` → `ACKNOWLEDGED` → `ARRIVAL_CONFIRMED` → `COMPLETED`.                                                                  |
+| `/create`       | `CreateReferral.jsx`       | `AppShell`        | None (Accessible by all) | 4-step wizard capturing clinical, demographic, social barriers, and receiving department. Submits to `addReferral()` with status `SENT`. Navigates to `/referral/:newId`.                                                                                                  |
+| `/patient`      | `PatientDashboard.jsx`     | `AppShell`        | None (Accessible by all) | Reads `activeReferralId`. Renders dynamic greeting name, but **5-step journey timeline is completely hardcoded and static**. Always shows Step 3 "Ride on the Way" as in-progress.                                                                                         |
+| `/network`      | `NetworkView.jsx`          | `AppShell`        | None (Accessible by all) | Static directory of 5 regional medical centers with mock bed availability and service capabilities. Search filter operates on static facility list.                                                                                                                        |
 
 ---
 
@@ -143,6 +144,7 @@ The entire data plane resides in React Context initialized in [`src/context/Refe
 ```
 
 #### Persistence Behavior:
+
 1. **Cache Loading:** Reads `localStorage.getItem("navexa_referrals_v2")` on mount. If empty or invalid, falls back to `demoReferrals` from [`src/data/demoReferral.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/data/demoReferral.js).
 2. **Auto-Synchronization:** An `useEffect` hook serializes `referrals` to `localStorage` on every state update. This ensures data survives browser refreshes ($F5$).
 3. **Demo Reset:** `resetDemoData()` purges `localStorage` and restores original mock cases.
@@ -152,13 +154,16 @@ The entire data plane resides in React Context initialized in [`src/context/Refe
 ## 5. Major Architectural Weaknesses & Critical Flaws
 
 ### 5.1 Flaw 1: State Disconnection in `BarrierResolution.jsx`
+
 - **Location:** [`src/pages/BarrierResolution.jsx:5-106, 188-230`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx#L5-L106)
 - **Observed Behavior:** The Barrier Resolution desk defines its own static array `casesData` containing 4 cases: `NX-9042` (Baby Boy Chen), `NX-9038` (Amara Okafor), `NX-9051` (Khadija Said), and `NX-9019` (Lucia Gomez). Only `NX-9042` exists in `demoReferrals.js`. The remaining 3 cases do not exist in `ReferralContext`.
 - **Impact:** When a user selects Amara Okafor, Khadija Said, or Lucia Gomez and clicks "Dispatch MediVan" or "Confirm Intake", the mutation dispatchers (`dispatchTransit`, `resolveBarrier`) fail silently because no matching referral ID exists in `ReferralContext.referrals`. Furthermore, the audit log in this view is stored in local component state (`useState`), meaning all logged actions vanish if the user navigates away.
 
 ### 5.2 Flaw 2: Malformed Transit Dispatch Signature
+
 - **Location:** [`src/pages/BarrierResolution.jsx:188-193`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx#L188-L193) vs [`src/context/ReferralContext.jsx:118-139`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/context/ReferralContext.jsx#L118-L139)
 - **Code in Context:**
+
   ```javascript
   const dispatchTransit = (referralId, transitData) => {
     ...
@@ -168,22 +173,26 @@ The entire data plane resides in React Context initialized in [`src/context/Refe
   }
   ```
 - **Code in Page:**
+
   ```javascript
   dispatchTransit(activeCase.id, "MediVan #04 (Driver Marcus Ross with Chicco KeyFit Car Seat)");
   ```
 - **Impact:** `transitData` is passed as a primitive string. Accessing `transitData.vehicle`, `transitData.driver`, and `transitData.eta` evaluates to `undefined`. The timeline logs `"MediRide transit dispatched: undefined (Driver: undefined, ETA: undefined)"`. Spreading the string (`...transitData`) turns the `referral.transit` property into an object with numerical character indices (`{ 0: "M", 1: "e", 2: "d", ... }`), corrupting the data model.
 
 ### 5.3 Flaw 3: Static Patient Journey Visual Illusion
+
 - **Location:** [`src/pages/PatientDashboard.jsx:171-315`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/PatientDashboard.jsx#L171-L315)
 - **Observed Behavior:** While the header dynamically displays the active patient's name, the 5-stage visual progress roadmap is 100% hardcoded HTML.
 - **Impact:** Step 3 ("Ride on the Way to Your Door") is permanently rendered with an animated pulsing icon and active step badge, regardless of whether the referral is in `CREATED`, `SENT`, `ARRIVAL_CONFIRMED`, or `COMPLETED`. Even if a judge views a completed referral or a newborn baby case, the patient view always claims a silver transit van is 1.4 miles away with Driver Thomas.
 
 ### 5.4 Flaw 4: Dead Action Button for `CREATED` Referrals
+
 - **Location:** [`src/pages/FacilityDashboard.jsx:62-97`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L62-L97)
 - **Observed Behavior:** `handlePrimaryAction` implements branches for `SENT`, `ACKNOWLEDGED`, `ARRIVAL_CONFIRMED`, and `FOLLOW_UP_REQUIRED`. It contains **no branch** for `CREATED`.
 - **Impact:** If a referral is in `CREATED` status, the button displays "View Details", but clicking it invokes `handlePrimaryAction`, which does nothing. The user is trapped and cannot advance the referral or view its chart from that button.
 
 ### 5.5 Flaw 5: Inappropriate Telemetry Rendering for Neonatal Referrals
+
 - **Location:** [`src/pages/ReferralDetails.jsx:360-421`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L360-L421)
 - **Observed Behavior:** The clinical assessment telemetry pod unconditionally renders:
   - Maternal Blood Pressure: `152/98 mmHg`
@@ -193,6 +202,7 @@ The entire data plane resides in React Context initialized in [`src/context/Refe
 - **Impact:** When inspecting a neonatal referral (e.g., Baby Boy Chen, a 3-day-old infant with jaundice), the system displays maternal obstetric vitals including fetal heart rate and protein dipsticks. This is a severe clinical domain error that would immediately disqualify the platform in front of healthcare evaluators.
 
 ### 5.6 Flaw 6: Orphaned / Dead Code Assets
+
 - **Location:** `src/components/Navbar.jsx`, `src/components/ReferralCard.jsx`, `src/components/ReferralTimeline.jsx`, `src/components/StatusBadge.jsx`
 - **Observed Behavior:** These components are remnants of an earlier codebase revision and are not imported by any active page or component. They inflate repository clutter and create confusion during code review.
 
@@ -219,4 +229,3 @@ The entire data plane resides in React Context initialized in [`src/context/Refe
    Because state is bound to an individual browser's `localStorage`, two judges sitting at different laptops cannot see each other's actions. A hospital facility cannot acknowledge a referral created on a clinic laptop without a shared cloud datastore (e.g., Firebase, Supabase, or lightweight Node/Express server).
 3. **Level 3 — Production Healthcare System (Unviable):**
    A production clinical coordination platform requires HIPAA-compliant encrypted storage at rest and in transit, strict RBAC, HL7 FHIR `ServiceRequest` interoperability, comprehensive BAA agreements, auditable access logging, and fault-tolerant cloud infrastructure.
-

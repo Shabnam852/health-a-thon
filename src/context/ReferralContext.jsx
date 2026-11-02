@@ -1,17 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { StorageAdapter } from "../services/storageAdapter.js";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildSeedReferrals,
   initialFacilities,
-  initialNavigators,
   initialFleet,
-  initialSeedReferrals,
+  initialNavigators,
   initialNotifications,
+  initialSeedReferrals,
 } from "../data/seedData.js";
-import { ReferralStatus } from "../domain/enums.js";
+import { getAlarms } from "../domain/alarms.js";
+import { Role } from "../domain/enums.js";
 import { createReferral } from "../domain/models.js";
 import * as workflow from "../domain/workflow.js";
+import { StorageAdapter } from "../services/storageAdapter.js";
 
 const ReferralContext = createContext();
+
+const CLOCK_TICK_MS = 60 * 1000;
 
 export const useReferrals = () => {
   const context = useContext(ReferralContext);
@@ -26,24 +30,45 @@ export const ReferralProvider = ({ children }) => {
   const [data, setData] = useState(() => {
     return StorageAdapter.loadData({
       referrals: initialSeedReferrals,
-      facilities: initialFacilities,
       navigators: initialNavigators,
       fleet: initialFleet,
       notifications: initialNotifications,
     });
   });
 
-  const referrals = data.referrals || [];
-  const facilities = data.facilities || initialFacilities;
+  const referrals = data.referrals;
+  // Hospitals never change while the app runs, so they are not saved.
+  const facilities = initialFacilities;
   const navigators = data.navigators || initialNavigators;
   const fleet = data.fleet || initialFleet;
   const notifications = data.notifications || initialNotifications;
 
   // Active Role and Active Referral
   const [role, setRoleState] = useState(() => StorageAdapter.getRole());
-  const [activeReferralId, setActiveReferralId] = useState(
-    () => referrals[0]?.id || "REF-2024-8821"
-  );
+  const [activeReferralId, setActiveReferralIdState] = useState(() => {
+    const saved = StorageAdapter.getActiveReferralId();
+    return referrals.some((r) => r.id === saved) ? saved : referrals[0]?.id || "REF-2024-8821";
+  });
+  const setActiveReferralId = useCallback((id) => {
+    StorageAdapter.setActiveReferralId(id);
+    setActiveReferralIdState(id);
+  }, []);
+
+  // The hospital using the app: its Intake is on show, and its new referrals are sent from it.
+  const [activeFacilityId, setActiveFacilityIdState] = useState(() => StorageAdapter.getActiveFacilityId());
+  const activeFacility = facilities.find((f) => f.id === activeFacilityId) || facilities[0];
+  const setActiveFacilityId = useCallback((id) => {
+    StorageAdapter.setActiveFacilityId(id);
+    setActiveFacilityIdState(id);
+  }, []);
+
+  // Alarms are worked out from the clock, so the clock has to tick.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  const alarms = useMemo(() => getAlarms(referrals, now), [referrals, now]);
 
   // Sync to Storage on every mutation
   useEffect(() => {
@@ -57,6 +82,14 @@ export const ReferralProvider = ({ children }) => {
 
   const logout = () => {
     setRole("coordinator");
+  };
+
+  // Guided demo position, or null when no demo is running.
+  const [storyStep, setStoryStepState] = useState(() => StorageAdapter.getStoryStep());
+
+  const setStoryStep = (step) => {
+    StorageAdapter.setStoryStep(step);
+    setStoryStepState(step);
   };
 
   // Always the latest state, so two actions in one handler do not validate against a
@@ -121,28 +154,19 @@ export const ReferralProvider = ({ children }) => {
   const rejectReferral = (id, actor, reason) =>
     applyToReferral(id, (r) => workflow.rejectReferral(r, { actor, reason }));
 
-  const redirectReferral = (id, fromFacility, toFacility, reason, actor) =>
-    applyToReferral(id, (r) => workflow.redirectReferral(r, { toFacility, reason, actor }));
+  // The patient chooses. Anyone else on this screen is only recording what the patient said.
+  const choiceRecorder = () => (role === Role.PATIENT ? workflow.PATIENT_OR_FAMILY : workflow.COORDINATOR);
 
-  const confirmArrival = (id, arrivalPayload) =>
-    applyToReferral(id, (r) => workflow.confirmArrival(r, arrivalPayload));
+  const recordPatientChoice = (id, toFacility) =>
+    applyToReferral(id, (r) => workflow.recordPatientChoice(r, { toFacility, recordedBy: choiceRecorder() }));
+
+  const recordPatientGoingElsewhere = (id, place) =>
+    applyToReferral(id, (r) => workflow.recordPatientGoingElsewhere(r, { place, recordedBy: choiceRecorder() }));
+
+  const confirmArrival = (id, arrivalPayload) => applyToReferral(id, (r) => workflow.confirmArrival(r, arrivalPayload));
 
   const recordClinicalOutcome = (id, outcomePayload) =>
     applyToReferral(id, (r) => workflow.recordClinicalOutcome(r, outcomePayload));
-
-  // Backwards compatible status updater with validation
-  const updateReferralStatus = (id, newStatus, note = "") => {
-    if (newStatus === ReferralStatus.ACKNOWLEDGED) {
-      return acknowledgeReferral(id, "Intake Staff", note);
-    }
-    if (newStatus === ReferralStatus.ARRIVAL_CONFIRMED) {
-      return confirmArrival(id, { notes: note });
-    }
-    if (newStatus === ReferralStatus.COMPLETED) {
-      return recordClinicalOutcome(id, { clinicalNotes: note });
-    }
-    return applyToReferral(id, (r) => workflow.transitionReferralStatus(r, newStatus, note));
-  };
 
   // ==========================================
   // BARRIER MANAGEMENT ACTIONS
@@ -167,8 +191,7 @@ export const ReferralProvider = ({ children }) => {
   const dispatchTransport = (referralId, dispatchPayload) =>
     applyToReferral(referralId, (r) => workflow.dispatchTransport(r, dispatchPayload));
 
-  const recordTransportPickup = (referralId) =>
-    applyToReferral(referralId, (r) => workflow.recordTransportPickup(r));
+  const recordTransportPickup = (referralId) => applyToReferral(referralId, (r) => workflow.recordTransportPickup(r));
 
   const recordTransportFailure = (referralId, reason) =>
     applyToReferral(referralId, (r) => workflow.recordTransportFailure(r, reason));
@@ -204,15 +227,17 @@ export const ReferralProvider = ({ children }) => {
   // Demo Data Reset
   const resetDemoData = () => {
     StorageAdapter.clearData();
+    const freshReferrals = buildSeedReferrals();
     const freshData = {
-      referrals: initialSeedReferrals,
-      facilities: initialFacilities,
+      referrals: freshReferrals,
       navigators: initialNavigators,
       fleet: initialFleet,
       notifications: initialNotifications,
     };
     commit(freshData);
-    setActiveReferralId(initialSeedReferrals[0].id);
+    setActiveReferralId(freshReferrals[0].id);
+    setActiveFacilityIdState(null);
+    setStoryStep(null);
     logout();
     return true;
   };
@@ -222,22 +247,28 @@ export const ReferralProvider = ({ children }) => {
       value={{
         referrals,
         facilities,
+        activeFacility,
+        setActiveFacilityId,
         navigators,
         fleet,
         notifications,
+        now,
+        alarms,
         activeReferralId,
         setActiveReferralId,
         role,
         setRole,
+        storyStep,
+        setStoryStep,
         logout,
         getReferralById,
         addReferral,
         acknowledgeReferral,
         rejectReferral,
-        redirectReferral,
+        recordPatientChoice,
+        recordPatientGoingElsewhere,
         confirmArrival,
         recordClinicalOutcome,
-        updateReferralStatus,
         identifyBarrier,
         updateBarrierStatus,
         resolveBarrier,

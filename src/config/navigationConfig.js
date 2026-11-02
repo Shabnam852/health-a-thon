@@ -1,15 +1,14 @@
 /**
  * Navexa Health — Centralized Role-Based Navigation Architecture
- * 
+ *
  * Strict role-specific navigation configurations and route boundary definitions
- * for Care Coordinator, Receiving Facility, Patient & Family, and Care Navigator personas.
+ * for the Care Coordinator, Hospital, and Patient & Family personas.
  */
 
 export const RoleId = Object.freeze({
   COORDINATOR: "coordinator",
   FACILITY: "facility",
   PATIENT: "patient",
-  NAVIGATOR: "navigator",
 });
 
 export const roleDefinitions = {
@@ -20,8 +19,6 @@ export const roleDefinitions = {
     badge: "Command Center",
     icon: "grid_view",
     homePath: "/coordinator",
-    avatarBg: "bg-primary",
-    avatarText: "CC",
     description: "Operational monitoring, triage priority queues, and network-wide care coordination.",
     allowedPrefixes: [
       "/coordinator",
@@ -30,7 +27,6 @@ export const roleDefinitions = {
       "/barriers",
       "/transport",
       "/facility",
-      "/create",
       "/continuity",
       "/network",
       "/navigator",
@@ -38,20 +34,13 @@ export const roleDefinitions = {
   },
   [RoleId.FACILITY]: {
     id: RoleId.FACILITY,
-    title: "Receiving Healthcare Facility",
-    shortTitle: "Facility Operations",
+    title: "Hospital",
+    shortTitle: "Hospital",
     badge: "Intake & Clinical Handoff",
     icon: "domain",
     homePath: "/facility",
-    avatarBg: "bg-secondary",
-    avatarText: "HF",
     description: "Triage review, bed assignment, physical arrival verification, and structured clinical outcomes.",
-    allowedPrefixes: [
-      "/facility",
-      "/referral",
-      "/referrals",
-      "/network",
-    ],
+    allowedPrefixes: ["/facility", "/create", "/referral", "/referrals", "/network"],
   },
   [RoleId.PATIENT]: {
     id: RoleId.PATIENT,
@@ -60,33 +49,8 @@ export const roleDefinitions = {
     badge: "Family Lifeline",
     icon: "family_restroom",
     homePath: "/patient",
-    avatarBg: "bg-amber-700",
-    avatarText: "PF",
     description: "Reassuring, plain-language care progress, driver arrival status, and postpartum follow-up.",
-    allowedPrefixes: [
-      "/patient",
-      "/continuity",
-    ],
-  },
-  [RoleId.NAVIGATOR]: {
-    id: RoleId.NAVIGATOR,
-    title: "Care Navigator",
-    shortTitle: "Community Caseload",
-    badge: "Social & Transport Logistics",
-    icon: "support_agent",
-    homePath: "/navigator",
-    avatarBg: "bg-teal-700",
-    avatarText: "CN",
-    description: "Outreach logging, language interpreter scheduling, barrier resolution, and transport dispatch.",
-    allowedPrefixes: [
-      "/navigator",
-      "/barriers",
-      "/transport",
-      "/continuity",
-      "/referral",
-      "/referrals",
-      "/network",
-    ],
+    allowedPrefixes: ["/patient", "/continuity"],
   },
 };
 
@@ -97,103 +61,67 @@ export const roleDefinitions = {
 export const navigationConfig = {
   [RoleId.COORDINATOR]: [
     {
-      title: "Coordinator Command Center",
+      title: "Dashboard",
       icon: "grid_view",
       path: "/coordinator",
       matchPrefix: "/coordinator",
       category: "COMMAND & TRIAGE",
     },
     {
-      title: "Priority Referral Queue",
+      title: "Queue",
       icon: "assignment_late",
       path: "/coordinator?view=queue",
       matchPrefix: "/referrals",
       category: "COMMAND & TRIAGE",
     },
     {
-      title: "Barrier Resolution Desk",
+      title: "Barriers",
       icon: "warning_amber",
       path: "/barriers",
       matchPrefix: "/barriers",
       category: "OPERATIONS",
     },
     {
-      title: "Care Navigator Caseload",
+      title: "Caseload",
       icon: "support_agent",
       path: "/navigator",
       matchPrefix: "/navigator",
       category: "OPERATIONS",
     },
     {
-      title: "Transport Operations Desk",
+      title: "Transport",
       icon: "local_taxi",
       path: "/transport",
       matchPrefix: "/transport",
       category: "LOGISTICS",
     },
     {
-      title: "Regional Facility Grid",
+      title: "Hospitals",
       icon: "hub",
       path: "/network",
       matchPrefix: "/network",
       category: "NETWORK",
     },
     {
-      title: "42-Day Continuity of Care",
+      title: "42-day follow-up",
+      tabLabel: "Follow-up",
       icon: "event_available",
       path: "/continuity",
       matchPrefix: "/continuity",
       category: "CONTINUITY",
     },
-    {
-      title: "Initiate New Referral",
-      icon: "add_circle",
-      path: "/create",
-      matchPrefix: "/create",
-      category: "CLINICAL",
-    },
   ],
 
   [RoleId.FACILITY]: [
     {
-      title: "Facility Operations Hub",
+      title: "Intake",
       icon: "domain",
       path: "/facility",
       matchPrefix: "/facility",
       category: "CLINICAL INTAKE",
     },
     {
-      title: "Pending Intake Queue",
-      icon: "inbox",
-      path: "/facility?tab=pending",
-      category: "CLINICAL INTAKE",
-    },
-    {
-      title: "In-Transit Patient Transfers",
-      icon: "local_shipping",
-      path: "/facility?tab=intransit",
-      category: "CLINICAL INTAKE",
-    },
-    {
-      title: "Physical Arrivals & Intake",
-      icon: "how_to_reg",
-      path: "/facility?tab=arrived",
-      category: "CLINICAL INTAKE",
-    },
-    {
-      title: "Clinical Outcomes & Handover",
-      icon: "task_alt",
-      path: "/facility?tab=completed",
-      category: "CLINICAL OUTCOMES",
-    },
-    {
-      title: "Diverted / Declined Cases",
-      icon: "alt_route",
-      path: "/facility?tab=redirected",
-      category: "CLINICAL OUTCOMES",
-    },
-    {
-      title: "Regional Care Capacity Grid",
+      title: "Hospitals",
       icon: "hub",
       path: "/network",
       matchPrefix: "/network",
@@ -203,74 +131,41 @@ export const navigationConfig = {
 
   [RoleId.PATIENT]: [
     {
-      title: "My Care Journey",
+      title: "My journey",
+      tabLabel: "Journey",
       icon: "family_restroom",
       path: "/patient",
       matchPrefix: "/patient",
       category: "MY HEALTH JOURNEY",
     },
     {
-      title: "Live Transport & Ride Status",
+      title: "My ride",
+      tabLabel: "Ride",
       icon: "directions_car",
       path: "/patient?view=transit",
       category: "MY HEALTH JOURNEY",
     },
     {
-      title: "What to Bring Checklist",
+      title: "What to bring",
+      tabLabel: "Bring",
       icon: "checklist",
       path: "/patient?view=checklist",
       category: "PREPARATION",
     },
     {
-      title: "42-Day Postpartum Plan",
+      title: "42-day plan",
+      tabLabel: "Plan",
       icon: "favorite",
       path: "/continuity",
       matchPrefix: "/continuity",
       category: "CONTINUING CARE",
     },
     {
-      title: "Support & Emergency Help",
+      title: "Get help",
+      tabLabel: "Help",
       icon: "help_outline",
       path: "/patient?view=support",
       category: "SUPPORT",
-    },
-  ],
-
-  [RoleId.NAVIGATOR]: [
-    {
-      title: "Navigator Caseload Desk",
-      icon: "support_agent",
-      path: "/navigator",
-      matchPrefix: "/navigator",
-      category: "CASELOAD & OUTREACH",
-    },
-    {
-      title: "Barrier Resolution Desk",
-      icon: "warning_amber",
-      path: "/barriers",
-      matchPrefix: "/barriers",
-      category: "CASELOAD & OUTREACH",
-    },
-    {
-      title: "Transport Fleet Dispatch",
-      icon: "local_taxi",
-      path: "/transport",
-      matchPrefix: "/transport",
-      category: "LOGISTICS",
-    },
-    {
-      title: "42-Day Postpartum Touchpoints",
-      icon: "event_available",
-      path: "/continuity",
-      matchPrefix: "/continuity",
-      category: "CONTINUITY",
-    },
-    {
-      title: "Regional Facility Grid",
-      icon: "hub",
-      path: "/network",
-      matchPrefix: "/network",
-      category: "NETWORK",
     },
   ],
 };
@@ -323,7 +218,7 @@ export const isRouteAllowedForRole = (role, pathname) => {
   if (pathname === "/" || pathname === "") return true;
 
   const def = getRoleDefinition(role);
-  if (!def || !def.allowedPrefixes) return true;
+  if (!def?.allowedPrefixes) return true;
 
   return def.allowedPrefixes.some((prefix) => matchesPrefix(pathname, prefix));
 };
@@ -334,7 +229,7 @@ export const isRouteAllowedForRole = (role, pathname) => {
 export const isKnownRoute = (pathname) => {
   if (pathname === "/" || pathname === "") return true;
   return Object.values(roleDefinitions).some((def) =>
-    def.allowedPrefixes.some((prefix) => matchesPrefix(pathname, prefix))
+    def.allowedPrefixes.some((prefix) => matchesPrefix(pathname, prefix)),
   );
 };
 
@@ -344,11 +239,9 @@ export const isKnownRoute = (pathname) => {
 export const getPrimaryRoleForRoute = (pathname) => {
   if (pathname.startsWith("/patient")) return RoleId.PATIENT;
   if (pathname.startsWith("/facility")) return RoleId.FACILITY;
-  if (pathname.startsWith("/navigator")) return RoleId.NAVIGATOR;
   if (pathname.startsWith("/coordinator")) return RoleId.COORDINATOR;
   if (pathname.startsWith("/barriers")) return RoleId.COORDINATOR;
   if (pathname.startsWith("/transport")) return RoleId.COORDINATOR;
-  if (pathname.startsWith("/create")) return RoleId.COORDINATOR;
+  if (pathname.startsWith("/create")) return RoleId.FACILITY;
   return RoleId.COORDINATOR;
 };
-

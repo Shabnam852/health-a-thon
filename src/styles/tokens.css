@@ -1,0 +1,119 @@
+/*
+  Design tokens: the one place colours, radii, shadows and layout sizes are defined.
+  tailwind.config.js exposes them as classes (bg-surface, text-ink, rounded-card...).
+  Colours are RGB channels so classes can add opacity. All text pairs meet 7:1.
+*/
+:root {
+  color-scheme: light;
+
+  /* Page and panels */
+  --color-canvas: 246 248 250;
+  --color-surface: 255 255 255;
+  --color-muted: 246 248 250;
+  --color-subtle: 235 238 241;
+  --color-subtle-strong: 223 227 232;
+
+  /* Lines */
+  --color-line: 227 232 238;
+  --color-line-strong: 120 130 148;
+
+  /* Text */
+  --color-ink: 26 31 54;
+  --color-ink-muted: 70 77 100;
+
+  /* Solid fills. Text on them uses on-fill in both themes. */
+  --color-brand: 10 37 64;
+  --color-brand-hover: 23 56 92;
+  --color-accent-fill: 0 92 88;
+  --color-accent-fill-hover: 0 74 71;
+  --color-danger-fill: 163 20 30;
+  --color-danger-fill-hover: 133 15 24;
+  --color-on-fill: 255 255 255;
+  --color-on-fill-muted: 209 228 255;
+
+  /* Accent and danger as text, borders and soft backgrounds */
+  --color-accent: 0 88 84;
+  --color-accent-soft: 225 245 243;
+  --color-danger: 150 18 27;
+  --color-danger-soft: 253 236 236;
+  --color-danger-strong: 120 12 20;
+
+  /* Bright highlight: same in both themes */
+  --color-highlight: 165 243 236;
+  --color-on-highlight: 0 40 38;
+
+  --color-focus: 0 92 88;
+
+  /* Radii */
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgb(26 31 54 / 0.06);
+  --shadow-raised: 0 2px 5px rgb(26 31 54 / 0.1), 0 1px 1px rgb(26 31 54 / 0.06);
+  --shadow-overlay: 0 16px 48px rgb(26 31 54 / 0.2), 0 4px 12px rgb(26 31 54 / 0.1);
+
+  /* Layout */
+  --size-sidebar: 16.875rem;
+  --size-drawer: 17.5rem;
+  --size-header: 4rem;
+  --size-tabbar: 3.5rem;
+  --size-control: 2.75rem;
+  --size-control-sm: 2.25rem;
+
+  /* Motion */
+  --motion-fast: 120ms;
+
+  /* Type */
+  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --color-canvas: 13 18 30;
+  --color-surface: 21 28 43;
+  --color-muted: 27 35 52;
+  --color-subtle: 36 45 64;
+  --color-subtle-strong: 44 54 75;
+
+  --color-line: 45 54 74;
+  --color-line-strong: 122 133 156;
+
+  --color-ink: 240 243 248;
+  --color-ink-muted: 190 199 214;
+
+  --color-brand: 26 54 88;
+  --color-brand-hover: 33 67 108;
+  --color-accent-fill: 0 96 92;
+  --color-accent-fill-hover: 0 84 80;
+  --color-danger-fill: 163 20 30;
+  --color-danger-fill-hover: 133 15 24;
+
+  --color-accent: 111 224 217;
+  --color-accent-soft: 11 52 54;
+  --color-danger: 255 170 170;
+  --color-danger-soft: 58 21 25;
+  --color-danger-strong: 255 214 214;
+
+  --color-focus: 111 224 217;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-raised: 0 2px 5px rgb(0 0 0 / 0.4);
+  --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.55);
+}
+
+/* Touch screens get the full 44px target, even from small buttons. */
+@media (max-width: 1023px), (pointer: coarse) {
+  :root {
+    --size-control-sm: 2.75rem;
+  }
+}
+
+/* Below the desktop layout the header gives its height back to the content. */
+@media (max-width: 1023px) {
+  :root {
+    --size-header: 3.5rem;
+  }
+}

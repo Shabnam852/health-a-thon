@@ -5,10 +5,13 @@
 
 import { ReferralStatus, Role } from "../domain/enums.js";
 
-const STORAGE_KEY = "navexa_domain_v4";
-const OLD_STORAGE_KEY = "navexa_domain_v3";
+const STORAGE_KEY = "navexa_domain_v6";
+const OLD_STORAGE_KEYS = ["navexa_domain_v3", "navexa_domain_v4", "navexa_domain_v5"];
 const ROLE_KEY = "navexa_role";
 const CHECKLIST_KEY = "navexa_checklists";
+const STORY_STEP_KEY = "navexa_story_step";
+const ACTIVE_REFERRAL_KEY = "navexa_active_referral";
+const ACTIVE_FACILITY_KEY = "navexa_active_facility";
 const DEFAULT_ROLE = Role.COORDINATOR;
 
 const isUsableReferral = (r) => Boolean(r?.id) && Object.values(ReferralStatus).includes(r.status);
@@ -25,7 +28,7 @@ const mergeWithSeed = (parsed, seedData) => {
 export const StorageAdapter = {
   loadData(seedData) {
     try {
-      localStorage.removeItem(OLD_STORAGE_KEY);
+      for (const key of OLD_STORAGE_KEYS) localStorage.removeItem(key);
       const serialized = localStorage.getItem(STORAGE_KEY);
       if (serialized) {
         const parsed = JSON.parse(serialized);
@@ -56,6 +59,8 @@ export const StorageAdapter = {
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(CHECKLIST_KEY);
+      localStorage.removeItem(ACTIVE_REFERRAL_KEY);
+      localStorage.removeItem(ACTIVE_FACILITY_KEY);
       return true;
     } catch (e) {
       console.error("StorageAdapter: Failed to clear storage.", e);
@@ -80,6 +85,58 @@ export const StorageAdapter = {
     }
   },
 
+  // Per tab and per visit, so a demo left open does not reappear next time.
+  getStoryStep() {
+    try {
+      const stored = sessionStorage.getItem(STORY_STEP_KEY);
+      const step = stored === null ? NaN : Number(stored);
+      return Number.isInteger(step) && step >= 0 ? step : null;
+    } catch {
+      return null;
+    }
+  },
+
+  setStoryStep(step) {
+    try {
+      if (step === null) sessionStorage.removeItem(STORY_STEP_KEY);
+      else sessionStorage.setItem(STORY_STEP_KEY, String(step));
+    } catch (e) {
+      console.warn("StorageAdapter: Failed to save demo step.", e);
+    }
+  },
+
+  getActiveReferralId() {
+    try {
+      return localStorage.getItem(ACTIVE_REFERRAL_KEY);
+    } catch {
+      return null;
+    }
+  },
+
+  setActiveReferralId(id) {
+    try {
+      localStorage.setItem(ACTIVE_REFERRAL_KEY, id);
+    } catch (e) {
+      console.warn("StorageAdapter: Failed to save active referral.", e);
+    }
+  },
+
+  getActiveFacilityId() {
+    try {
+      return localStorage.getItem(ACTIVE_FACILITY_KEY);
+    } catch {
+      return null;
+    }
+  },
+
+  setActiveFacilityId(id) {
+    try {
+      localStorage.setItem(ACTIVE_FACILITY_KEY, id);
+    } catch (e) {
+      console.warn("StorageAdapter: Failed to save active hospital.", e);
+    }
+  },
+
   getRole() {
     try {
       const stored = localStorage.getItem(ROLE_KEY);
@@ -97,4 +154,3 @@ export const StorageAdapter = {
     }
   },
 };
-

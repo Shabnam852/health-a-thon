@@ -3,27 +3,28 @@
 **Document:** `docs/ROLE_AND_RESPONSIVE_TEST_REPORT.md`  
 **Version:** 3.1.0  
 **Test Date:** November 01, 2026  
-**Auditor / QA Specialist:** Lead Frontend Architect & QA Automation Engineer  
+**Auditor / QA Specialist:** Lead Frontend Architect & QA Automation Engineer
 
 ---
 
 ## 1. Executive Test Summary
 
-| Dimension | Verification Target | Result | Status |
-| :--- | :--- | :--- | :--- |
-| **Role-Specific Navigation Suite** | 7 automated tests in `navigationConfig.test.js` | 7 passed ($100\%$) | **PASS** |
-| **Domain & Workflow Suites** | See `docs/TESTING_REPORT.md` for the current suites and counts | All passing | **PASS** |
-| **Total Automated Tests** | 20 unit and integration tests | 20 passed in $300\text{ms}$ | **PASS** |
-| **Static Code Quality** | `eslint src` (ESLint v10) | 0 errors, 0 warnings | **PASS** |
-| **Production Vite Build** | `vite build` | 56 modules transformed, built in $2.78\text{s}$ | **PASS** |
-| **Desktop Layout Geometry** | Fix $576\text{px}$ double-padding bug | Resolved; content starts at $270\text{px}$ | **PASS** |
-| **Cross-Role Route Boundaries** | Patient $\rightarrow$ Coordinator / Facility blocking | Intercepted with Role Boundary modal | **PASS** |
+| Dimension                          | Verification Target                                            | Result                                          | Status   |
+| :--------------------------------- | :------------------------------------------------------------- | :---------------------------------------------- | :------- |
+| **Role-Specific Navigation Suite** | 7 automated tests in `navigationConfig.test.js`                | 7 passed ($100\%$)                              | **PASS** |
+| **Domain & Workflow Suites**       | See `docs/TESTING_REPORT.md` for the current suites and counts | All passing                                     | **PASS** |
+| **Total Automated Tests**          | 20 unit and integration tests                                  | 20 passed in $300\text{ms}$                     | **PASS** |
+| **Static Code Quality**            | `eslint src` (ESLint v10)                                      | 0 errors, 0 warnings                            | **PASS** |
+| **Production Vite Build**          | `vite build`                                                   | 56 modules transformed, built in $2.78\text{s}$ | **PASS** |
+| **Desktop Layout Geometry**        | Fix $576\text{px}$ double-padding bug                          | Resolved; content starts at $270\text{px}$      | **PASS** |
+| **Cross-Role Route Boundaries**    | Patient $\rightarrow$ Coordinator / Facility blocking          | Intercepted with Role Boundary modal            | **PASS** |
 
 ---
 
 ## 2. Role-Specific Navigation Test Results
 
 ### 2.1 Care Coordinator (`role === "coordinator"`)
+
 - **Observed Navigation Items:**
   1. Coordinator Command Center (`/coordinator`)
   2. Priority Referral Queue (`/coordinator?view=queue`)
@@ -39,6 +40,7 @@
   - Switching view tabs between `queue`, `network`, and `staff` synchronizes with URL query parameter `?view=`.
 
 ### 2.2 Receiving Healthcare Facility (`role === "facility"`)
+
 - **Observed Navigation Items:**
   1. Facility Operations Hub (`/facility`)
   2. Pending Intake Queue (`/facility?tab=pending`)
@@ -53,6 +55,7 @@
   - Clicking "Clinical Outcomes & Handover" switches to completed cases.
 
 ### 2.3 Patient & Family (`role === "patient"`)
+
 - **Observed Navigation Items:**
   1. My Care Journey (`/patient`)
   2. Live Transport & Ride Status (`/patient?view=transit`)
@@ -66,6 +69,7 @@
   - "New Referral" button in header is automatically hidden for patients.
 
 ### 2.4 Care Navigator (`role === "navigator"`)
+
 - **Observed Navigation Items:**
   1. Navigator Caseload Desk (`/navigator`)
   2. Barrier Resolution Desk (`/barriers`)
@@ -80,23 +84,24 @@
 
 ## 3. Route Boundary & Access Control Tests
 
-| Role Attempting Access | Target URL | Expected Result | Actual Result | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **Patient** | `/coordinator` | Blocked: Role Boundary Screen | Renders "Restricted to Care Coordinator" with one-tap switch | **PASS** |
-| **Patient** | `/facility` | Blocked: Role Boundary Screen | Renders "Restricted to Receiving Healthcare Facility" | **PASS** |
-| **Patient** | `/barriers` | Blocked: Role Boundary Screen | Renders Role Boundary notice | **PASS** |
-| **Facility** | `/coordinator` | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub | **PASS** |
-| **Facility** | `/patient` | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub | **PASS** |
-| **Coordinator** | `/coordinator` | Allowed | Renders Coordinator Command Center | **PASS** |
-| **Coordinator** | `/referral/REF-2024-8821` | Allowed | Renders Ananya Reddy case chart | **PASS** |
-| **Any Role** | `/referral/NON-EXISTENT-ID` | Referral Not Found | Renders 404 referral card with return button | **PASS** |
-| **Any Role** | `/random-unknown-path` | 404 Page Not Found | Renders NotFound.jsx with return to workspace button | **PASS** |
+| Role Attempting Access | Target URL                  | Expected Result               | Actual Result                                                | Status   |
+| :--------------------- | :-------------------------- | :---------------------------- | :----------------------------------------------------------- | :------- |
+| **Patient**            | `/coordinator`              | Blocked: Role Boundary Screen | Renders "Restricted to Care Coordinator" with one-tap switch | **PASS** |
+| **Patient**            | `/facility`                 | Blocked: Role Boundary Screen | Renders "Restricted to Receiving Healthcare Facility"        | **PASS** |
+| **Patient**            | `/barriers`                 | Blocked: Role Boundary Screen | Renders Role Boundary notice                                 | **PASS** |
+| **Facility**           | `/coordinator`              | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub                   | **PASS** |
+| **Facility**           | `/patient`                  | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub                   | **PASS** |
+| **Coordinator**        | `/coordinator`              | Allowed                       | Renders Coordinator Command Center                           | **PASS** |
+| **Coordinator**        | `/referral/REF-2024-8821`   | Allowed                       | Renders Ananya Reddy case chart                              | **PASS** |
+| **Any Role**           | `/referral/NON-EXISTENT-ID` | Referral Not Found            | Renders 404 referral card with return button                 | **PASS** |
+| **Any Role**           | `/random-unknown-path`      | 404 Page Not Found            | Renders NotFound.jsx with return to workspace button         | **PASS** |
 
 ---
 
 ## 4. Responsive Viewport Inspection Results
 
 ### 4.1 Desktop Viewports ($1440 \times 900$, $1366 \times 768$, $1280 \times 800$)
+
 - **Sidebar:** Fixed at `270px` on the left. Does not scroll away with page content.
 - **Header:** Sticky at top with `lg:left-[270px]`. Aligns with workspace down to the pixel.
 - **Horizontal Alignment:** The main workspace starts at exactly $270\text{px}$. The previous double-padding offset ($576\text{px}$) is completely gone.
@@ -105,12 +110,14 @@
 - **Split Work Queue:** 8:4 ratio on 1280px-1440px monitors; 9:3 ratio on 1536px+ ultrawide displays.
 
 ### 4.2 Tablet Viewport ($768 \times 1024$ iPad Portrait)
+
 - **Sidebar:** Hidden by default. Opens as an accessible slide-over drawer when the hamburger icon is tapped.
 - **Navigation Drawer:** Backdrop covers screen (`bg-black/50`); body scroll is locked. Closes on link selection, backdrop tap, or `Escape` key.
 - **Workspaces:** KPI ribbon collapses cleanly into a 3-column $\times$ 2-row grid.
 - **Tables:** Priority queue table encased in `overflow-x-auto` with `min-w-[700px]`; smooth horizontal touch scroll without page overflow.
 
 ### 4.3 Mobile Viewports ($430 \times 932$, $390 \times 844$, $375 \times 812$)
+
 - **Top Header:** Clean, compact top bar with hamburger menu, live search input, notification bell, and persona badge.
 - **Drawer Navigation:** Renders role-specific links with generous $\ge 48\text{px}$ touch targets.
 - **Patient Dashboard:** Reflows into a single-column vertical timeline. 1-touch telephone links (`tel:108`, `tel:navigator`) work instantly.
@@ -168,6 +175,7 @@ Runner: Node.js 24 Native Test Runner (`node --test`)
 ## 6. Static Code Analysis & Production Build Logs
 
 ### 6.1 ESLint Log
+
 ```bash
 $ npm run lint
 > health-a-thon@0.0.0 lint
@@ -176,6 +184,7 @@ $ npm run lint
 ```
 
 ### 6.2 Production Build Log
+
 ```bash
 $ npm run build
 > health-a-thon@0.0.0 build
@@ -191,4 +200,3 @@ dist/assets/index-Db1sctXg.css    2.50 kB │ gzip:   1.01 kB
 dist/assets/index-C7N75o3Y.js   412.10 kB │ gzip: 103.04 kB
 ✓ built in 2.78s
 ```
-

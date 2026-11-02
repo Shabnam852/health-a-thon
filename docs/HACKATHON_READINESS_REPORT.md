@@ -4,7 +4,7 @@
 **Version:** 3.0.0  
 **Audit & Remediation Date:** November 01, 2026  
 **Auditor:** Hackathon Technical Evaluator & Multidisciplinary Review Panel  
-**Evaluation Standard:** Production-Ready Hackathon Architecture  
+**Evaluation Standard:** Production-Ready Hackathon Architecture
 
 ---
 
@@ -36,6 +36,7 @@
 ```
 
 #### Score Justification:
+
 - **Major Leaps (+33 Points Total):**
   - **End-to-End Workflow (50 ➔ 95):** The system now traces every referral completely from creation, acknowledgment, barrier mitigation, transit dispatch, physical arrival verification, structured clinical assessment, to 42-day continuing postpartum surveillance.
   - **Clinical Workflow Accuracy (48 ➔ 95):** Strict separation of concerns between maternal and neonatal entities (e.g. Baby of Shalini Naidu displays TSB and infant weight, never maternal systolic BP or cervical dilation). Arrival is distinguished from treatment, and referral closure does not terminate continuous care.
@@ -47,10 +48,12 @@
 ## 2. Answers to the 9 Critical Judge Questions (Post-Remediation)
 
 ### 1. What is genuinely innovative about Navexa Health?
+
 Most healthcare referral software is purely administrative: Hospital A records that a referral was generated, and Hospital B records whether a patient checked in. If a patient never arrives, the system is blind.  
 **Navexa's genuine innovation is treating the physical and socio-economic journey between facilities as an active, monitorable clinical care state.** Transit breakdowns, no safe newborn transport, language barriers, and lack of postpartum follow-up are treated as clinical risk factors coordinated by dedicated operational desks.
 
 ### 2. Does the current implementation demonstrate that innovation?
+
 **Yes, completely.** Every stage is fully operational in the codebase:
 - Overdue barriers trigger actionable transit dispatches with vehicle, driver, and ETA attribution.
 - Transport fleet operations are managed in a dedicated desk (`/transport`) with pickup, arrival, and disruption recovery workflows.
@@ -58,18 +61,21 @@ Most healthcare referral software is purely administrative: Hospital A records t
 - 42-day postpartum care plans operate independently in `/continuity`.
 
 ### 3. What would make a judge lose confidence?
+
 Previously, judges would lose confidence when seeing broken transit payloads (`undefined`), static mock HTML timelines, newborn babies displaying maternal vitals, and browser `window.alert()` dialogs.  
 **All 5 of these issues have been completely eliminated.** The platform now demonstrates airtight data integrity, zero browser alerts, and domain-appropriate clinical telemetry.
 
 ### 4. What questions could a healthcare expert ask that the system cannot answer?
-- *"If Sanjeevani's NICU is full, how does the triage nurse redirect this baby?"*  
+
+- _"If Sanjeevani's NICU is full, how does the triage nurse redirect this baby?"_  
   **Answer:** Fully implemented via the **"Redirect Referral"** modal on `FacilityDashboard.jsx`, re-routing to Vidyaranya Institute or Karuna Women & Children's with clinical notes and automated intake queue transfers.
-- *"When you click 'Record Outcome', where do you document delivery mode and neonatal status?"*  
+- _"When you click 'Record Outcome', where do you document delivery mode and neonatal status?"_  
   **Answer:** Fully implemented via the **Structured Clinical Outcome Modal**, with separate schemas for maternal delivery/BP and neonatal TSB/APGAR/weight.
-- *"How does a community health worker verify a home visit on Day 3 postpartum?"*  
+- _"How does a community health worker verify a home visit on Day 3 postpartum?"_  
   **Answer:** Fully implemented on the **Continuity of Care Desk** (`/continuity`), logging clinical visit notes and checking off Days 3, 7, 14, and 42 touchpoints.
 
 ### 5. Which features are essential to demonstrate the core value proposition?
+
 Navexa demonstrates **six complete, end-to-end clinical scenarios**:
 1. Severe Preeclampsia Emergency (Ananya Reddy).
 2. Neonatal Hyperbilirubinemia & Phototherapy (Baby of Shalini Naidu).
@@ -79,15 +85,19 @@ Navexa demonstrates **six complete, end-to-end clinical scenarios**:
 6. 42-Day Postpartum Continuity & Well-Baby Handoff (Meera Devi).
 
 ### 6. What is currently just a visual demonstration?
+
 Only capabilities outside the reasonable scope of a frontend hackathon (such as physical Bluetooth BLE beacon hardware, cellular SMS gateway towers, and production hospital EHR servers) are simulated. The entire user-facing coordination workflow, state machine, data persistence, and UI reactivity are genuine, functional software.
 
 ### 7. What is the biggest technical weakness?
+
 **Single-Browser Persistence:** The application currently relies on browser `localStorage` (`navexa_domain_v4`). In production, this would be backed by a HIPAA-compliant cloud database (e.g. PostgreSQL with RLS or Google Cloud Healthcare API). However, for a hackathon presentation, the local persistence is faultless, retaining state through browser refreshes ($F5$) and offering an instant demo reset.
 
 ### 8. What is the biggest product weakness?
+
 **Telephony Dependency:** The care navigation workflow requires phone calls, SMS notifications, and physical driver interaction. In the live prototype, driver dispatch and contact logging are recorded through responsive web interfaces rather than an integrated Twilio telephony trunk.
 
 ### 9. What would prevent this project from winning?
+
 With the automated tests passing, 3 dedicated new operational workspaces (`/transport`, `/continuity`, `/navigator`), and reactive UI state across desktop and mobile, the main remaining limit is that the app runs entirely in the browser, with no server-side access control.
 
 ---
