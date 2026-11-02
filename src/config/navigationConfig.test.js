@@ -41,9 +41,8 @@ describe("Role-Based Navigation Configuration", () => {
     assert.ok(paths.includes("/facility"));
     assert.ok(paths.includes("/network"));
 
-    // Must NOT contain coordinator command center, create referral, or patient journey
+    // Must NOT contain coordinator command center or patient journey
     assert.ok(!paths.includes("/coordinator"));
-    assert.ok(!paths.includes("/create"));
     assert.ok(!paths.includes("/patient"));
     assert.ok(!paths.includes("/barriers"));
   });
@@ -69,6 +68,12 @@ describe("Role-Based Navigation Configuration", () => {
     const paths = getNavigationForRole(RoleId.COORDINATOR).map((i) => i.path);
     assert.ok(paths.includes("/navigator"));
     assert.equal(getPrimaryRoleForRoute("/navigator"), RoleId.COORDINATOR);
+  });
+
+  test("Only a hospital makes referrals", () => {
+    assert.equal(isRouteAllowedForRole(RoleId.FACILITY, "/create"), true);
+    assert.equal(isRouteAllowedForRole(RoleId.COORDINATOR, "/create"), false);
+    assert.equal(getPrimaryRoleForRoute("/create"), RoleId.FACILITY);
   });
 
   test("Route access boundaries enforce role isolation", () => {
@@ -126,11 +131,10 @@ describe("Role-Based Navigation Configuration", () => {
         "/barriers",
         "/transport",
         "/facility",
-        "/create",
         "/continuity",
         "/network",
       ],
-      [RoleId.FACILITY]: ["/referral", "/referrals", "/facility", "/network"],
+      [RoleId.FACILITY]: ["/referral", "/referrals", "/facility", "/create", "/network"],
       [RoleId.PATIENT]: ["/patient", "/continuity"],
     };
 

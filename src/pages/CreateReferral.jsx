@@ -52,7 +52,6 @@ const URGENCY = [
   [UrgencyLevel.URGENT, "Urgent", "4-6 hours"],
   [UrgencyLevel.STAT, "Emergency", "Now, ambulance 108"],
 ];
-const REFERRING_FACILITY = "Kaveri Midwifery & Birth Clinic";
 // The full text is saved on the referral. A select has room for its first part only.
 const shortOption = (option) => option.split(/ \(Level | \/ /)[0];
 
@@ -101,8 +100,8 @@ const Details = ({ summary, children }) => (
 
 const CreateReferral = () => {
   const navigate = useNavigate();
-  const { referrals, facilities, addReferral, setActiveReferralId } = useReferrals();
-  const destinations = getReferralDestinations(facilities, REFERRING_FACILITY);
+  const { referrals, facilities, activeFacility, addReferral, setActiveReferralId } = useReferrals();
+  const destinations = getReferralDestinations(facilities, activeFacility.name);
   const { toast, showToast } = useToast();
 
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -185,8 +184,8 @@ const CreateReferral = () => {
       referralType: patientType,
       priority,
       status: ReferralStatus.SENT,
-      fromFacility: REFERRING_FACILITY,
-      fromClinician: "Dr. Kavitha Rao, MS (OBG)",
+      fromFacility: activeFacility.name,
+      fromClinician: activeFacility.directContact,
       toFacility: destination,
       department: form.targetDepartment,
       reason: form.indication,
@@ -222,10 +221,10 @@ const CreateReferral = () => {
       <Toast toast={toast} />
 
       <div className="space-y-1">
-        <Button as={Link} to="/coordinator" variant="link" size="flush">
-          Back to referrals
+        <Button as={Link} to="/facility" variant="link" size="flush">
+          Back to intake
         </Button>
-        <PageHeader title="New referral" />
+        <PageHeader title="New referral" subtitle={`From ${activeFacility.name}`} />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -301,7 +300,7 @@ const CreateReferral = () => {
         </Card>
 
         <div className="flex sm:justify-end gap-2">
-          <Button as={Link} to="/coordinator">
+          <Button as={Link} to="/facility">
             Cancel
           </Button>
           <Button type="submit" variant="primary" className="flex-1 sm:flex-none" disabled={isSubmitted}>

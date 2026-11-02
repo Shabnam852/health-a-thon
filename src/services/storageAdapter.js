@@ -11,6 +11,7 @@ const ROLE_KEY = "navexa_role";
 const CHECKLIST_KEY = "navexa_checklists";
 const STORY_STEP_KEY = "navexa_story_step";
 const ACTIVE_REFERRAL_KEY = "navexa_active_referral";
+const ACTIVE_FACILITY_KEY = "navexa_active_facility";
 const DEFAULT_ROLE = Role.COORDINATOR;
 
 const isUsableReferral = (r) => Boolean(r?.id) && Object.values(ReferralStatus).includes(r.status);
@@ -59,6 +60,7 @@ export const StorageAdapter = {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(CHECKLIST_KEY);
       localStorage.removeItem(ACTIVE_REFERRAL_KEY);
+      localStorage.removeItem(ACTIVE_FACILITY_KEY);
       return true;
     } catch (e) {
       console.error("StorageAdapter: Failed to clear storage.", e);
@@ -116,6 +118,22 @@ export const StorageAdapter = {
       localStorage.setItem(ACTIVE_REFERRAL_KEY, id);
     } catch (e) {
       console.warn("StorageAdapter: Failed to save active referral.", e);
+    }
+  },
+
+  getActiveFacilityId() {
+    try {
+      return localStorage.getItem(ACTIVE_FACILITY_KEY);
+    } catch {
+      return null;
+    }
+  },
+
+  setActiveFacilityId(id) {
+    try {
+      localStorage.setItem(ACTIVE_FACILITY_KEY, id);
+    } catch (e) {
+      console.warn("StorageAdapter: Failed to save active hospital.", e);
     }
   },
 

@@ -27,7 +27,6 @@ export const roleDefinitions = {
       "/barriers",
       "/transport",
       "/facility",
-      "/create",
       "/continuity",
       "/network",
       "/navigator",
@@ -41,7 +40,7 @@ export const roleDefinitions = {
     icon: "domain",
     homePath: "/facility",
     description: "Triage review, bed assignment, physical arrival verification, and structured clinical outcomes.",
-    allowedPrefixes: ["/facility", "/referral", "/referrals", "/network"],
+    allowedPrefixes: ["/facility", "/create", "/referral", "/referrals", "/network"],
   },
   [RoleId.PATIENT]: {
     id: RoleId.PATIENT,
@@ -243,6 +242,6 @@ export const getPrimaryRoleForRoute = (pathname) => {
   if (pathname.startsWith("/coordinator")) return RoleId.COORDINATOR;
   if (pathname.startsWith("/barriers")) return RoleId.COORDINATOR;
   if (pathname.startsWith("/transport")) return RoleId.COORDINATOR;
-  if (pathname.startsWith("/create")) return RoleId.COORDINATOR;
+  if (pathname.startsWith("/create")) return RoleId.FACILITY;
   return RoleId.COORDINATOR;
 };

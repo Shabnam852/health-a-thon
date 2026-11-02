@@ -16,7 +16,7 @@ const treatsCase = (hospital, referralType) =>
 const isSuitable = (hospital, referral) =>
   treatsCase(hospital, referral.referralType) && (!isHighAcuity(referral.priority) || hospital.takesUrgent);
 
-/** Hospitals a new referral can be sent to: they take urgent cases, and aren't the referrer. */
+/** Hospitals a new referral can be sent to: they take urgent cases, and aren't the hospital sending it. */
 export const getReferralDestinations = (facilities = [], fromFacility = "") =>
   facilities
     .filter((hospital) => hospital.takesUrgent && hospital.name !== fromFacility)

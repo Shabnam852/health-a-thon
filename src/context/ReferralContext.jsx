@@ -54,6 +54,14 @@ export const ReferralProvider = ({ children }) => {
     setActiveReferralIdState(id);
   }, []);
 
+  // The hospital using the app: its Intake is on show, and its new referrals are sent from it.
+  const [activeFacilityId, setActiveFacilityIdState] = useState(() => StorageAdapter.getActiveFacilityId());
+  const activeFacility = facilities.find((f) => f.id === activeFacilityId) || facilities[0];
+  const setActiveFacilityId = useCallback((id) => {
+    StorageAdapter.setActiveFacilityId(id);
+    setActiveFacilityIdState(id);
+  }, []);
+
   // Alarms are worked out from the clock, so the clock has to tick.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -228,6 +236,7 @@ export const ReferralProvider = ({ children }) => {
     };
     commit(freshData);
     setActiveReferralId(freshReferrals[0].id);
+    setActiveFacilityIdState(null);
     setStoryStep(null);
     logout();
     return true;
@@ -238,6 +247,8 @@ export const ReferralProvider = ({ children }) => {
       value={{
         referrals,
         facilities,
+        activeFacility,
+        setActiveFacilityId,
         navigators,
         fleet,
         notifications,

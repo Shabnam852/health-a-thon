@@ -90,6 +90,14 @@ describe("StorageAdapter", () => {
     assert.equal(StorageAdapter.getActiveReferralId(), null);
   });
 
+  it("round-trips the active hospital and clears it with the demo data", () => {
+    assert.equal(StorageAdapter.getActiveFacilityId(), null);
+    StorageAdapter.setActiveFacilityId("FAC-1");
+    assert.equal(StorageAdapter.getActiveFacilityId(), "FAC-1");
+    StorageAdapter.clearData();
+    assert.equal(StorageAdapter.getActiveFacilityId(), null);
+  });
+
   it("returns a stored role only if it is a real role", () => {
     assert.equal(StorageAdapter.getRole(), "coordinator");
 

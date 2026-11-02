@@ -14,9 +14,9 @@ Care navigation has no role of its own: the Coordinator does it from Caseload. A
 
 ## Navigation items
 
-**Coordinator:** Dashboard (`/coordinator`), Queue (`/coordinator?view=queue`), Barriers (`/barriers`), Caseload (`/navigator`), Transport (`/transport`), Hospitals (`/network`), 42-day follow-up (`/continuity`). New referral (`/create`) is in the header.
+**Coordinator:** Dashboard (`/coordinator`), Queue (`/coordinator?view=queue`), Barriers (`/barriers`), Caseload (`/navigator`), Transport (`/transport`), Hospitals (`/network`), 42-day follow-up (`/continuity`).
 
-**Facility:** Intake (`/facility`), Hospitals (`/network`). Intake's tabs are on the screen itself.
+**Facility:** Intake (`/facility`), Hospitals (`/network`). Intake's tabs are on the screen itself. New referral (`/create`) is in the header, because a hospital makes the referral.
 
 **Patient:** My journey (`/patient`), My ride (`?view=transit`), What to bring (`?view=checklist`), 42-day plan (`/continuity`), Get help (`?view=support`). Each topic appears in one place only: My journey shows status and next step, and the other tabs hold the detail. The emergency 108 call is on every patient view.
 ## Route guard

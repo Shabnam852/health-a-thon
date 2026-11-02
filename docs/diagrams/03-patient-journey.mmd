@@ -1,12 +1,13 @@
 sequenceDiagram
   accTitle: Patient journey
-  accDescr: Sequence: a referral is sent. The hospital accepts or declines. If it declines, the referral floats and the family chooses another hospital, or the coordinator records their choice after an alarm. The coordinator sends a free van, a failed ride reopens the barrier. Any hospital the patient reaches confirms arrival and records the outcome, then the 42-day plan starts.
+  accDescr: Sequence: a referring hospital sends a referral. The receiving hospital accepts or declines. If it declines, the referral floats and the family chooses another hospital, or the coordinator records their choice after an alarm. The coordinator sends a free van, a failed ride reopens the barrier. Any hospital the patient reaches confirms arrival and records the outcome, then the 42-day plan starts.
+  participant R as Referring hospital
   participant C as Coordinator
-  participant H as Hospital
+  participant H as Receiving hospital
   participant V as Van driver
   participant F as Family
 
-  C->>H: Send referral
+  R->>H: Send referral
   alt Hospital says yes
     H-->>C: Acknowledge and hold a bed
   else Hospital says no

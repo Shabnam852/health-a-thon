@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FormDialog } from "../components/Dialog.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
@@ -52,8 +52,17 @@ const BLANK_FORM = {
 
 const FacilityDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { referrals, facilities, now, acknowledgeReferral, rejectReferral, confirmArrival, recordClinicalOutcome } =
-    useReferrals();
+  const {
+    referrals,
+    facilities,
+    activeFacility,
+    setActiveFacilityId,
+    now,
+    acknowledgeReferral,
+    rejectReferral,
+    confirmArrival,
+    recordClinicalOutcome,
+  } = useReferrals();
 
   const [modal, setModal] = useState(null); // { type: 'reject' | 'arrival' | 'outcome', referral }
   const [caseIdQuery, setCaseIdQuery] = useState("");
@@ -61,8 +70,13 @@ const FacilityDashboard = () => {
   const { toast, showToast, report } = useToast();
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const facilityId = searchParams.get("facility") || "FAC-SANJEEVANI";
-  const currentFacility = facilities.find((f) => f.id === facilityId) || facilities[0];
+  // A link can name a hospital. Otherwise this is the hospital chosen last.
+  const linkedFacility = facilities.find((f) => f.id === searchParams.get("facility"));
+  const currentFacility = linkedFacility || activeFacility;
+  const linkedFacilityId = linkedFacility?.id;
+  useEffect(() => {
+    if (linkedFacilityId) setActiveFacilityId(linkedFacilityId);
+  }, [linkedFacilityId, setActiveFacilityId]);
 
   const inbound = referrals.filter((r) => r.toFacility?.toLowerCase().includes(currentFacility.name.toLowerCase()));
   const queues = Object.fromEntries(TABS.map((t) => [t.id, inbound.filter((r) => t.statuses.includes(r.status))]));
