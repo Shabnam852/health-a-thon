@@ -1,29 +1,25 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
+import { describe, it } from "node:test";
+import { initialSeedReferrals } from "../data/seedData.js";
 import {
-  ReferralStatus,
-  TransportStatus,
+  AuditRole,
   BarrierStatus,
   FollowUpStatus,
-  UrgencyLevel,
-  PatientType,
-  TimelineEvent,
-  AuditRole,
   isHighAcuity,
+  PatientType,
+  ReferralStatus,
   sortByAcuity,
+  TimelineEvent,
+  TransportStatus,
+  UrgencyLevel,
 } from "./enums.js";
-
-import { createReferral, createBarrier, createClinicalOutcome, createFollowUpPlan } from "./models.js";
-
+import { createBarrier, createClinicalOutcome, createFollowUpPlan, createReferral } from "./models.js";
 import {
-  validateReferralTransition,
-  validateTransportTransition,
   validateBarrierTransition,
   validateFollowUpTransition,
+  validateReferralTransition,
+  validateTransportTransition,
 } from "./transitions.js";
-
-import { initialSeedReferrals } from "../data/seedData.js";
 
 describe("Domain Enums & Models", () => {
   it("creates a maternal referral with valid defaults", () => {
@@ -40,7 +36,10 @@ describe("Domain Enums & Models", () => {
     assert.equal(ref.status, ReferralStatus.CREATED);
     assert.equal(ref.condition, "PPROM at 36w 2d");
     assert.ok(ref.id.startsWith("REF-2024"));
-    assert.deepEqual(ref.timeline.map((e) => e.status), [ReferralStatus.CREATED]);
+    assert.deepEqual(
+      ref.timeline.map((e) => e.status),
+      [ReferralStatus.CREATED],
+    );
     assert.equal(ref.auditTrail[0].action, "REFERRAL_CREATED");
     assert.match(ref.auditTrail[0].details, /Fathima Begum \(URGENT Acuity\)/);
   });
@@ -53,7 +52,10 @@ describe("Domain Enums & Models", () => {
 
   it("gives a referral created past CREATED a timeline that reaches its status", () => {
     const ref = createReferral({ patientName: "A", status: ReferralStatus.SENT });
-    assert.deepEqual(ref.timeline.map((e) => e.status), [ReferralStatus.CREATED, ReferralStatus.SENT]);
+    assert.deepEqual(
+      ref.timeline.map((e) => e.status),
+      [ReferralStatus.CREATED, ReferralStatus.SENT],
+    );
   });
 
   it("keeps maternal and neonatal outcome fields apart", () => {
@@ -90,25 +92,57 @@ describe("Domain Enums & Models", () => {
 
   it("generates the maternal plan on days 3, 7, 14 and 42, due on those days", () => {
     const before = Date.now();
-    const plan = createFollowUpPlan({ referralId: "REF-TEST-01", patientId: "P-101", referralType: PatientType.MATERNAL });
+    const plan = createFollowUpPlan({
+      referralId: "REF-TEST-01",
+      patientId: "P-101",
+      referralType: PatientType.MATERNAL,
+    });
 
     assert.equal(plan.referralId, "REF-TEST-01");
-    assert.deepEqual(plan.tasks.map((t) => t.dayOffset), [3, 7, 14, 42]);
+    assert.deepEqual(
+      plan.tasks.map((t) => t.dayOffset),
+      [3, 7, 14, 42],
+    );
     plan.tasks.forEach((t) => {
-      const expected = new Date(before + t.dayOffset * 86400000).toISOString().slice(0, 10);
-      assert.equal(t.dueDate, expected);
+      const due = new Date(before);
+      due.setDate(due.getDate() + t.dayOffset);
+      const pad = (n) => String(n).padStart(2, "0");
+      assert.equal(t.dueDate, `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}`);
     });
+  });
+
+  it("sets due dates on the local calendar day, not the UTC one", () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "Asia/Kolkata";
+    try {
+      // 20:00 UTC on 2 Nov is already 01:30 on 3 Nov in India.
+      const plan = createFollowUpPlan({
+        referralId: "R",
+        referralType: PatientType.MATERNAL,
+        establishedAt: "2026-11-02T20:00:00Z",
+      });
+      assert.equal(plan.tasks[0].dueDate, "2026-11-06");
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
   });
 
   it("generates a different plan for a neonate", () => {
     const plan = createFollowUpPlan({ referralId: "R", referralType: PatientType.CHILD });
-    assert.deepEqual(plan.tasks.map((t) => t.dayOffset), [3, 7, 14, 28]);
+    assert.deepEqual(
+      plan.tasks.map((t) => t.dayOffset),
+      [3, 7, 14, 28],
+    );
     assert.match(plan.tasks[0].title, /Neonatal/);
   });
 
   it("gives a dyad both plans, in day order", () => {
     const plan = createFollowUpPlan({ referralId: "R", referralType: PatientType.DYAD });
-    assert.deepEqual(plan.tasks.map((t) => t.dayOffset), [3, 3, 7, 7, 14, 14, 28, 42]);
+    assert.deepEqual(
+      plan.tasks.map((t) => t.dayOffset),
+      [3, 3, 7, 7, 14, 14, 28, 42],
+    );
     assert.ok(plan.tasks.some((t) => /Maternal/.test(t.title)));
     assert.ok(plan.tasks.some((t) => /Neonatal/.test(t.title)));
   });
@@ -126,7 +160,10 @@ describe("Domain Enums & Models", () => {
       { id: 4, priority: UrgencyLevel.PRIORITY },
       { id: 5, priority: UrgencyLevel.URGENT },
     ]);
-    assert.deepEqual(sorted.map((r) => r.id), [3, 2, 5, 4, 1]);
+    assert.deepEqual(
+      sorted.map((r) => r.id),
+      [3, 2, 5, 4, 1],
+    );
   });
 
   it("treats only URGENT and STAT as high acuity", () => {
@@ -152,8 +189,8 @@ describe("Seed data", () => {
   it("uses only known timeline labels and audit roles", () => {
     const labels = [...Object.values(ReferralStatus), ...Object.values(TimelineEvent)];
     for (const r of initialSeedReferrals) {
-      r.timeline.forEach((e) => assert.ok(labels.includes(e.status), `${r.id}: ${e.status}`));
-      r.auditTrail.forEach((e) => assert.ok(Object.values(AuditRole).includes(e.role), `${r.id}: ${e.role}`));
+      for (const e of r.timeline) assert.ok(labels.includes(e.status), `${r.id}: ${e.status}`);
+      for (const e of r.auditTrail) assert.ok(Object.values(AuditRole).includes(e.role), `${r.id}: ${e.role}`);
     }
   });
 });
@@ -175,9 +212,9 @@ describe("Domain State Transitions", () => {
     const S = ReferralStatus;
     assertExactRules(validateReferralTransition, Object.values(S), {
       [S.CREATED]: [S.SENT, S.REJECTED],
-      [S.SENT]: [S.ACKNOWLEDGED, S.REJECTED, S.REDIRECTED],
+      [S.SENT]: [S.ACKNOWLEDGED, S.ARRIVAL_CONFIRMED, S.REJECTED, S.REDIRECTED],
       [S.ACKNOWLEDGED]: [S.ARRIVAL_CONFIRMED, S.REJECTED, S.REDIRECTED],
-      [S.REJECTED]: [S.REDIRECTED],
+      [S.REJECTED]: [S.ARRIVAL_CONFIRMED, S.REDIRECTED],
       [S.REDIRECTED]: [S.SENT],
       [S.ARRIVAL_CONFIRMED]: [S.CLINICAL_ASSESSMENT_RECORDED],
       [S.CLINICAL_ASSESSMENT_RECORDED]: [S.COMPLETED],

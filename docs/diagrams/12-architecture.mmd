@@ -1,0 +1,19 @@
+architecture-beta
+  accTitle: Architecture
+  accDescr: GitHub Actions deploys to Vercel, which serves the app to the browser. In the browser, the app saves to localStorage and links to OpenStreetMap and Google Maps.
+  group hosting(cloud)[Hosting]
+  group browser(internet)[Browser]
+  group maps(internet)[Maps]
+
+  service actions(server)[GitHub Actions] in hosting
+  service vercel(server)[Vercel] in hosting
+  service app(server)[Navexa app] in browser
+  service store(disk)[localStorage] in browser
+  service osm(internet)[OpenStreetMap] in maps
+  service gmaps(internet)[Google Maps] in maps
+
+  actions:R --> L:vercel
+  vercel:R --> L:app
+  app:B --> T:store
+  app:R --> L:osm
+  app:R --> L:gmaps

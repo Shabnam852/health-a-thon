@@ -1,23 +1,22 @@
-import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 import {
-  RoleId,
-  roleDefinitions,
-  navigationConfig,
   getActiveNavItem,
   getNavigationForRole,
-  getRoleDefinition,
-  isRouteAllowedForRole,
-  isKnownRoute,
   getPrimaryRoleForRoute,
+  isKnownRoute,
+  isRouteAllowedForRole,
+  navigationConfig,
+  RoleId,
+  roleDefinitions,
 } from "./navigationConfig.js";
 
 describe("Role-Based Navigation Configuration", () => {
-  test("defines all 4 expected primary operational roles", () => {
+  test("defines the 3 roles", () => {
+    assert.equal(Object.keys(roleDefinitions).length, 3);
     assert.equal(roleDefinitions[RoleId.COORDINATOR].title, "Care Coordinator");
-    assert.equal(roleDefinitions[RoleId.FACILITY].title, "Receiving Healthcare Facility");
+    assert.equal(roleDefinitions[RoleId.FACILITY].title, "Hospital");
     assert.equal(roleDefinitions[RoleId.PATIENT].title, "Patient & Family");
-    assert.equal(roleDefinitions[RoleId.NAVIGATOR].title, "Care Navigator");
   });
 
   test("Coordinator navigation contains only coordinator-appropriate items", () => {
@@ -40,7 +39,6 @@ describe("Role-Based Navigation Configuration", () => {
     const paths = items.map((i) => i.path);
 
     assert.ok(paths.includes("/facility"));
-    assert.ok(paths.some((p) => p.startsWith("/facility?tab=")));
     assert.ok(paths.includes("/network"));
 
     // Must NOT contain coordinator command center, create referral, or patient journey
@@ -67,20 +65,10 @@ describe("Role-Based Navigation Configuration", () => {
     assert.ok(!paths.includes("/network"));
   });
 
-  test("Navigator navigation contains community outreach and barrier items", () => {
-    const items = getNavigationForRole(RoleId.NAVIGATOR);
-    const paths = items.map((i) => i.path);
-
+  test("Coordinator keeps the caseload screen", () => {
+    const paths = getNavigationForRole(RoleId.COORDINATOR).map((i) => i.path);
     assert.ok(paths.includes("/navigator"));
-    assert.ok(paths.includes("/barriers"));
-    assert.ok(paths.includes("/transport"));
-    assert.ok(paths.includes("/continuity"));
-
-    // Must NOT contain facility intake or coordinator command center
-    assert.ok(!paths.includes("/coordinator"));
-    assert.ok(!paths.includes("/facility"));
-    assert.ok(!paths.includes("/create"));
-    assert.ok(!paths.includes("/patient"));
+    assert.equal(getPrimaryRoleForRoute("/navigator"), RoleId.COORDINATOR);
   });
 
   test("Route access boundaries enforce role isolation", () => {
@@ -116,16 +104,42 @@ describe("Role-Based Navigation Configuration", () => {
   });
 
   test("Each role can reach exactly its own workspaces", () => {
-    const ROUTES = ["/coordinator", "/navigator", "/referral", "/referrals", "/barriers", "/transport", "/facility", "/create", "/patient", "/continuity", "/network"];
+    const ROUTES = [
+      "/coordinator",
+      "/navigator",
+      "/referral",
+      "/referrals",
+      "/barriers",
+      "/transport",
+      "/facility",
+      "/create",
+      "/patient",
+      "/continuity",
+      "/network",
+    ];
     const EXPECTED = {
-      [RoleId.COORDINATOR]: ["/coordinator", "/navigator", "/referral", "/referrals", "/barriers", "/transport", "/facility", "/create", "/continuity", "/network"],
+      [RoleId.COORDINATOR]: [
+        "/coordinator",
+        "/navigator",
+        "/referral",
+        "/referrals",
+        "/barriers",
+        "/transport",
+        "/facility",
+        "/create",
+        "/continuity",
+        "/network",
+      ],
       [RoleId.FACILITY]: ["/referral", "/referrals", "/facility", "/network"],
       [RoleId.PATIENT]: ["/patient", "/continuity"],
-      [RoleId.NAVIGATOR]: ["/navigator", "/referral", "/referrals", "/barriers", "/transport", "/continuity", "/network"],
     };
 
     for (const [role, allowed] of Object.entries(EXPECTED)) {
-      assert.deepEqual(ROUTES.filter((route) => isRouteAllowedForRole(role, route)), allowed, role);
+      assert.deepEqual(
+        ROUTES.filter((route) => isRouteAllowedForRole(role, route)),
+        allowed,
+        role,
+      );
     }
   });
 
@@ -162,26 +176,24 @@ describe("Role-Based Navigation Configuration", () => {
   });
 
   test("The active nav item ignores other query params and follows sub-pages", () => {
-    const items = getNavigationForRole(RoleId.FACILITY);
-    const hub = items.find((i) => i.path === "/facility");
-    const pending = items.find((i) => i.path === "/facility?tab=pending");
+    const items = getNavigationForRole(RoleId.PATIENT);
+    const hub = items.find((i) => i.path === "/patient");
+    const ride = items.find((i) => i.path === "/patient?view=transit");
 
-    assert.equal(getActiveNavItem(items, "/facility", "?x=1&tab=pending"), pending);
-    assert.equal(getActiveNavItem(items, "/facility", "?tab=unknown"), hub);
-    assert.equal(getActiveNavItem(items, "/facility/sub", ""), hub);
-    assert.equal(getActiveNavItem(items, "/facility-old", ""), null);
+    assert.equal(getActiveNavItem(items, "/patient", "?x=1&view=transit"), ride);
+    assert.equal(getActiveNavItem(items, "/patient", "?view=unknown"), hub);
+    assert.equal(getActiveNavItem(items, "/patient/sub", ""), hub);
+    assert.equal(getActiveNavItem(items, "/patient-old", ""), null);
     assert.equal(getActiveNavItem(items, "/", ""), null);
 
     const coordinator = getNavigationForRole(RoleId.COORDINATOR);
-    assert.equal(getActiveNavItem(coordinator, "/referrals", "").title, "Priority Referral Queue");
+    assert.equal(getActiveNavItem(coordinator, "/referrals", "").title, "Queue");
   });
 
   test("getPrimaryRoleForRoute identifies correct role owner", () => {
     assert.equal(getPrimaryRoleForRoute("/patient"), RoleId.PATIENT);
     assert.equal(getPrimaryRoleForRoute("/facility"), RoleId.FACILITY);
-    assert.equal(getPrimaryRoleForRoute("/navigator"), RoleId.NAVIGATOR);
     assert.equal(getPrimaryRoleForRoute("/coordinator"), RoleId.COORDINATOR);
     assert.equal(getPrimaryRoleForRoute("/barriers"), RoleId.COORDINATOR);
   });
 });
-

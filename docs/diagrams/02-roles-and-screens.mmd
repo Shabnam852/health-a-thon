@@ -1,0 +1,43 @@
+flowchart LR
+  accTitle: Roles and screens
+  accDescr: From the landing page: Coordinator has Dashboard, Queue, Barriers, Caseload, Transport, Hospitals, 42-day follow-up and New referral. Hospital has Intake and Hospitals. Family has My journey, My ride and map, What to bring, 42-day plan and Get help. Queue and Intake open the patient chart.
+  Start["Landing page /"]
+
+  Start --> C[Care Coordinator]
+  Start --> H[Hospital]
+  Start --> F[Patient and family]
+
+  C --> C1["Dashboard<br/>/coordinator"]
+  C --> C2["Queue<br/>/coordinator?view=queue"]
+  C --> C3["Barriers<br/>/barriers"]
+  C --> C4["Caseload<br/>/navigator"]
+  C --> C5["Transport<br/>/transport"]
+  C --> C6["Hospitals<br/>/network"]
+  C --> C7["42-day follow-up<br/>/continuity"]
+  C --> C8["New referral<br/>/create"]
+
+  H --> H1["Intake<br/>/facility"]
+  H --> C6
+
+  F --> F1["My journey<br/>/patient"]
+  F --> F2["My ride and map<br/>?view=transit"]
+  F --> F3["What to bring<br/>?view=checklist"]
+  F --> C7
+  F --> F5["Get help<br/>?view=support"]
+
+  C2 --> R["Patient chart<br/>/referral/:id"]
+  H1 --> R
+
+  click C1 href "http://localhost:5173/coordinator"
+  click C2 href "http://localhost:5173/coordinator?view=queue"
+  click C3 href "http://localhost:5173/barriers"
+  click C4 href "http://localhost:5173/navigator"
+  click C5 href "http://localhost:5173/transport"
+  click C6 href "http://localhost:5173/network"
+  click C7 href "http://localhost:5173/continuity"
+  click C8 href "http://localhost:5173/create"
+  click H1 href "http://localhost:5173/facility"
+  click F1 href "http://localhost:5173/patient"
+  click F2 href "http://localhost:5173/patient?view=transit"
+  click F3 href "http://localhost:5173/patient?view=checklist"
+  click F5 href "http://localhost:5173/patient?view=support"

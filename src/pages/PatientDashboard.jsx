@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { useReferrals } from "../context/ReferralContext.jsx";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import HospitalChoice from "../components/HospitalChoice.jsx";
+import HospitalMap from "../components/HospitalMap.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { ReferralStatus, TransportStatus } from "../domain/enums.js";
+import { Badge, Button, Card, EmptyState, Field, Icon, Page, PageHeader, Select } from "../components/ui/index.js";
+import { useReferrals } from "../context/ReferralContext.jsx";
+import { telHref } from "../domain/contact.js";
+import { PatientType, ReferralStatus, TransportStatus, UrgencyLevel } from "../domain/enums.js";
+import { getHospitalMap } from "../domain/hospitalMap.js";
+import { hasArrivedAtFacility, isFloating, isRideMoving } from "../domain/workflow.js";
 import { StorageAdapter } from "../services/storageAdapter.js";
 
 const PATIENT_VIEWS = ["transit", "checklist", "support"];
 
 // How far along the ride is, for the stages on the ride screen.
-const RIDE_STAGES = ["Ride requested", "Vehicle on the way", "Picked up", "Arrived at hospital"];
+const RIDE_STAGES = ["Ride requested", "Ride on the way", "Picked up", "Arrived at hospital"];
 const RIDE_STAGE_BY_STATUS = {
   [TransportStatus.REQUESTED]: 1,
   [TransportStatus.ASSIGNED]: 1,
@@ -19,40 +25,107 @@ const RIDE_STAGE_BY_STATUS = {
 
 const CHECKLIST_ITEMS = [
   { id: 1, text: "Photo ID (Aadhaar, Voter ID or Passport)" },
-  { id: 2, text: "Ayushman Bharat (PM-JAY) card or ABHA number (if available)" },
-  { id: 3, text: "Mother & Child Protection (MCP) card and current prescriptions" },
-  { id: 4, text: "Comfortable slippers and extra phone charger" },
+  { id: 2, text: "Health card (Ayushman Bharat or ABHA), if you have one" },
+  { id: 3, text: "Mother and baby (MCP) card, and any medicines" },
+  { id: 4, text: "Slippers and a phone charger" },
 ];
 
+const CallLink = ({ phone, children }) => (
+  <Button as="a" href={telHref(phone)} variant="primary" className="w-full sm:w-auto">
+    <Icon name="call" />
+    {children}
+  </Button>
+);
+
+const StepList = ({ steps }) => (
+  <ol>
+    {steps.map((step, index) => {
+      const isLast = index === steps.length - 1;
+      const nextIsDone = steps[index + 1]?.done;
+      return (
+        <li
+          key={step.label}
+          aria-current={step.isNow ? "step" : undefined}
+          className={`relative flex items-center gap-3 ${isLast ? "" : "pb-5"}`}
+        >
+          {!isLast && (
+            <span
+              aria-hidden="true"
+              className={`absolute left-3.5 -translate-x-1/2 top-7 bottom-0 w-0.5 ${nextIsDone ? "bg-accent" : "bg-subtle"}`}
+            />
+          )}
+          <span
+            className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center ${step.done ? "bg-accent text-on-fill" : "bg-subtle"}`}
+          >
+            <Icon name={step.done ? "check" : ""} size="sm" />
+          </span>
+          <span
+            className={`text-sm ${step.isNow ? "font-semibold text-ink" : step.done ? "text-ink" : "text-ink-muted"}`}
+          >
+            {step.label}
+            <span className="sr-only">{step.done ? " (done)" : " (not yet)"}</span>
+          </span>
+          {step.isNow && (
+            <Badge tone="highlight" className="ml-auto">
+              {step.isNow}
+            </Badge>
+          )}
+        </li>
+      );
+    })}
+  </ol>
+);
+
+const DetailList = ({ rows }) => (
+  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+    {rows
+      .filter(([, value]) => value)
+      .map(([label, value]) => (
+        <div key={label} className="p-3 rounded-card bg-muted">
+          <dt className="text-xs text-ink-muted">{label}</dt>
+          <dd className="font-semibold text-ink mt-0.5 break-words">{value}</dd>
+        </div>
+      ))}
+  </dl>
+);
+
 const PatientDashboard = () => {
-  const { referrals, facilities, activeReferralId, setActiveReferralId } = useReferrals();
+  const {
+    referrals,
+    facilities,
+    activeReferralId,
+    setActiveReferralId,
+    recordPatientChoice,
+    recordPatientGoingElsewhere,
+  } = useReferrals();
+  const { toast, report } = useToast();
   const [searchParams] = useSearchParams();
 
-  // Find active referral or default to first
   const referral =
     referrals.find((r) => r.id === activeReferralId) ||
     referrals.find((r) => r.patientName?.includes("Fathima")) ||
     referrals[0];
 
-  const patientFirstName = referral?.patientName?.split(" ")[0] || "Patient";
+  // A newborn's page is read by the parent, so greet the parent and not "Baby".
+  const isChild = referral?.referralType === PatientType.CHILD;
+  const greetedName = isChild ? referral?.caregiverName : referral?.patientName;
+  const patientFirstName = greetedName?.split(" ")[0] || "there";
   const tr = referral?.transit;
+  const nav = referral?.navigator;
+  const floating = referral ? isFloating(referral) : false;
+  // A hospital that declined is not where the patient is going.
+  const hospital = floating ? null : referral?.toFacility;
+  const hospitalPhone = facilities.find((f) => f.name === hospital)?.phone;
 
   const viewFromUrl = searchParams.get("view");
   const view = PATIENT_VIEWS.includes(viewFromUrl) ? viewFromUrl : "overview";
 
-  // Each view is its own screen, so it opens at the top.
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [view]);
-
-  // What to bring checklist state
   const [savedChecklists, setSavedChecklists] = useState(() => StorageAdapter.getChecklists());
   const checklist = CHECKLIST_ITEMS.map((item) => ({
     ...item,
     checked: Boolean(savedChecklists[referral?.id]?.[item.id]),
   }));
-
-  const { toast, showToast } = useToast();
+  const packedCount = checklist.filter((item) => item.checked).length;
 
   const toggleChecklistItem = (id) => {
     const key = referral?.id;
@@ -64,489 +137,272 @@ const PatientDashboard = () => {
     StorageAdapter.saveChecklists(next);
   };
 
+  // Progress comes from the real referral and ride status.
+  const status = referral?.status;
+  const isArrivalConfirmed = referral ? hasArrivedAtFacility(referral) : false;
+  const isTransitActive = isRideMoving(tr);
+  const hasOwnTransport = !tr && !referral?.transitBarrier;
+  const isRideFailed = tr?.status === TransportStatus.FAILED && !isArrivalConfirmed;
+  const hospitalMap = getHospitalMap(referral, facilities);
+  const who = isChild ? "your baby" : "you";
 
-  // Determine stage progress from actual domain status
-  const isDoctorSent = referral?.status !== ReferralStatus.CREATED;
-  const isFacilityAccepted =
-    referral?.status === ReferralStatus.ACKNOWLEDGED ||
-    referral?.status === ReferralStatus.ARRIVAL_CONFIRMED ||
-    referral?.status === ReferralStatus.COMPLETED;
-  const isTransitActive =
-    tr?.status === TransportStatus.DISPATCHED || tr?.status === TransportStatus.PICKED_UP;
-  const isTransitArrived =
-    tr?.status === TransportStatus.ARRIVED ||
-    referral?.status === ReferralStatus.ARRIVAL_CONFIRMED ||
-    referral?.status === ReferralStatus.COMPLETED;
-  const isArrivalConfirmed =
-    referral?.status === ReferralStatus.ARRIVAL_CONFIRMED ||
-    referral?.status === ReferralStatus.COMPLETED;
-  const isCareCompleted = referral?.status === ReferralStatus.COMPLETED;
+  const steps = [
+    {
+      label: "Doctor sent the referral",
+      done: status !== ReferralStatus.CREATED,
+      next: "The doctor is sending your referral.",
+    },
+    {
+      label: "Hospital is ready for you",
+      done: status === ReferralStatus.ACKNOWLEDGED || isArrivalConfirmed,
+      next: floating ? "Choose a hospital to go to." : "The hospital is checking your referral.",
+    },
+    {
+      label: "Ride to the hospital",
+      done: tr?.status === TransportStatus.ARRIVED || isArrivalConfirmed,
+      next: isTransitActive
+        ? "Be ready at the door and keep your phone with you."
+        : isRideFailed
+          ? `${nav?.name?.split(",")[0] || "Your care navigator"} is arranging another ride.`
+          : hasOwnTransport
+            ? "Travel with your own transport. Tell your care navigator if that changes."
+            : "Your ride is being arranged.",
+    },
+    {
+      label: "Check in at the hospital",
+      done: isArrivalConfirmed,
+      next: `At the hospital, give case ID ${referral?.id} at the reception desk.`,
+    },
+    {
+      label: "Care and follow-up",
+      done: status === ReferralStatus.COMPLETED,
+      next: `The care team will look after ${who}. Follow-up visits are planned before you go home.`,
+    },
+  ];
+  const nextStep = steps.find((s) => !s.done) || steps[steps.length - 1];
 
   const rideStage = isArrivalConfirmed ? RIDE_STAGES.length : RIDE_STAGE_BY_STATUS[tr?.status] || 0;
-  const rideSummary = isArrivalConfirmed
-    ? "Arrived at hospital"
-    : tr?.status === TransportStatus.FAILED
-    ? "Disrupted: another ride is being arranged"
-    : RIDE_STAGES[rideStage - 1] || "Being arranged";
-  const packedCount = checklist.filter((item) => item.checked).length;
-  const receivingFacility = facilities.find((f) => f.name === referral?.toFacility);
+  const rideSummary =
+    !tr && !isArrivalConfirmed
+      ? "No ride booked yet"
+      : isRideFailed
+        ? "Your ride had a problem"
+        : RIDE_STAGES[rideStage - 1] || "Your ride is being arranged";
+  const showEta = tr?.eta && !isArrivalConfirmed && !isRideFailed;
+
+  const finishChoice = (res, message) => report(res, message, "Something went wrong");
+
+  const chooser = floating && (
+    <Card title="Choose a hospital" className="space-y-4">
+      <p className="text-sm text-ink">
+        {referral.toFacility} can't take {who} right now. It's your choice where to go next.
+      </p>
+      <HospitalChoice
+        referral={referral}
+        onChoose={(name) =>
+          finishChoice(recordPatientChoice(referral.id, name), `${name} has been told you're coming.`)
+        }
+        onElsewhere={(place) =>
+          finishChoice(recordPatientGoingElsewhere(referral.id, place), `Saved. Give your case ID at ${place}.`)
+        }
+      />
+    </Card>
+  );
+
+  const bring = (
+    <>
+      <div className="space-y-1">
+        {checklist.map((item) => (
+          <label
+            key={item.id}
+            className="flex items-center gap-3 py-3 px-2 rounded-control hover:bg-muted cursor-pointer text-sm text-ink"
+          >
+            <input
+              type="checkbox"
+              checked={item.checked}
+              onChange={() => toggleChecklistItem(item.id)}
+              className="w-5 h-5 rounded accent-control shrink-0"
+            />
+            <span className={item.checked ? "line-through text-ink-muted" : ""}>{item.text}</span>
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-ink-muted">
+        {packedCount} of {checklist.length} packed. At {hospital || "the hospital"}, give case ID{" "}
+        <strong className="text-ink">{referral?.id}</strong> at the reception desk.
+      </p>
+    </>
+  );
 
   return (
-    <div className="flex flex-col w-full pb-16">
-      {/* Toast Notification */}
+    <Page width="md">
       <Toast toast={toast} />
-
-      <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Patient Case Selector for Demo Reviewers */}
-        <div className="bg-surface-container-lowest p-4 rounded-xl border border-surface-container flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-secondary text-[20px]">
-              switch_account
-            </span>
-            <span className="font-title-sm text-xs font-bold text-primary">
-              Demo Patient View Selector:
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-            {referrals.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => setActiveReferralId(r.id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  r.id === referral?.id
-                    ? "bg-secondary text-white font-semibold shadow-xs"
-                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                {r.patientName.split(" ")[0]} ({r.referralType})
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Urgent Emergency Advisory Banner */}
-        <section id="emergency" className="bg-error-container text-on-error-container rounded-xl p-4 shadow-xs">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span
-                className="material-symbols-outlined text-error text-[26px] shrink-0"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                emergency
-              </span>
-              <div>
-                <p className="font-title-sm text-sm text-on-error-container font-bold">
-                  Immediate Maternal & Baby Safety Warning
-                </p>
-                <p className="font-body-sm text-xs text-on-error-container opacity-90">
-                  If you experience sudden severe bleeding, vision changes, intense constant pain, or reduced baby movement right now:
-                </p>
-              </div>
-            </div>
-
-            <a
-              href="tel:108"
-              className="w-full md:w-auto px-4 py-2 rounded-lg bg-error text-white font-title-sm text-xs hover:opacity-95 shadow-xs flex items-center justify-center gap-1.5 font-bold shrink-0"
-            >
-              <span className="material-symbols-outlined text-[16px]">call</span>
-              <span>Call 108 / Emergency Services</span>
-            </a>
-          </div>
-        </section>
-
-        {view === "overview" && (
-          <>
-        <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-container via-primary to-primary-container text-on-primary p-6 md:p-8 shadow-md">
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-secondary-fixed text-xs font-label-md">
-                <span className="w-2 h-2 rounded-full bg-secondary-fixed animate-pulse"></span>
-                Active Care Transition • {referral?.referralType || "Perinatal"}
-              </div>
-
-              <h1 className="font-headline-xl text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Hello {patientFirstName}, we’re with you every step of the way.
-              </h1>
-
-              <p className="font-body-md text-sm text-surface-container-high">
-                Your transfer to <strong className="text-white">{referral?.toFacility}</strong> is coordinated and confirmed.
-                Your dedicated guide <strong className="text-secondary-fixed">{referral?.navigator?.name || "Priya Raman, MSW"}</strong> is monitoring your arrival.
-              </p>
-            </div>
-
-            {/* Next Immediate Status Pod */}
-            <div className="bg-surface-container-lowest/10 backdrop-blur-md rounded-xl p-4 min-w-[260px] lg:max-w-xs shadow-sm space-y-1.5 text-white border border-white/10">
-              <div className="flex items-center justify-between text-secondary-fixed text-xs font-semibold uppercase tracking-wider">
-                <span>Immediate Status</span>
-                <span className="material-symbols-outlined text-[16px]">near_me</span>
-              </div>
-              <p className="font-title-sm text-sm font-bold">
-                {isCareCompleted
-                  ? "Care Episode Completed"
-                  : isArrivalConfirmed
-                  ? "Checked In at Hospital"
-                  : isTransitActive
-                  ? `${tr?.vehicle || "MediRide Van"}`
-                  : isFacilityAccepted
-                  ? "Hospital Prepped & Ready"
-                  : "Referral Transmitted"}
-              </p>
-              <p className="text-xs text-surface-container-high">
-                {isCareCompleted
-                  ? "Continuous 42-day postpartum follow-up active"
-                  : isArrivalConfirmed
-                  ? `Admitted to ${referral?.toFacility}`
-                  : isTransitActive
-                  ? `Driver ${tr?.driver || "Manjunath Gowda"} is on the way (ETA: ${tr?.eta || "12m"})`
-                  : isFacilityAccepted
-                  ? "Bed pod prepped for your arrival"
-                  : "Awaiting facility intake review"}
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-7 space-y-4">
-            <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-xs border border-surface-container/60 space-y-6">
-              <div className="flex items-center justify-between border-b border-surface-container pb-3">
-                <div>
-                  <span className="text-[11px] font-label-sm uppercase font-bold text-secondary tracking-wider">
-                    Your Step-by-Step Roadmap
-                  </span>
-                  <h2 className="font-headline-md text-xl font-bold text-primary">
-                    Today’s Care Progress
-                  </h2>
-                </div>
-                <span className="text-xs font-data-tabular text-on-surface-variant font-medium">
-                  Case ID: {referral?.id}
-                </span>
-              </div>
-
-              {/* Dynamic Lifeline Steps */}
-              <div className="space-y-6 relative pl-6 border-l-2 border-surface-container ml-3">
-                {/* Step 1: Doctor Referral Sent */}
-                <div className="relative group">
-                  <div className={`absolute -left-[31px] top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    isDoctorSent ? "bg-secondary text-white" : "bg-surface-container text-on-surface-variant"
-                  }`}>
-                    {isDoctorSent ? <span className="material-symbols-outlined text-[16px]">check</span> : "1"}
-                  </div>
-                  <div className="bg-surface-container-low p-4 rounded-xl">
-                    <span className="text-[10px] font-bold text-secondary uppercase block">Step 1 • Completed</span>
-                    <h3 className="font-title-sm text-sm text-primary font-bold mt-0.5">Doctor Referral Created</h3>
-                    <p className="text-xs text-on-surface-variant mt-1">
-                      {referral?.fromFacility} sent clinical transfer notes to {referral?.toFacility} to ensure seamless intake.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 2: Receiving Facility Accepted */}
-                <div className="relative group">
-                  <div className={`absolute -left-[31px] top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    isFacilityAccepted ? "bg-secondary text-white" : "bg-surface-container text-on-surface-variant"
-                  }`}>
-                    {isFacilityAccepted ? <span className="material-symbols-outlined text-[16px]">check</span> : "2"}
-                  </div>
-                  <div className="bg-surface-container-low p-4 rounded-xl">
-                    <span className="text-[10px] font-bold text-secondary uppercase block">Step 2 • {isFacilityAccepted ? "Completed" : "In Review"}</span>
-                    <h3 className="font-title-sm text-sm text-primary font-bold mt-0.5">Hospital Confirmed Ready</h3>
-                    <p className="text-xs text-on-surface-variant mt-1">
-                      {referral?.toFacility} acknowledged the transfer and reserved appropriate care bay capacity.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 3: Transport & Travel Support */}
-                <div className="relative group">
-                  <div className={`absolute -left-[31px] top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    isTransitArrived
-                      ? "bg-secondary text-white"
-                      : isTransitActive
-                      ? "bg-primary text-white ring-4 ring-secondary/20 animate-pulse"
-                      : "bg-surface-container text-on-surface-variant"
-                  }`}>
-                    {isTransitArrived ? (
-                      <span className="material-symbols-outlined text-[16px]">check</span>
-                    ) : (
-                      <span className="material-symbols-outlined text-[15px]">local_taxi</span>
-                    )}
-                  </div>
-                  <div className={`p-4 rounded-xl ${isTransitActive ? "bg-secondary/10 border border-secondary/30" : "bg-surface-container-low"}`}>
-                    <span className="text-[10px] font-bold text-secondary uppercase block">
-                      Step 3 • {isTransitArrived ? "Completed" : isTransitActive ? "Active • En Route" : "Travel Assistance"}
-                    </span>
-                    <h3 className="font-title-sm text-sm text-primary font-bold mt-0.5">
-                      {isTransitActive ? "MediRide Travel Support En Route" : isTransitArrived ? "Safe Transit Completed" : "Travel Assistance Available"}
-                    </h3>
-                    <p className="text-xs text-on-surface-variant mt-1">
-                      {tr?.vehicle ? (
-                        <>Assigned vehicle: <strong className="text-primary">{tr.vehicle}</strong> (Driver: {tr.driver}, ETA: {tr.eta || "10m"}). Zero fare or copay required.</>
-                      ) : tr ? (
-                        "Your ride has been requested. Your care navigator will confirm the vehicle and driver soon."
-                      ) : (
-                        "If you need free transportation or a safe way to carry your newborn, your care navigator will arrange it directly."
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 4: Physical Hospital Arrival */}
-                <div className="relative group">
-                  <div className={`absolute -left-[31px] top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    isArrivalConfirmed ? "bg-secondary text-white" : "bg-surface-container text-on-surface-variant"
-                  }`}>
-                    {isArrivalConfirmed ? <span className="material-symbols-outlined text-[16px]">check</span> : "4"}
-                  </div>
-                  <div className="bg-surface-container-low p-4 rounded-xl">
-                    <span className="text-[10px] font-bold text-secondary uppercase block">Step 4 • {isArrivalConfirmed ? "Completed" : "Upcoming"}</span>
-                    <h3 className="font-title-sm text-sm text-primary font-bold mt-0.5">Arrive & Effortless Check-In</h3>
-                    <p className="text-xs text-on-surface-variant mt-1">
-                      {isArrivalConfirmed ? (
-                        <>Intake confirmed at <strong className="text-primary">{referral?.arrival?.department || referral?.toFacility}</strong>.</>
-                      ) : (
-                        `Walk through Entrance B. Simply mention ${patientFirstName} or show your referral ID to the triage reception desk.`
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 5: Clinical Care & 42-Day Continuity */}
-                <div className="relative group">
-                  <div className={`absolute -left-[31px] top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                    isCareCompleted ? "bg-secondary text-white" : "bg-surface-container text-on-surface-variant"
-                  }`}>
-                    {isCareCompleted ? <span className="material-symbols-outlined text-[16px]">check</span> : "5"}
-                  </div>
-                  <div className="bg-surface-container-low p-4 rounded-xl">
-                    <span className="text-[10px] font-bold text-secondary uppercase block">Step 5 • {isCareCompleted ? "Completed" : "Care & Follow-Up"}</span>
-                    <h3 className="font-title-sm text-sm text-primary font-bold mt-0.5">Clinical Care & Continuing Support</h3>
-                    <p className="text-xs text-on-surface-variant mt-1">
-                      {isCareCompleted ? (
-                        <>Hospital care completed. Active 42-day continuous postpartum and baby follow-up schedule established.</>
-                      ) : (
-                        "Clinical team conducts evaluation and treatment. Follow-up visits are scheduled before discharge."
-                      )}
-                    </p>
-                    {isCareCompleted && (
-                      <Link
-                        to="/continuity"
-                        className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-secondary hover:underline"
-                      >
-                        <span>View 42-Day Postpartum Visit Roadmap</span>
-                        <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-              {/* Right Column: where to go next */}
-              <div className="lg:col-span-5 space-y-4">
-                {[
-                  {
-                    to: "/patient?view=transit",
-                    icon: "directions_car",
-                    title: "Your Ride",
-                    detail: tr ? rideSummary : "No ride booked yet",
-                  },
-                  {
-                    to: "/patient?view=checklist",
-                    icon: "checklist",
-                    title: "What to Bring",
-                    detail: `${packedCount} of ${checklist.length} items packed`,
-                  },
-                  {
-                    to: "/patient?view=support",
-                    icon: "support_agent",
-                    title: "Your Care Navigator",
-                    detail: referral?.navigator?.name || "Priya Raman, MSW",
-                  },
-                ].map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 flex items-center gap-3 hover:border-secondary/50 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-secondary text-[22px] shrink-0">{item.icon}</span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block font-title-sm text-sm text-primary font-bold">{item.title}</span>
-                      <span className="block text-xs text-on-surface-variant mt-0.5">{item.detail}</span>
-                    </span>
-                    <span className="material-symbols-outlined text-on-surface-variant text-[18px] shrink-0">arrow_forward</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {view === "transit" && (
-          <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-5">
-            <div>
-              <span className="text-[11px] font-label-sm uppercase font-bold text-secondary tracking-wider">Live Transport</span>
-              <h1 className="font-headline-md text-xl font-bold text-primary">Your Ride to {referral?.toFacility}</h1>
-            </div>
-
-            {tr?.status === TransportStatus.FAILED && !isArrivalConfirmed && (
-              <div className="p-3 rounded-xl bg-error-container text-on-error-container text-xs">
-                <strong>Your ride was disrupted.</strong> {tr.failedReason} Your care navigator is arranging another one.
-              </div>
-            )}
-
-            {!tr && !isArrivalConfirmed ? (
-              <p className="text-sm text-on-surface-variant">
-                No ride is booked yet. If you need free transportation or a safe way to carry your newborn, your care navigator will arrange it.
-              </p>
-            ) : (
-              <>
-                <ol className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {RIDE_STAGES.map((stage, index) => {
-                    const isDone = index < rideStage;
-                    return (
-                      <li
-                        key={stage}
-                        className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-                          isDone ? "bg-secondary/10 text-secondary" : "bg-surface-container-low text-on-surface-variant"
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[16px] shrink-0">
-                          {isDone ? "check_circle" : "radio_button_unchecked"}
-                        </span>
-                        <span>{stage}</span>
-                      </li>
-                    );
-                  })}
-                </ol>
-
-                {tr && (
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    {[
-                      ["Vehicle", tr.vehicle || "Being assigned"],
-                      ["Driver", tr.driver || "Being assigned"],
-                      ["Driver phone", tr.driverPhone],
-                      ["Estimated arrival", isArrivalConfirmed ? "Arrived" : tr.eta],
-                      ["Pickup", tr.pickupAddress || referral?.patientAddress],
-                      ["Destination", referral?.toFacility],
-                    ]
-                      .filter(([, value]) => value)
-                      .map(([label, value]) => (
-                        <div key={label} className="p-3 rounded-xl bg-surface-container-low">
-                          <dt className="text-on-surface-variant">{label}</dt>
-                          <dd className="font-semibold text-primary mt-0.5">{value}</dd>
-                        </div>
-                      ))}
-                  </dl>
-                )}
-
-                <p className="text-xs text-on-surface-variant">Zero fare or copay required.</p>
-              </>
-            )}
-          </div>
-        )}
-
-        {view === "checklist" && (
-          <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <span className="text-[11px] font-label-sm uppercase font-bold text-secondary tracking-wider">Preparation</span>
-                <h1 className="font-headline-md text-xl font-bold text-primary">What to Bring</h1>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary-fixed text-on-secondary-fixed">
-                {packedCount} of {checklist.length} packed
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {checklist.map((item) => (
-                <label
-                  key={item.id}
-                  className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors text-xs text-on-surface"
-                >
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    onChange={() => toggleChecklistItem(item.id)}
-                    className="w-4 h-4 rounded text-secondary focus:ring-secondary/40"
-                  />
-                  <span className={item.checked ? "line-through text-on-surface-variant" : ""}>
-                    {item.text}
-                  </span>
-                </label>
+      <PageHeader
+        title={`Hello, ${patientFirstName}`}
+        actions={
+          <Field label="Patient" className="w-full sm:w-auto sm:max-w-xs">
+            <Select value={referral?.id} onChange={(e) => setActiveReferralId(e.target.value)}>
+              {referrals.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.patientName}
+                </option>
               ))}
-            </div>
+            </Select>
+          </Field>
+        }
+      />
 
-            <p className="text-xs text-on-surface-variant border-t border-surface-container pt-3">
-              At {referral?.toFacility}, show case ID <strong className="text-primary">{referral?.id}</strong> at the triage reception desk.
+      <section
+        id="emergency"
+        className="bg-danger-soft text-danger-strong rounded-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      >
+        <p className="text-sm font-semibold">
+          {floating && referral.priority === UrgencyLevel.STAT
+            ? "This is an emergency. Call 108 now, and choose a hospital after."
+            : "Severe bleeding, vision changes, intense constant pain, or reduced baby movement? Do not wait."}
+        </p>
+        {/* The label is long: let it wrap on the narrowest phones instead of overflowing. */}
+        <Button as="a" href="tel:108" variant="danger" wrap className="shrink-0">
+          <Icon name="call" />
+          Call 108 (emergency services)
+        </Button>
+      </section>
+
+      {view === "overview" && (
+        <>
+          {chooser || (
+            <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 space-y-3">
+              <h2 className="font-display text-xl sm:text-2xl font-bold">{rideSummary}</h2>
+              {showEta && <p className="text-lg font-semibold tabular-nums">Arrives in {tr.eta}</p>}
+              <p className="text-sm border-t border-on-fill/20 pt-3">
+                <span className="font-semibold">Next:</span> {nextStep.next}
+              </p>
+            </section>
+          )}
+
+          <Card title="Your journey">
+            <StepList steps={steps.map((s) => ({ ...s, isNow: s === nextStep && !s.done ? "Next" : "" }))} />
+          </Card>
+        </>
+      )}
+
+      {view === "transit" && (
+        <>
+          <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6">
+            {showEta ? (
+              <>
+                <p className="text-sm text-on-fill-muted">Arrives in</p>
+                <p className="font-display text-5xl font-extrabold tabular-nums mt-1">{tr.eta}</p>
+              </>
+            ) : (
+              <h2 className="font-display text-2xl font-bold">{rideSummary}</h2>
+            )}
+            <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || "No hospital chosen yet"}</p>
+          </section>
+
+          {isRideFailed && (
+            <p role="alert" className="p-4 rounded-card bg-danger-soft text-danger-strong text-sm">
+              <strong>Your ride had a problem.</strong> {tr.failedReason} Your care navigator is arranging another one.
             </p>
-          </div>
-        )}
+          )}
 
-        {view === "support" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-3">
-              <span className="text-[10px] font-label-sm font-bold uppercase text-secondary tracking-wider block">
-                Your Dedicated Care Navigator
-              </span>
+          {chooser ||
+            (hospitalMap ? (
+              <HospitalMap map={hospitalMap} />
+            ) : (
+              <EmptyState>The way to the hospital will appear here once a hospital is confirmed.</EmptyState>
+            ))}
 
+          {!tr && !isArrivalConfirmed ? (
+            <EmptyState>If you need a free ride, your care navigator will arrange it.</EmptyState>
+          ) : (
+            <Card title="Progress">
+              <StepList
+                steps={RIDE_STAGES.map((label, index) => ({
+                  label,
+                  done: index < rideStage,
+                  isNow: index === rideStage - 1 && !isRideFailed ? "Now" : "",
+                }))}
+              />
+            </Card>
+          )}
+
+          {tr?.driver && !isArrivalConfirmed && (
+            <Card title="Your driver" className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="w-12 h-12 shrink-0 rounded-full bg-subtle-strong text-ink flex items-center justify-center text-lg font-bold"
+                >
+                  {tr.driver[0]}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-bold text-ink break-words">{tr.driver}</p>
+                  {tr.vehicle && <p className="text-xs text-ink-muted break-words">{tr.vehicle}</p>}
+                </div>
+              </div>
+              {tr.driverPhone && <CallLink phone={tr.driverPhone}>Call driver</CallLink>}
+            </Card>
+          )}
+
+          {tr && (
+            <Card title="Trip" className="space-y-3">
+              <dl className="space-y-3 text-sm">
+                <div>
+                  <dt className="text-xs text-ink-muted">From</dt>
+                  <dd className="font-semibold text-ink break-words">{tr.pickupAddress || referral?.patientAddress}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-ink-muted">To</dt>
+                  <dd className="font-semibold text-ink break-words">{hospital || "Not chosen yet"}</dd>
+                </div>
+              </dl>
+              <p className="flex items-center gap-2 text-sm font-semibold text-accent">
+                <Icon name="check_circle" />
+                This ride is free
+              </p>
+            </Card>
+          )}
+        </>
+      )}
+
+      {view === "checklist" && (
+        <Card title="What to bring" className="space-y-3">
+          {bring}
+        </Card>
+      )}
+
+      {view === "support" && (
+        <>
+          {nav && (
+            <Card title="Your care navigator" className="space-y-3">
               <div className="flex items-center gap-3">
                 <img
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-surface-container"
-                  alt="Navigator"
-                  src={referral?.navigator?.avatar || "/images/avatar-priya-raman.svg"}
+                  className="w-12 h-12 rounded-full object-cover shrink-0"
+                  alt=""
+                  src={nav.avatar || "/images/avatar-priya-raman.svg"}
                 />
-                <div>
-                  <h3 className="font-title-sm text-sm text-primary font-bold">
-                    {referral?.navigator?.name || "Priya Raman, MSW"}
-                  </h3>
-                  <p className="text-xs text-on-surface-variant">Lead Care Coordinator</p>
-                  <p className="text-[11px] text-secondary font-medium mt-0.5">
-                    {referral?.navigator?.phone || "+91 90000 21049"}
-                  </p>
+                <div className="min-w-0">
+                  <p className="font-bold text-ink">{nav.name}</p>
+                  <p className="text-xs text-ink-muted">Here for rides, childcare and language help.</p>
                 </div>
               </div>
-
-              <div className="p-3 rounded-xl bg-surface-container-low text-xs text-on-surface-variant italic leading-relaxed">
-                "I am here to solve any travel, childcare, or translation barrier so you and baby receive timely care. Call me anytime."
-              </div>
-
-              <button
-                onClick={() => showToast(`Demo only: no call placed to ${referral?.navigator?.name || "your navigator"}.`)}
-                className="w-full py-2 px-3 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-container transition-colors flex items-center justify-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">call</span>
-                <span>Call Navigator {referral?.navigator?.name?.split(",")[0] || "Directly"}</span>
-              </button>
-            </div>
-
-
-            <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-xs border border-surface-container/60 space-y-3">
-              <span className="text-[10px] font-label-sm font-bold uppercase text-secondary tracking-wider block">
-                Your Hospital & Language Support
-              </span>
-              <dl className="space-y-2 text-xs">
-                {[
-                  ["Receiving hospital", referral?.toFacility],
-                  ["Hospital phone", receivingFacility?.phone],
-                  ["Your language", referral?.language],
-                  ["Interpreter", referral?.interpreterNeeded ? "Requested for your visit" : "Not requested"],
-                ]
-                  .filter(([, value]) => value)
-                  .map(([label, value]) => (
-                    <div key={label} className="p-3 rounded-xl bg-surface-container-low">
-                      <dt className="text-on-surface-variant">{label}</dt>
-                      <dd className="font-semibold text-primary mt-0.5">{value}</dd>
-                    </div>
-                  ))}
-              </dl>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+              {nav.phone && <CallLink phone={nav.phone}>Call {nav.phone}</CallLink>}
+            </Card>
+          )}
+          <Card title="Your hospital">
+            <DetailList
+              rows={[
+                ["Hospital", hospital || "Not chosen yet"],
+                ["Hospital phone", hospitalPhone],
+                ["Your language", referral?.language],
+                ["Interpreter", referral?.interpreterNeeded ? "Requested for your visit" : "Not requested"],
+              ]}
+            />
+          </Card>
+        </>
+      )}
+    </Page>
   );
 };
 

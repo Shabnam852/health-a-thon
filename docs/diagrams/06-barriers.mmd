@@ -1,0 +1,13 @@
+flowchart TD
+  accTitle: Barriers
+  accDescr: A new referral with no transport goes on the Transport board. Barriers open from the Caseload screen. A transport barrier is closed by sending a van and reopens if the ride fails. Any barrier can also be closed by the coordinator with a note saying how it was solved.
+  A["New referral with no transport"] --> T["Goes on the Transport board"]
+  T --> D["Choose a free van and send it"]
+  B["Caseload: Raise barrier or Log contact"] --> O["Barrier is open"]
+  O --> Q{"What kind?"}
+  Q -->|Transport| D
+  D --> R["Barrier closes automatically"]
+  R --> P{"Ride fails?"}
+  P -->|Yes| O
+  P -->|No| Z["Patient reaches a hospital"]
+  Q -->|"Any kind"| X["Coordinator closes it with a note"]

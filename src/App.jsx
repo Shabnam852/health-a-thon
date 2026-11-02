@@ -1,21 +1,21 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import AppShell from "./components/AppShell.jsx";
-import RoleSelection from "./pages/RoleSelection.jsx";
-import CoordinatorDashboard from "./pages/CoordinatorDashboard.jsx";
-import ReferralDetails from "./pages/ReferralDetails.jsx";
-import BarrierResolution from "./pages/BarrierResolution.jsx";
-import PatientDashboard from "./pages/PatientDashboard.jsx";
-import FacilityDashboard from "./pages/FacilityDashboard.jsx";
-import CreateReferral from "./pages/CreateReferral.jsx";
-import NetworkView from "./pages/NetworkView.jsx";
-import TransportCoordination from "./pages/TransportCoordination.jsx";
-import ContinuityOfCare from "./pages/ContinuityOfCare.jsx";
-import NavigatorWorkspace from "./pages/NavigatorWorkspace.jsx";
-import NotFound from "./pages/NotFound.jsx";
+import { getRoleDefinition, RoleId } from "./config/navigationConfig.js";
 import { useReferrals } from "./context/ReferralContext.jsx";
-import { RoleId, getRoleDefinition } from "./config/navigationConfig.js";
+import BarrierResolution from "./pages/BarrierResolution.jsx";
+import ContinuityOfCare from "./pages/ContinuityOfCare.jsx";
+import CoordinatorDashboard from "./pages/CoordinatorDashboard.jsx";
+import CreateReferral from "./pages/CreateReferral.jsx";
+import FacilityDashboard from "./pages/FacilityDashboard.jsx";
+import NavigatorWorkspace from "./pages/NavigatorWorkspace.jsx";
+import NetworkView from "./pages/NetworkView.jsx";
+import NotFound from "./pages/NotFound.jsx";
+import PatientDashboard from "./pages/PatientDashboard.jsx";
+import ReferralDetails from "./pages/ReferralDetails.jsx";
+import RoleSelection from "./pages/RoleSelection.jsx";
+import TransportCoordination from "./pages/TransportCoordination.jsx";
 
 // There is no standalone list page, so /referrals opens the role's own queue.
 const ReferralsRedirect = () => {
@@ -24,9 +24,35 @@ const ReferralsRedirect = () => {
   return <Navigate to={queues[role] || getRoleDefinition(role).homePath} replace />;
 };
 
+// On a new screen: name it in the tab, start at the top, and move focus to it so
+// screen readers announce it. During the guided demo focus stays on the Next button.
+const useScreenChange = () => {
+  const { pathname, search } = useLocation();
+  const { storyStep } = useReferrals();
+  // ?view= switches between a workspace's screens. Other parameters only filter the one on show.
+  const screen = `${pathname}?${new URLSearchParams(search).get("view") ?? ""}`;
+  const lastScreen = useRef(screen);
+
+  // Runs after every render: the heading can change with no change of URL, as on a role switch.
+  useEffect(() => {
+    // biome-ignore lint/performance/useDomNodeTextContent: innerText leaves out text hidden from the reader.
+    const heading = document.querySelector("h1")?.innerText;
+    document.title = heading ? `${heading} | Navexa Health` : "Navexa Health";
+  });
+
+  useEffect(() => {
+    if (lastScreen.current === screen) return;
+    lastScreen.current = screen;
+    window.scrollTo(0, 0);
+    if (storyStep === null) document.getElementById("main-content")?.focus({ preventScroll: true });
+  }, [screen, storyStep]);
+};
+
 function App() {
+  useScreenChange();
+
   return (
-    <div className="min-h-screen bg-surface font-body-md text-on-surface antialiased">
+    <div className="min-h-screen bg-canvas  text-ink antialiased">
       <Routes>
         {/* PUBLIC ROLE SELECTION */}
         <Route path="/" element={<RoleSelection />} />
@@ -59,10 +85,7 @@ function App() {
           }
         />
 
-        <Route
-          path="/referrals"
-          element={<ReferralsRedirect />}
-        />
+        <Route path="/referrals" element={<ReferralsRedirect />} />
 
         <Route
           path="/barriers"

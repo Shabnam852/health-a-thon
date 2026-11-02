@@ -1,8 +1,7 @@
-import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-
-import { StorageAdapter } from "./storageAdapter.js";
+import { beforeEach, describe, it } from "node:test";
 import { ReferralStatus } from "../domain/enums.js";
+import { StorageAdapter } from "./storageAdapter.js";
 
 const store = new Map();
 globalThis.localStorage = {
@@ -16,7 +15,7 @@ const SEED = {
   notifications: [{ id: "N-1" }],
   facilities: [{ id: "F-1" }],
 };
-const save = (value) => store.set("navexa_domain_v4", typeof value === "string" ? value : JSON.stringify(value));
+const save = (value) => store.set("navexa_domain_v6", typeof value === "string" ? value : JSON.stringify(value));
 
 describe("StorageAdapter", () => {
   beforeEach(() => store.clear());
@@ -55,14 +54,24 @@ describe("StorageAdapter", () => {
   });
 
   it("keeps the usable referrals when one saved referral is bad", () => {
-    save({ referrals: [{ id: "GOOD", status: ReferralStatus.SENT }, { id: "BAD", status: "FOLLOW_UP_REQUIRED" }] });
-    assert.deepEqual(StorageAdapter.loadData(SEED).referrals.map((r) => r.id), ["GOOD"]);
+    save({
+      referrals: [
+        { id: "GOOD", status: ReferralStatus.SENT },
+        { id: "BAD", status: "FOLLOW_UP_REQUIRED" },
+      ],
+    });
+    assert.deepEqual(
+      StorageAdapter.loadData(SEED).referrals.map((r) => r.id),
+      ["GOOD"],
+    );
   });
 
-  it("clears the data from the old storage key", () => {
-    store.set("navexa_domain_v3", "{}");
+  it("clears the data from the old storage keys", () => {
+    store.set("navexa_domain_v4", "{}");
+    store.set("navexa_domain_v5", "{}");
     StorageAdapter.loadData(SEED);
-    assert.equal(store.has("navexa_domain_v3"), false);
+    assert.equal(store.has("navexa_domain_v4"), false);
+    assert.equal(store.has("navexa_domain_v5"), false);
   });
 
   it("round-trips checklists and clears them with the demo data", () => {
@@ -71,6 +80,14 @@ describe("StorageAdapter", () => {
     assert.deepEqual(StorageAdapter.getChecklists(), { R1: { 1: true } });
     StorageAdapter.clearData();
     assert.deepEqual(StorageAdapter.getChecklists(), {});
+  });
+
+  it("round-trips the active patient and clears them with the demo data", () => {
+    assert.equal(StorageAdapter.getActiveReferralId(), null);
+    StorageAdapter.setActiveReferralId("R1");
+    assert.equal(StorageAdapter.getActiveReferralId(), "R1");
+    StorageAdapter.clearData();
+    assert.equal(StorageAdapter.getActiveReferralId(), null);
   });
 
   it("returns a stored role only if it is a real role", () => {

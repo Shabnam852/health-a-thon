@@ -1,0 +1,316 @@
+<title>Navexa Project Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap">
+<style>
+/* Layout: one reading column, each flow a heading, a plain sentence and its diagram. Colours are Navexa's own tokens. */
+:root {
+  --canvas: rgb(246 248 250);
+  --surface: rgb(255 255 255);
+  --line: rgb(227 232 238);
+  --ink: rgb(26 31 54);
+  --ink-muted: rgb(70 77 100);
+  --accent: rgb(0 88 84);
+  --danger: rgb(150 18 27);
+  --danger-soft: rgb(253 236 236);
+  --display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: rgb(15 20 32); --surface: rgb(21 28 43); --line: rgb(42 51 71);
+    --ink: rgb(240 243 248); --ink-muted: rgb(190 199 214); --accent: rgb(111 224 217);
+    --danger: rgb(255 170 170); --danger-soft: rgb(58 24 28);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --canvas: rgb(15 20 32); --surface: rgb(21 28 43); --line: rgb(42 51 71);
+  --ink: rgb(240 243 248); --ink-muted: rgb(190 199 214); --accent: rgb(111 224 217);
+  --danger: rgb(255 170 170); --danger-soft: rgb(58 24 28);
+  color-scheme: dark;
+}
+
+body { background: var(--canvas); color: var(--ink); font: 400 16px/1.6 var(--sans); }
+.page {
+  max-width: 62rem; margin: 0 auto; display: grid; gap: 3.5rem;
+  padding-block: 3rem 5rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.2; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 6vw, 3rem); letter-spacing: -0.02em; }
+h2 { font-size: 1.625rem; letter-spacing: -0.01em; }
+h3 { font-size: 1.125rem; font-weight: 600; }
+p { margin: 0; max-width: 65ch; }
+.muted { color: var(--ink-muted); }
+a { color: var(--accent); font-weight: 500; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code { font: 500 0.875em ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+
+header, section, .flow, .group { display: grid; gap: 1rem; min-width: 0; }
+header { gap: 1.25rem; }
+section { gap: 2.5rem; }
+.section-head { display: grid; gap: 0.5rem; }
+
+.facts { display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; margin: 0; }
+.facts div { display: grid; }
+.facts dt { font-size: 0.875rem; color: var(--ink-muted); order: 2; }
+.facts dd { font: 700 1.75rem/1.2 var(--display); margin: 0; font-variant-numeric: tabular-nums; }
+
+.jump { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 0.75rem; overflow-x: auto; padding: 1rem; }
+figure svg { display: block; margin: 0 auto; height: auto; max-width: 100%; }
+figure.wide svg { max-width: none; width: 100%; min-width: 760px; }
+figure svg {
+  --bg: var(--d-bg) !important; --fg: var(--d-fg) !important; --accent: var(--d-accent) !important;
+  --line: var(--d-line) !important; --muted: var(--d-muted) !important;
+  --surface: var(--d-surface) !important; --border: var(--d-border) !important;
+}
+.diagrams {
+  --d-bg: var(--surface); --d-fg: var(--ink); --d-accent: var(--accent); --d-line: var(--ink-muted);
+  --d-muted: var(--ink-muted); --d-surface: var(--canvas); --d-border: var(--ink-muted);
+}
+.diagrams figure { background: var(--d-bg); }
+.extras { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: baseline; font-size: 0.875rem; min-width: 0; }
+.extras details { flex: 1 1 100%; min-width: 0; }
+.extras summary { cursor: pointer; color: var(--accent); font-weight: 500; }
+.extras pre { overflow-x: auto; font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.75rem; margin: 0.5rem 0 0; }
+.theme-picker { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; font-weight: 500; }
+.theme-picker select { font: inherit; padding: 0.375rem 0.5rem; border: 1px solid var(--ink-muted); border-radius: 0.5rem; background: var(--surface); color: var(--ink); }
+
+.note { color: var(--danger); font-weight: 500; }
+
+.todo { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.todo li { display: grid; gap: 0.25rem; padding-block: 1rem; border-bottom: 1px solid var(--line); min-width: 0; }
+.todo strong { font-weight: 600; }
+.todo .where { font-size: 0.875rem; color: var(--ink-muted); }
+.urgent { background: var(--danger-soft); border-radius: 0.75rem; padding: 1.25rem; }
+.urgent h3 { color: var(--danger); }
+.urgent .todo, .urgent .todo li { border-color: color-mix(in srgb, var(--danger) 25%, transparent); }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Navexa project map</h1>
+    <p class="muted">Navexa follows a mother or newborn from referral to arrival at the hospital, then through 42 days of follow-up. The whole journey works as a demo with made-up patients, in one browser, with no server.</p>
+    <dl class="facts">
+      <div><dd>3</dd><dt>roles</dt></div>
+      <div><dd>12</dd><dt>routes</dt></div>
+      <div><dd>7</dd><dt>demo patients</dt></div>
+      <div><dd>5</dd><dt>hospitals</dt></div>
+      <div><dd>116</dd><dt>tests passing</dt></div>
+    </dl>
+    <p class="note">6 things are broken or misleading in the demo, and none of the redesign is committed yet. <a href="#left">See what's left</a></p>
+    <nav class="jump" aria-label="On this page">
+      <a href="#system">The system</a>
+      <a href="#roles">Roles</a>
+      <a href="#journey">Patient journey</a>
+      <a href="#status">Status rules</a>
+      <a href="#barriers">Barriers</a>
+      <a href="#followup">Follow-up</a>
+      <a href="#code">Inside the code</a>
+      <a href="#data">Demo data</a>
+      <a href="#demo">Guided demo</a>
+      <a href="#delivery">Delivery</a>
+      <a href="#left">What's left</a>
+    </nav>
+  </header>
+
+  <section class="diagrams" aria-labelledby="happening">
+    <div class="section-head">
+      <h2 id="happening">What's happening</h2>
+      <p class="muted">These are drawn from the current code, not the older docs. Some of those docs are out of date.</p>
+      <label class="theme-picker" for="diagram-theme">Diagram colours
+        <select id="diagram-theme"><!--theme-options--></select>
+      </label>
+    </div>
+
+    <div class="flow" id="system">
+      <h3>The system</h3>
+      <p>Three kinds of people use one app. Everything is saved in the browser they use, so two people can't share a case yet.</p>
+      <figure>
+        <!--diagram:01-system-->
+      </figure>
+      <h3>Architecture</h3>
+      <p>Where each part runs. GitHub Actions builds the app, Vercel serves it, and the browser does everything else.</p>
+      <figure class="wide"><!--diagram:12-architecture--></figure>
+      <h3>Context</h3>
+      <p>The same system at the highest level: who uses it and what it touches outside.</p>
+      <figure class="wide"><!--diagram:13-c4-context--></figure>
+    </div>
+
+    <div class="flow" id="roles">
+      <h3>Roles and screens</h3>
+      <p>The Coordinator runs the case, the Hospital handles intake, and the family sees plain-language status and the map.</p>
+      <figure>
+        <!--diagram:02-roles-and-screens-->
+      </figure>
+    </div>
+
+    <div class="flow" id="journey">
+      <h3>Patient journey</h3>
+      <p>The full path from one referral to the last follow-up visit, including what happens when a hospital says no or a ride fails.</p>
+      <figure>
+        <!--diagram:03-patient-journey-->
+      </figure>
+    </div>
+
+    <div class="flow" id="status">
+      <h3>Referral status</h3>
+      <p>The statuses a referral really moves through in the app. <code>FLOATING</code> is <code>REJECTED</code> in the code: the hospital said no and the patient chooses next. Choosing makes the referral <code>SENT</code> again in the same click. Recording the outcome goes straight to <code>COMPLETED</code>.</p>
+      <figure>
+        <!--diagram:04-referral-status-->
+      </figure>
+      <h3>Ride status</h3>
+      <p>Dispatch does request, assign and send in one click. Confirming arrival also closes the ride, even if nobody logged the pickup.</p>
+      <figure>
+        <!--diagram:05-transport-status-->
+      </figure>
+    </div>
+
+    <div class="flow" id="barriers">
+      <h3>Barriers</h3>
+      <p>A barrier is anything stopping the patient from getting there. Only transport barriers can be closed today.</p>
+      <figure>
+        <!--diagram:06-barriers-->
+      </figure>
+    </div>
+
+    <div class="flow" id="followup">
+      <h3>42-day follow-up</h3>
+      <p>Care continues after the hospital. The plan starts when the outcome is recorded, but nothing watches the due dates yet.</p>
+      <figure class="wide">
+        <!--diagram:07-follow-up-->
+      </figure>
+    </div>
+
+    <div class="flow" id="code">
+      <h3>Inside the code: what a click does</h3>
+      <p>Every action goes through the same path. The rules live apart from the screens, so tests can check them directly.</p>
+      <figure class="wide">
+        <!--diagram:08-how-a-click-works-->
+      </figure>
+      <h3>Inside the code: the data</h3>
+      <p>The referral is the centre of everything. Each one carries its own barriers, ride, arrival, outcome, plan and history.</p>
+      <figure class="wide">
+        <!--diagram:09-data-model-->
+      </figure>
+      <h3>Inside the code: actions on a referral</h3>
+      <p>Each action in <code>workflow.js</code> takes a referral and returns a new one, or a reason it can't.</p>
+      <figure class="wide"><!--diagram:14-class-domain--></figure>
+    </div>
+
+    <div class="flow" id="data">
+      <h3>Demo data: referrals by status</h3>
+      <p>Measured from <code>seedData.js</code> on 2 November 2026.</p>
+      <figure><!--diagram:15-demo-status--></figure>
+      <h3>Demo data: barriers</h3>
+      <p>Bars show every barrier and the line shows the ones still open. Any barrier can now be closed, with a note saying how.</p>
+      <figure class="wide"><!--diagram:18-demo-barriers--></figure>
+    </div>
+
+    <div class="flow" id="demo">
+      <h3>Guided demo</h3>
+      <p>"Watch the demo" on the landing page walks through these five steps and switches role by itself.</p>
+      <figure class="wide">
+        <!--diagram:10-guided-demo-->
+      </figure>
+    </div>
+
+    <div class="flow" id="delivery">
+      <h3>Delivery</h3>
+      <p>Every push runs the checks and a secret scan. Only pushes to the main repo deploy.</p>
+      <figure class="wide">
+        <!--diagram:11-delivery-->
+      </figure>
+      <h3>Tests by file</h3>
+      <p>The 116 passing tests on 2 November 2026. Most cover the rules, none click through real screens.</p>
+      <figure class="wide"><!--diagram:16-tests--></figure>
+    </div>
+  </section>
+
+  <section id="left" class="diagrams" aria-labelledby="left-title">
+    <div class="section-head">
+      <h2 id="left-title">What's left</h2>
+      <p class="muted">Most urgent first.</p>
+    </div>
+
+    <div class="flow">
+      <h3>Effort against impact</h3>
+      <p>Positions are my estimate, not a measurement.</p>
+      <figure class="wide"><!--diagram:17-priorities--></figure>
+    </div>
+
+    <div class="group urgent">
+      <h3>Fix first: the gaps these changes left</h3>
+      <ol class="todo">
+        <li><strong>No alarm when an accepted patient never arrives.</strong> The clock stops once a hospital accepts, but this is the failure the product exists to catch. It needs a limit from a clinician. <span class="where"><code>alarms.js</code></span></li>
+        <li><strong>A case that ends outside the network can't close.</strong> If a patient goes to a hospital not on Navexa, nobody can confirm arrival, so the case stays open and keeps alarming. <span class="where"><code>recordPatientGoingElsewhere</code></span></li>
+        <li><strong>Roles are not enforced.</strong> "Hospital only" is true on screen, but the rules behind it don't check who is acting. It needs a real login. <span class="where"><code>workflow.js</code></span></li>
+        <li><strong>Every hospital can open any case by ID.</strong> That's how walk-ins work, but a real system must check who is asking and log it. <span class="where"><code>FacilityDashboard.jsx</code></span></li>
+      </ol>
+    </div>
+
+    <div class="group">
+      <h3>Before the pull request</h3>
+      <ol class="todo">
+        <li><strong>Commit the redesign.</strong> All of it is uncommitted on <code>feat/landing-redesign</code>, which is also 1 merge commit behind <code>upstream/main</code>.</li>
+        <li><strong>Update dependencies.</strong> <code>npm audit</code> reports 9 issues: 8 moderate and 1 high in Vite. <code>react-router</code> is the one that reaches users. None come from zombie-mermaid.</li>
+        <li><strong>Turn on the undefined-variable lint rule.</strong> <code>no-undef</code> is off, so lint passed today on a page that used a variable that no longer existed.</li>
+        <li><strong>Add browser tests.</strong> The 116 tests cover rules and config. Nothing automatically clicks through the real screens.</li>
+        <li><strong>Write the README and clean up old docs.</strong> The README is one line. Older reports still claim a 95/100 score, describe removed features and link to <code>d:/</code> paths.</li>
+        <li><strong>Finish the accessibility check.</strong> axe hasn't run, because its page script was blocked in this setup, and no real VoiceOver or TalkBack pass has happened.</li>
+      </ol>
+    </div>
+
+    <div class="group">
+      <h3>Needs someone else</h3>
+      <ol class="todo">
+        <li><strong>Clinical review.</strong> An obstetrician and a neonatologist should check referral routing, bilirubin and blood pressure thresholds, and the follow-up schedule.</li>
+        <li><strong>A decision on patient addresses.</strong> The map shares only the hospital's location today. Drawing a route from home means sending the address to a map company.</li>
+      </ol>
+    </div>
+
+    <div class="group">
+      <h3>Needed for real patients</h3>
+      <ol class="todo">
+        <li><strong>Real login and access control.</strong> Today anyone can pick any role, and the check runs only in the browser.</li>
+        <li><strong>A secure shared database.</strong> Patient data must leave browser storage, with an audit trail that can't be edited.</li>
+        <li><strong>Real SMS and calls.</strong> Alerts appear only inside the app.</li>
+        <li><strong>Real map data.</strong> Hospitals are fictional and pinned at area centres, the map draws no route, and van tracking is fixed text.</li>
+        <li><strong>Hospital record links and offline use.</strong> FHIR exchange and an offline mobile app are on the roadmap, and neither is started.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section aria-labelledby="regen">
+    <div class="section-head">
+      <h2 id="regen">Updating these diagrams</h2>
+      <p>The sources are the <code>.mmd</code> files in <code>docs/diagrams</code>. Run <code>npm run diagrams</code> to rebuild this page, SVG, PNG, text and zoom versions into <code>docs/diagrams/out</code>. Run <code>npm run diagrams:check</code> to validate them, which CI also does, and <code>npm run diagrams:web</code> for the live editor.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+const THEMES = /*themes*/{};
+const select = document.getElementById("diagram-theme");
+const TOKENS = ["bg", "fg", "accent", "line", "muted", "surface", "border"];
+const applyTheme = (name) => {
+  document.querySelectorAll(".diagrams").forEach((el) => {
+    TOKENS.forEach((token) => {
+      if (!THEMES[name]) el.style.removeProperty(`--d-${token}`);
+      else el.style.setProperty(`--d-${token}`, THEMES[name][token] || "initial");
+    });
+  });
+};
+select.addEventListener("change", () => {
+  applyTheme(select.value);
+  try { localStorage.setItem("diagram-theme", select.value); } catch {}
+});
+try {
+  const saved = localStorage.getItem("diagram-theme");
+  if (saved && (saved in THEMES)) { select.value = saved; applyTheme(saved); }
+} catch {}
+</script>

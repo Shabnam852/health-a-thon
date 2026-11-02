@@ -97,12 +97,11 @@ export const AuditRole = {
   COORDINATOR: "coordinator",
   NAVIGATOR: "navigator",
   TRANSPORT_DRIVER: "transport_driver",
+  PATIENT: "patient",
 };
 
 export const Role = {
   COORDINATOR: "coordinator",
   FACILITY: "facility",
-  NAVIGATOR: "navigator",
   PATIENT: "patient",
 };
-

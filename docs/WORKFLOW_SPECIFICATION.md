@@ -3,7 +3,7 @@
 **Document:** `docs/WORKFLOW_SPECIFICATION.md`  
 **Version:** 3.0.0  
 **Status:** IMPLEMENTED & VERIFIED  
-**Auditor/Architect:** Maternal & Neonatal Healthcare Workflow Specialist  
+**Auditor/Architect:** Maternal & Neonatal Healthcare Workflow Specialist
 
 ---
 
@@ -45,6 +45,7 @@
 ## 2. Detailed Workflow Specifications
 
 ### Workflow 1: Referral Initiation & Submission
+
 - **Responsible Actor:** Referring Healthcare Clinician (MD, MS (OBG), Midwife).
 - **Workspace:** `/create` ([`CreateReferral.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx)).
 - **Input Data:**
@@ -63,6 +64,7 @@
 ---
 
 ### Workflow 2: Facility Intake Review & Acknowledgment
+
 - **Responsible Actor:** Receiving Hospital Triage Nurse / Intake Clerk.
 - **Workspace:** `/facility` ([`FacilityDashboard.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx)).
 - **Action Options:**
@@ -75,6 +77,7 @@
 ---
 
 ### Workflow 3: Barrier Identification & Transit Dispatch
+
 - **Responsible Actor:** Care Navigator / Social Worker (Priya Raman, MSW; Arjun Nair, RN).
 - **Workspaces:** `/barriers` ([`BarrierResolution.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx)) and `/transport` ([`TransportCoordination.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/TransportCoordination.jsx)).
 - **Input Data:**
@@ -91,6 +94,7 @@
 ---
 
 ### Workflow 4: Physical Arrival Verification
+
 - **Responsible Actor:** Hospital Intake Staff / Clerk.
 - **Workspace:** `/facility` or `/coordinator`.
 - **Input Data:** Arrival timestamp, staff attribution ID, triage bay / room number.
@@ -101,6 +105,7 @@
 ---
 
 ### Workflow 5: Clinical Assessment & Structured Outcome Recording
+
 - **Responsible Actor:** Authorized Attending Clinician (MD, MS (OBG), FICOG).
 - **Workspace:** `/facility` outcome modal or `/referral/:id`.
 - **Strict Domain Separation:**
@@ -112,6 +117,7 @@
 ---
 
 ### Workflow 6: 42-Day Postpartum & Neonatal Care Continuity
+
 - **Responsible Actor:** Community Midwife / Lactation Specialist / Navigator.
 - **Workspace:** `/continuity` ([`ContinuityOfCare.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ContinuityOfCare.jsx)).
 - **Touchpoint Schedule:**
@@ -120,4 +126,3 @@
   - **Day 14:** Postpartum mental health (EPDS depression screening), infant weight gain check.
   - **Day 42:** Comprehensive well-woman exam, family planning, primary care handoff.
 - **Actions:** Document clinical visit findings, check off touchpoints, flag missed visits with automated escalation.
-

@@ -1,18 +1,43 @@
-import React, { useState, useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
-import Sidebar from "./Sidebar";
-import TopHeader from "./TopHeader";
-import { useReferrals } from "../context/ReferralContext.jsx";
+import { useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
-  isRouteAllowedForRole,
-  isKnownRoute,
-  getRoleDefinition,
   getPrimaryRoleForRoute,
+  getRoleDefinition,
+  isKnownRoute,
+  isRouteAllowedForRole,
 } from "../config/navigationConfig.js";
+import { useReferrals } from "../context/ReferralContext.jsx";
+import { useModalFocus } from "./Dialog.jsx";
+import MobileNav from "./MobileNav";
+import Sidebar from "./Sidebar";
+import StoryBar from "./StoryBar";
+import TopHeader from "./TopHeader";
+import { Button, Icon } from "./ui/index.js";
+
+const MobileDrawer = ({ onClose }) => {
+  const panelRef = useRef(null);
+  useModalFocus(panelRef, onClose);
+
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <div className="fixed inset-0 bg-ink/40" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        tabIndex={-1}
+        className="relative w-drawer max-w-full h-full bg-surface shadow-overlay z-10 flex flex-col justify-between"
+      >
+        <Sidebar onNavigate={onClose} isMobileDrawer={true} onClose={onClose} />
+      </div>
+    </div>
+  );
+};
 
 const AppShell = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { role, setRole } = useReferrals();
+  const { role, setRole, storyStep } = useReferrals();
   const location = useLocation();
 
   const currentRole = role || "coordinator";
@@ -20,140 +45,60 @@ const AppShell = ({ children }) => {
   // Unknown paths fall through to the 404 page instead of the access-denied screen.
   const isAllowed = !isKnownRoute(location.pathname) || isRouteAllowedForRole(currentRole, location.pathname);
 
-  // Close mobile drawer on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [mobileMenuOpen]);
-
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileMenuOpen]);
-
   const primaryRoleForRoute = getPrimaryRoleForRoute(location.pathname);
   const requiredRoleDef = getRoleDefinition(primaryRoleForRoute);
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col selection:bg-secondary/20">
-      {/* Desktop Fixed Sidebar (stationary on desktop, 270px wide) */}
-      <aside
-        className="hidden lg:flex fixed inset-y-0 left-0 w-[270px] z-30 bg-surface-container-lowest border-r border-surface-container/60 shadow-xs flex-col justify-between"
-        aria-label="Desktop Navigation Rail"
+    <div className="min-h-screen bg-canvas flex flex-col">
+      {/* biome-ignore lint/a11y/useValidAnchor: a skip link is a real link; onClick only keeps the hash out of the URL. */}
+      <a
+        href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("main-content")?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-3 focus:rounded-control focus:bg-brand focus:text-on-fill focus:font-bold"
       >
+        Skip to content
+      </a>
+
+      {/* Desktop sidebar */}
+      <div className="hidden lg:flex fixed inset-y-0 left-0 w-sidebar z-30 bg-surface border-r border-line shadow-card flex-col justify-between">
         <Sidebar />
-      </aside>
+      </div>
 
-      {/* Mobile Drawer (with backdrop, esc key, aria-modal, focus trap) */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-50 lg:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Mobile Navigation Drawer"
-        >
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
-            onClick={() => setMobileMenuOpen(false)}
-            aria-hidden="true"
-          />
-          {/* Drawer Panel */}
-          <div className="relative w-[280px] max-w-[85vw] h-full bg-surface-container-lowest shadow-2xl z-10 flex flex-col justify-between">
-            <Sidebar
-              onNavigate={() => setMobileMenuOpen(false)}
-              isMobileDrawer={true}
-              onClose={() => setMobileMenuOpen(false)}
-            />
-          </div>
-        </div>
-      )}
+      {mobileMenuOpen && <MobileDrawer onClose={() => setMobileMenuOpen(false)} />}
 
-      {/* Main Layout Container: Starts IMMEDIATELY after sidebar on desktop (lg:pl-[270px]) */}
-      <div className="lg:pl-[270px] flex flex-col flex-1 min-w-0">
+      <div className="lg:pl-sidebar flex flex-col flex-1 min-w-0">
         <TopHeader onOpenMobileMenu={() => setMobileMenuOpen(true)} />
 
-        {/* Scrollable Main Workspace */}
-        <main className="flex-1 pt-16 bg-surface min-h-screen w-full">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={`flex-1 pt-header bg-canvas min-h-screen w-full ${storyStep !== null ? "pb-56 lg:pb-28" : "pb-20 lg:pb-0"}`}
+        >
           {!isAllowed ? (
-            /* Role Boundary / Access Denied Screen */
-            <div className="w-full max-w-3xl mx-auto py-16 px-4 sm:px-6 text-center space-y-6">
-              <div className="w-16 h-16 rounded-2xl bg-error-container text-error mx-auto flex items-center justify-center shadow-sm">
-                <span className="material-symbols-outlined text-[34px]">lock</span>
+            <div className="w-full max-w-lg mx-auto py-16 px-4 sm:px-6 text-center space-y-4">
+              <Icon name="lock" size="xl" className="text-danger" />
+              <h1 className="font-display text-2xl font-bold text-ink tracking-tight">For {requiredRoleDef.title}</h1>
+              <p className="text-sm text-ink-muted">You are viewing as {roleDef.title}.</p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button as={Link} to={roleDef.homePath}>
+                  Back to my screens
+                </Button>
+                <Button variant="primary" onClick={() => setRole(requiredRoleDef.id)}>
+                  Switch to {requiredRoleDef.shortTitle}
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error-container/60 text-on-error-container text-xs font-bold uppercase tracking-wider">
-                  Role Boundary Restricted
-                </span>
-                <h1 className="font-headline-lg text-2xl sm:text-3xl font-bold text-primary tracking-tight">
-                  Restricted to {requiredRoleDef.title}
-                </h1>
-                <p className="font-body-md text-sm text-on-surface-variant max-w-lg mx-auto leading-relaxed">
-                  This workspace (
-                  <code className="px-1.5 py-0.5 rounded bg-surface-container text-primary font-mono text-xs">
-                    {location.pathname}
-                  </code>
-                  ) is designated for the <strong>{requiredRoleDef.title}</strong> persona.
-                  You are currently viewing Navexa Health as the{" "}
-                  <strong>{roleDef.title}</strong> persona.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-surface-container-low border border-surface-container max-w-md mx-auto text-xs text-on-surface-variant text-left space-y-1.5">
-                <div className="font-bold text-primary flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-secondary">
-                    info
-                  </span>
-                  Clinical-Operational Role Boundary
-                </div>
-                <p>
-                  Navexa enforces clinical and operational separation so patients never encounter
-                  administrative triage systems, and coordinators do not modify hospital intake
-                  without facility credentials.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <Link
-                  to={roleDef.homePath}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-container transition-colors shadow-xs"
-                >
-                  Return to My Workspace ({roleDef.shortTitle})
-                </Link>
-
-                <button
-                  onClick={() => {
-                    setRole(requiredRoleDef.id);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-on-secondary-container transition-colors shadow-xs flex items-center gap-1.5"
-                >
-                  <span>Switch to {requiredRoleDef.shortTitle} Persona</span>
-                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </button>
-              </div>
-
-              <p className="text-[11px] text-on-surface-variant/70">
-                Demonstration Guard • Client-Side Simulation
-              </p>
             </div>
           ) : (
             children
           )}
         </main>
       </div>
+
+      <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />
+      <StoryBar />
     </div>
   );
 };

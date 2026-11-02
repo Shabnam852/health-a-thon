@@ -3,21 +3,24 @@
  * Strict operational and clinical safety transition validation.
  */
 
-import { ReferralStatus, TransportStatus, BarrierStatus, FollowUpStatus } from "./enums.js";
+import { BarrierStatus, FollowUpStatus, ReferralStatus, TransportStatus } from "./enums.js";
 
 /**
  * Valid transitions map for Referrals.
  * Arrival must pass through a recorded clinical assessment before completion.
+ * A patient can reach a hospital at any point before that, whatever the plan said,
+ * so arrival is allowed from every open state after the referral is sent.
  */
 const ALLOWED_REFERRAL_TRANSITIONS = {
   [ReferralStatus.CREATED]: [ReferralStatus.SENT, ReferralStatus.REJECTED],
-  [ReferralStatus.SENT]: [ReferralStatus.ACKNOWLEDGED, ReferralStatus.REJECTED, ReferralStatus.REDIRECTED],
-  [ReferralStatus.ACKNOWLEDGED]: [
+  [ReferralStatus.SENT]: [
+    ReferralStatus.ACKNOWLEDGED,
     ReferralStatus.ARRIVAL_CONFIRMED,
     ReferralStatus.REJECTED,
     ReferralStatus.REDIRECTED,
   ],
-  [ReferralStatus.REJECTED]: [ReferralStatus.REDIRECTED],
+  [ReferralStatus.ACKNOWLEDGED]: [ReferralStatus.ARRIVAL_CONFIRMED, ReferralStatus.REJECTED, ReferralStatus.REDIRECTED],
+  [ReferralStatus.REJECTED]: [ReferralStatus.ARRIVAL_CONFIRMED, ReferralStatus.REDIRECTED],
   [ReferralStatus.REDIRECTED]: [ReferralStatus.SENT],
   [ReferralStatus.ARRIVAL_CONFIRMED]: [ReferralStatus.CLINICAL_ASSESSMENT_RECORDED],
   [ReferralStatus.CLINICAL_ASSESSMENT_RECORDED]: [ReferralStatus.COMPLETED],

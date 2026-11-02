@@ -2,11 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Navexa Health — Maternal & Neonatal Care System</title>
 
+    <meta name="description" content="Navexa tracks every mother and newborn from referral until care actually happens." />
+    <meta name="theme-color" content="#f6f8fa" />
+    <script>
+      try {
+        const saved = localStorage.getItem("navexa_theme");
+        const dark = saved === "dark" || saved === "light" ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      } catch {}
+    </script>
   </head>
-  <body class="bg-surface font-body-md text-on-surface antialiased">
+  <body class="bg-canvas text-ink">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

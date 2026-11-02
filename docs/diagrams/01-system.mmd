@@ -1,0 +1,29 @@
+flowchart TD
+  accTitle: System
+  accDescr: Coordinator, hospital and family use screens, which go through shared state to the rules and to localStorage. Screens send only hospital location to OpenStreetMap and Google Maps. Server, login, SMS and FHIR are not built.
+  subgraph People
+    C[Care Coordinator]
+    H[Hospital]
+    F[Patient and family]
+  end
+
+  subgraph App["Navexa app, runs only in the browser"]
+    S["Screens<br/>src/pages"]
+    X["Shared state<br/>ReferralContext"]
+    W["Rules<br/>src/domain"]
+    A["Storage adapter"]
+    L[("localStorage<br/>this browser only")]
+  end
+
+  O["OpenStreetMap map<br/>Google Maps directions<br/>get hospital location only"]
+  M["Not built yet<br/>server and database, real login,<br/>SMS and calls, hospital records"]
+
+  C --> S
+  H --> S
+  F --> S
+  S --> X
+  X --> W
+  X --> A
+  A --> L
+  S --> O
+  X -.-> M

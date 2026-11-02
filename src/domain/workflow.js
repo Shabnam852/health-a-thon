@@ -6,32 +6,37 @@
  */
 
 import {
-  ReferralStatus,
-  TransportStatus,
-  BarrierStatus,
-  BarrierCategory,
-  FollowUpStatus,
-  TimelineEvent,
-  CarePlanStatus,
   AuditRole,
+  BarrierCategory,
+  BarrierStatus,
+  CarePlanStatus,
+  FollowUpStatus,
+  ReferralStatus,
+  TimelineEvent,
+  TransportStatus,
 } from "./enums.js";
 import {
-  createBarrier,
-  createTransportRequest,
   createArrivalRecord,
+  createAuditEvent,
+  createBarrier,
   createClinicalOutcome,
   createFollowUpPlan,
-  createAuditEvent,
+  createTransportRequest,
 } from "./models.js";
 import {
-  validateReferralTransition,
-  validateTransportTransition,
   validateBarrierTransition,
   validateFollowUpTransition,
+  validateReferralTransition,
+  validateTransportTransition,
 } from "./transitions.js";
 
 const nowIso = () => new Date().toISOString();
 const fail = (reason) => ({ success: false, reason });
+
+// There is no login yet, so the audit trail names the role that acted, not a person.
+export const COORDINATOR = "Care Coordinator";
+export const PATIENT_OR_FAMILY = "Patient or family";
+const HOSPITAL = "Hospital intake";
 
 const withEvents = (referral, { timeline = [], audit = [] }) => ({
   ...referral,
@@ -43,7 +48,7 @@ const withEvents = (referral, { timeline = [], audit = [] }) => ({
 // REFERRAL LIFECYCLE
 // ==========================================
 
-export const acknowledgeReferral = (referral, { actor = "Intake Clerk", notes = "" } = {}, now = nowIso()) => {
+export const acknowledgeReferral = (referral, { actor = HOSPITAL, notes = "" } = {}, now = nowIso()) => {
   const check = validateReferralTransition(referral.status, ReferralStatus.ACKNOWLEDGED);
   if (!check.valid) return fail(check.reason);
 
@@ -68,15 +73,15 @@ export const acknowledgeReferral = (referral, { actor = "Intake Clerk", notes = 
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
 
 export const rejectReferral = (
   referral,
-  { actor = "Intake Supervisor", reason = "Facility at Capacity" } = {},
-  now = nowIso()
+  { actor = HOSPITAL, reason = "Facility at Capacity" } = {},
+  now = nowIso(),
 ) => {
   const check = validateReferralTransition(referral.status, ReferralStatus.REJECTED);
   if (!check.valid) return fail(check.reason);
@@ -84,13 +89,19 @@ export const rejectReferral = (
   return {
     success: true,
     referral: withEvents(
-      { ...referral, status: ReferralStatus.REJECTED, rejectionReason: reason },
+      {
+        ...referral,
+        status: ReferralStatus.REJECTED,
+        rejectionReason: reason,
+        declinedBy: [...(referral.declinedBy || []), referral.toFacility],
+        patientChoice: null,
+      },
       {
         timeline: [
           {
             status: ReferralStatus.REJECTED,
             date: now,
-            notes: `Referral declined by ${referral.toFacility}. Reason: ${reason}. Awaiting coordinator redirection.`,
+            notes: `Referral declined by ${referral.toFacility}. Reason: ${reason}. Referral is floating until the patient chooses a hospital.`,
           },
         ],
         audit: [
@@ -102,15 +113,15 @@ export const rejectReferral = (
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
 
 export const redirectReferral = (
   referral,
-  { toFacility, reason = "Diverted to open Level III bed", actor = "Anitha Joseph, RN" } = {},
-  now = nowIso()
+  { toFacility, reason = "Diverted to open Level III bed", actor = COORDINATOR, role = AuditRole.COORDINATOR } = {},
+  now = nowIso(),
 ) => {
   const check = validateReferralTransition(referral.status, ReferralStatus.REDIRECTED);
   if (!check.valid) return fail(check.reason);
@@ -145,13 +156,75 @@ export const redirectReferral = (
         audit: [
           createAuditEvent({
             actor,
-            role: AuditRole.COORDINATOR,
+            role,
             action: "REFERRAL_REDIRECTED",
             details: `Re-routed patient to ${toFacility}. Justification: ${reason}.`,
             timestamp: now,
           }),
         ],
-      }
+      },
+    ),
+  };
+};
+
+export const isFloating = (referral) => referral.status === ReferralStatus.REJECTED;
+
+/** Where the patient is heading. A hospital that declined is not it. */
+export const getDestination = (referral) =>
+  isFloating(referral) ? referral.patientChoice?.elsewhere || "No hospital chosen yet" : referral.toFacility;
+
+const choiceAuditRole = (recordedBy) => (recordedBy === COORDINATOR ? AuditRole.COORDINATOR : AuditRole.PATIENT);
+
+/** The patient picks where to go next. A coordinator can only record what the patient said. */
+export const recordPatientChoice = (referral, { toFacility, recordedBy = PATIENT_OR_FAMILY } = {}, now = nowIso()) => {
+  if (!isFloating(referral)) return fail("Only a floating referral needs a new hospital.");
+  if ((referral.declinedBy || []).includes(toFacility))
+    return fail(`${toFacility} has already declined this referral.`);
+
+  const result = redirectReferral(
+    referral,
+    { toFacility, reason: "Patient's choice", actor: recordedBy, role: choiceAuditRole(recordedBy) },
+    now,
+  );
+  if (!result.success) return result;
+  return {
+    success: true,
+    referral: { ...result.referral, patientChoice: { hospital: toFacility, recordedBy, date: now } },
+  };
+};
+
+/** The patient says they will go somewhere not on the list. The case stays open until they arrive. */
+export const recordPatientGoingElsewhere = (
+  referral,
+  { place, recordedBy = PATIENT_OR_FAMILY } = {},
+  now = nowIso(),
+) => {
+  if (!isFloating(referral)) return fail("Only a floating referral needs a new hospital.");
+  if (!place?.trim()) return fail("Say where the patient plans to go.");
+
+  return {
+    success: true,
+    referral: withEvents(
+      { ...referral, patientChoice: { elsewhere: place.trim(), recordedBy, date: now } },
+      {
+        // Also restarts the response clock: the patient has answered, so the wait is now for their arrival.
+        timeline: [
+          {
+            status: ReferralStatus.REJECTED,
+            date: now,
+            notes: `Patient plans to go to ${place.trim()}. The case stays open until arrival is confirmed.`,
+          },
+        ],
+        audit: [
+          createAuditEvent({
+            actor: recordedBy,
+            role: choiceAuditRole(recordedBy),
+            action: "PATIENT_GOING_ELSEWHERE",
+            details: `Patient plans to go to ${place.trim()}, which is not on the list.`,
+            timestamp: now,
+          }),
+        ],
+      },
     ),
   };
 };
@@ -175,7 +248,11 @@ export const confirmArrival = (referral, arrivalPayload = {}, now = nowIso()) =>
   const check = validateReferralTransition(referral.status, ReferralStatus.ARRIVAL_CONFIRMED);
   if (!check.valid) return fail(check.reason);
 
-  const arrival = createArrivalRecord({ ...arrivalPayload, arrivedAt: arrivalPayload.arrivedAt || now });
+  const { atFacility, ...arrivalDetails } = arrivalPayload;
+  const arrival = createArrivalRecord({ ...arrivalDetails, arrivedAt: arrivalDetails.arrivedAt || now });
+  // Patients can change their mind on the way: the hospital they reached becomes the destination.
+  const hospital = atFacility || referral.toFacility;
+  const wentElsewhere = hospital !== referral.toFacility;
 
   return {
     success: true,
@@ -183,15 +260,28 @@ export const confirmArrival = (referral, arrivalPayload = {}, now = nowIso()) =>
       {
         ...referral,
         status: ReferralStatus.ARRIVAL_CONFIRMED,
+        toFacility: hospital,
         arrival,
         transit: closeTransitOnArrival(referral.transit, now),
+        redirectHistory: wentElsewhere
+          ? [
+              ...(referral.redirectHistory || []),
+              {
+                divertedFrom: referral.toFacility,
+                divertedTo: hospital,
+                date: now,
+                reason: "Patient arrived here instead",
+                actor: arrival.verifiedBy,
+              },
+            ]
+          : referral.redirectHistory,
       },
       {
         timeline: [
           {
             status: ReferralStatus.ARRIVAL_CONFIRMED,
             date: now,
-            notes: `Patient arrival confirmed at ${referral.toFacility} (${arrival.department}, ${arrival.room}). Verified by ${arrival.verifiedBy}.`,
+            notes: `Patient arrival confirmed at ${hospital} (${arrival.department}, ${arrival.room}). Verified by ${arrival.verifiedBy}.`,
           },
         ],
         audit: [
@@ -203,7 +293,7 @@ export const confirmArrival = (referral, arrivalPayload = {}, now = nowIso()) =>
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
@@ -228,6 +318,7 @@ export const recordClinicalOutcome = (referral, outcomePayload = {}, now = nowIs
     patientId: referral.patientId,
     patientName: referral.patientName,
     referralType: referral.referralType,
+    establishedAt: now,
     leadWorker: referral.navigator?.name || "Priya Raman, MSW",
   });
 
@@ -257,31 +348,7 @@ export const recordClinicalOutcome = (referral, outcomePayload = {}, now = nowIs
             timestamp: now,
           }),
         ],
-      }
-    ),
-  };
-};
-
-export const transitionReferralStatus = (referral, newStatus, note = "", now = nowIso()) => {
-  const check = validateReferralTransition(referral.status, newStatus);
-  if (!check.valid) return fail(check.reason);
-
-  return {
-    success: true,
-    referral: withEvents(
-      { ...referral, status: newStatus },
-      {
-        timeline: [{ status: newStatus, date: now, notes: note || `Status transitioned to ${newStatus}` }],
-        audit: [
-          createAuditEvent({
-            actor: "Care Coordinator",
-            role: AuditRole.COORDINATOR,
-            action: `STATUS_${newStatus}`,
-            details: note || `Status updated to ${newStatus}`,
-            timestamp: now,
-          }),
-        ],
-      }
+      },
     ),
   };
 };
@@ -294,7 +361,7 @@ export const identifyBarrier = (referral, barrierPayload = {}, now = nowIso()) =
   const barrier = createBarrier({ ...barrierPayload, identifiedAt: barrierPayload.identifiedAt || now });
 
   const isDuplicate = (referral.barriers || []).some(
-    (b) => b.title === barrier.title && b.status !== BarrierStatus.RESOLVED
+    (b) => b.title === barrier.title && b.status !== BarrierStatus.RESOLVED,
   );
   if (isDuplicate) return fail(`"${barrier.title}" is already an open barrier on this referral.`);
 
@@ -310,18 +377,22 @@ export const identifyBarrier = (referral, barrierPayload = {}, now = nowIso()) =
       },
       {
         timeline: [
-          { status: TimelineEvent.BARRIER_FLAGGED, date: now, notes: `Barrier Flagged: ${barrier.title} (${barrier.category}).` },
+          {
+            status: TimelineEvent.BARRIER_FLAGGED,
+            date: now,
+            notes: `Barrier Flagged: ${barrier.title} (${barrier.category}).`,
+          },
         ],
         audit: [
           createAuditEvent({
-            actor: "Care Navigator",
-            role: AuditRole.NAVIGATOR,
+            actor: COORDINATOR,
+            role: AuditRole.COORDINATOR,
             action: "BARRIER_IDENTIFIED",
             details: `New barrier logged: ${barrier.title}.`,
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
@@ -347,21 +418,22 @@ export const updateBarrierStatus = (referral, barrierId, nextStatus, notes = "",
       {
         timeline: [
           {
-            status: nextStatus === BarrierStatus.RESOLVED ? TimelineEvent.BARRIER_RESOLVED : TimelineEvent.BARRIER_UPDATED,
+            status:
+              nextStatus === BarrierStatus.RESOLVED ? TimelineEvent.BARRIER_RESOLVED : TimelineEvent.BARRIER_UPDATED,
             date: now,
             notes: notes || `Barrier #${barrierId} updated to ${nextStatus}.`,
           },
         ],
         audit: [
           createAuditEvent({
-            actor: "Care Navigator",
-            role: AuditRole.NAVIGATOR,
+            actor: COORDINATOR,
+            role: AuditRole.COORDINATOR,
             action: `BARRIER_${nextStatus}`,
             details: `Barrier ${barrierId} marked ${nextStatus}. Notes: ${notes}`,
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
@@ -377,7 +449,7 @@ export const resolveBarrier = (referral, barrierIdOrTitle, resolutionNote = "", 
     matching.id,
     BarrierStatus.RESOLVED,
     resolutionNote || "Barrier resolved by coordinator.",
-    now
+    now,
   );
 };
 
@@ -385,9 +457,14 @@ export const resolveBarrier = (referral, barrierIdOrTitle, resolutionNote = "", 
 // TRANSPORT
 // ==========================================
 
+export const isRideMoving = (transit) =>
+  [TransportStatus.DISPATCHED, TransportStatus.PICKED_UP].includes(transit?.status);
+
+export const findOpenBarrier = (referral) => (referral.barriers || []).find((b) => b.status !== BarrierStatus.RESOLVED);
+
 export const hasArrivedAtFacility = (referral) =>
   [ReferralStatus.ARRIVAL_CONFIRMED, ReferralStatus.CLINICAL_ASSESSMENT_RECORDED, ReferralStatus.COMPLETED].includes(
-    referral.status
+    referral.status,
   );
 
 // No vehicle is needed once the patient is at the hospital, or if the referral was declined.
@@ -395,7 +472,8 @@ const isTransportClosed = (referral) => hasArrivedAtFacility(referral) || referr
 
 // A new request may only replace a transit that is not in progress.
 const canRequestTransport = (transit) =>
-  !transit || [TransportStatus.NOT_REQUIRED, TransportStatus.CANCELLED, TransportStatus.FAILED].includes(transit.status);
+  !transit ||
+  [TransportStatus.NOT_REQUIRED, TransportStatus.CANCELLED, TransportStatus.FAILED].includes(transit.status);
 
 // Dispatch performs request, assign and dispatch as one action, so it may start from any
 // state those steps can follow, and from no transit at all.
@@ -423,18 +501,22 @@ export const requestTransport = (referral, transportPayload = {}, now = nowIso()
       { ...referral, transit, transitBarrier: true },
       {
         timeline: [
-          { status: TimelineEvent.TRANSIT_REQUESTED, date: now, notes: `Medical transit requested. Pickup: ${transit.pickupAddress}.` },
+          {
+            status: TimelineEvent.TRANSIT_REQUESTED,
+            date: now,
+            notes: `Medical transit requested. Pickup: ${transit.pickupAddress}.`,
+          },
         ],
         audit: [
           createAuditEvent({
-            actor: "Care Coordinator",
+            actor: COORDINATOR,
             role: AuditRole.COORDINATOR,
             action: "TRANSPORT_REQUESTED",
             details: `Transit requested. Vehicle type: ${transit.vehicleType}.`,
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
@@ -445,21 +527,11 @@ export const dispatchTransport = (referral, dispatchPayload, now = nowIso()) => 
     return fail(`Cannot dispatch: transport is already ${referral.transit.status}.`);
   }
 
-  const normalized =
-    typeof dispatchPayload === "string"
-      ? {
-          vehicle: dispatchPayload,
-          driver: "Manjunath Gowda",
-          driverPhone: "+91 90000 19921",
-          eta: "12 mins",
-          requiresNeonatalKit: dispatchPayload.toLowerCase().includes("transport kit"),
-        }
-      : dispatchPayload;
-  if (!normalized?.vehicle) return fail("A vehicle is required to dispatch transport.");
+  if (!dispatchPayload?.vehicle) return fail("A vehicle is required to dispatch transport.");
 
   const transit = {
     ...(referral.transit || createTransportRequest({ referralId: referral.id })),
-    ...normalized,
+    ...dispatchPayload,
     status: TransportStatus.DISPATCHED,
     dispatchedAt: now,
     failedReason: null,
@@ -471,9 +543,9 @@ export const dispatchTransport = (referral, dispatchPayload, now = nowIso()) => 
           ...b,
           status: BarrierStatus.RESOLVED,
           resolvedAt: now,
-          resolutionNotes: `MediRide transit dispatched: ${normalized.vehicle} (Driver: ${normalized.driver}).`,
+          resolutionNotes: `MediRide transit dispatched: ${dispatchPayload.vehicle} (Driver: ${dispatchPayload.driver}).`,
         }
-      : b
+      : b,
   );
 
   return {
@@ -485,19 +557,19 @@ export const dispatchTransport = (referral, dispatchPayload, now = nowIso()) => 
           {
             status: TimelineEvent.TRANSIT_DISPATCHED,
             date: now,
-            notes: `MediRide transit dispatched: ${normalized.vehicle} (Driver: ${normalized.driver}, ETA: ${normalized.eta || "15 mins"}).`,
+            notes: `MediRide transit dispatched: ${dispatchPayload.vehicle} (Driver: ${dispatchPayload.driver}, ETA: ${dispatchPayload.eta || "15 mins"}).`,
           },
         ],
         audit: [
           createAuditEvent({
-            actor: "Arjun Nair, RN",
-            role: AuditRole.NAVIGATOR,
+            actor: COORDINATOR,
+            role: AuditRole.COORDINATOR,
             action: "TRANSPORT_DISPATCHED",
-            details: `Transit unit dispatched: ${normalized.vehicle}. Driver: ${normalized.driver}.`,
+            details: `Transit unit dispatched: ${dispatchPayload.vehicle}. Driver: ${dispatchPayload.driver}.`,
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
@@ -519,7 +591,7 @@ export const recordTransportPickup = (referral, now = nowIso()) => {
             notes: `Driver ${referral.transit.driver} confirmed patient and support person picked up. En route to ${referral.toFacility}.`,
           },
         ],
-      }
+      },
     ),
   };
 };
@@ -533,18 +605,23 @@ const reopenTransportBarrier = (barriers, reason, now) => {
   if (last === -1) {
     return [
       ...barriers,
-      createBarrier({ category: BarrierCategory.TRANSPORT, title: "Transit failed", description: reason, identifiedAt: now }),
+      createBarrier({
+        category: BarrierCategory.TRANSPORT,
+        title: "Transit failed",
+        description: reason,
+        identifiedAt: now,
+      }),
     ];
   }
   return barriers.map((b, i) =>
-    i === last ? { ...b, status: BarrierStatus.IDENTIFIED, resolvedAt: null, description: reason } : b
+    i === last ? { ...b, status: BarrierStatus.IDENTIFIED, resolvedAt: null, description: reason } : b,
   );
 };
 
 export const recordTransportFailure = (
   referral,
   reason = "Vehicle breakdown or patient unable to board",
-  now = nowIso()
+  now = nowIso(),
 ) => {
   if (!referral.transit) return fail("No transport has been arranged for this referral.");
   const check = validateTransportTransition(referral.transit.status, TransportStatus.FAILED);
@@ -569,14 +646,14 @@ export const recordTransportFailure = (
         ],
         audit: [
           createAuditEvent({
-            actor: referral.transit.driver || "Transit Driver",
-            role: AuditRole.TRANSPORT_DRIVER,
+            actor: COORDINATOR,
+            role: AuditRole.COORDINATOR,
             action: "TRANSPORT_FAILED",
             details: `Transit failed: ${reason}`,
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
@@ -594,37 +671,44 @@ export const completeFollowUpTask = (referral, taskId, notes = "", now = nowIso(
   const check = validateFollowUpTransition(task.status, FollowUpStatus.COMPLETED);
   if (!check.valid) return fail(check.reason);
 
-  const completedBy = referral.navigator?.name || "Priya Raman, MSW";
+  const completedBy = COORDINATOR;
   const tasks = referral.followUpPlan.tasks.map((t) =>
     t.id === taskId
       ? { ...t, status: FollowUpStatus.COMPLETED, completedAt: now, completedBy, notes: notes || t.notes }
-      : t
+      : t,
   );
   const allDone = tasks.every((t) => t.status === FollowUpStatus.COMPLETED);
 
   return {
     success: true,
     referral: withEvents(
-      { ...referral, followUpPlan: { ...referral.followUpPlan, status: allDone ? CarePlanStatus.COMPLETED : CarePlanStatus.ACTIVE, tasks } },
+      {
+        ...referral,
+        followUpPlan: {
+          ...referral.followUpPlan,
+          status: allDone ? CarePlanStatus.COMPLETED : CarePlanStatus.ACTIVE,
+          tasks,
+        },
+      },
       {
         audit: [
           createAuditEvent({
-            actor: referral.navigator?.name || "Care Navigator",
-            role: AuditRole.NAVIGATOR,
+            actor: completedBy,
+            role: AuditRole.COORDINATOR,
             action: "FOLLOW_UP_COMPLETED",
             details: `Completed continuous care task #${taskId}. Findings: ${notes}`,
             timestamp: now,
           }),
         ],
-      }
+      },
     ),
   };
 };
 
 export const recordContactAttempt = (
   referral,
-  { method = "Phone Call", outcome = "Successful", notes = "", actor = "Priya Raman, MSW" } = {},
-  now = nowIso()
+  { method = "Phone Call", outcome = "Successful", notes = "", actor = COORDINATOR } = {},
+  now = nowIso(),
 ) => ({
   success: true,
   referral: withEvents(
@@ -639,12 +723,12 @@ export const recordContactAttempt = (
       audit: [
         createAuditEvent({
           actor,
-          role: AuditRole.NAVIGATOR,
+          role: AuditRole.COORDINATOR,
           action: "CONTACT_ATTEMPT",
           details: `${method} (${outcome}): ${notes}`,
           timestamp: now,
         }),
       ],
-    }
+    },
   ),
 });

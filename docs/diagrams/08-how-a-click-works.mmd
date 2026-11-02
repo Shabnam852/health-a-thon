@@ -1,0 +1,23 @@
+sequenceDiagram
+  accTitle: How a click works
+  accDescr: A click goes from the screen to ReferralContext to the workflow rules. If allowed, the updated referral is saved to localStorage and every screen updates. If not, nothing changes and the user sees an error.
+  actor U as User
+  participant P as Screen
+  participant C as ReferralContext
+  participant W as Workflow rules
+  participant S as localStorage
+
+  U->>P: Click an action
+  P->>C: Call the action
+  C->>+W: Check and apply it
+  alt Allowed
+    W-->>C: Updated referral with timeline and audit entries
+    C->>S: Save everything
+    C-->>P: Every screen updates
+    P-->>U: Success message
+  else Not allowed
+    W-->>C: Reason
+    C-->>P: Nothing changes
+    P-->>U: Error message
+  end
+  deactivate W

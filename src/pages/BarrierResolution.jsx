@@ -1,352 +1,140 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useReferrals } from "../context/ReferralContext.jsx";
+import CaseCard, { DetailRow } from "../components/CaseCard.jsx";
+import { FormDialog } from "../components/Dialog.jsx";
+import SendVanDialog from "../components/SendVanDialog.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { BarrierStatus, ReferralStatus, isHighAcuity } from "../domain/enums.js";
-import { canDispatchTransport } from "../domain/workflow.js";
+import { Button, EmptyState, Field, Page, PageHeader, Textarea } from "../components/ui/index.js";
+import { useReferrals } from "../context/ReferralContext.jsx";
+import { BarrierCategory } from "../domain/enums.js";
+import { canDispatchTransport, findOpenBarrier, getDestination } from "../domain/workflow.js";
+
+const BarrierCase = ({ r, onSendVan, onClose }) => {
+  const barrier = findOpenBarrier(r);
+  const van = r.transit?.vehicle;
+  const canSendVan = barrier.category === BarrierCategory.TRANSPORT && canDispatchTransport(r);
+
+  return (
+    <CaseCard
+      referral={r}
+      summary={
+        <>
+          <p>{barrier.title}</p>
+          {van && (
+            <p className="font-semibold text-ink">
+              Van: {van}
+              {r.transit.eta && `, ETA ${r.transit.eta}`}
+            </p>
+          )}
+        </>
+      }
+      actions={
+        <>
+          {canSendVan && (
+            <Button variant="primary" onClick={() => onSendVan(r)}>
+              Send van
+            </Button>
+          )}
+          <Button onClick={() => onClose(r)}>Close barrier</Button>
+        </>
+      }
+    >
+      <DetailRow label="Barrier">{barrier.description || r.reason}</DetailRow>
+      <DetailRow label="Barrier status">{barrier.status}</DetailRow>
+      <DetailRow label="Route">
+        {r.fromFacility} → {getDestination(r)}
+      </DetailRow>
+      <DetailRow label="Case">{r.id}</DetailRow>
+      {(r.timeline || [])
+        .slice()
+        .reverse()
+        .map((t) => (
+          <DetailRow
+            key={`${t.date}-${t.status}-${t.notes}`}
+            label={new Date(t.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          >
+            {t.notes}
+          </DetailRow>
+        ))}
+    </CaseCard>
+  );
+};
 
 const BarrierResolution = () => {
-  const {
-    referrals,
-    dispatchTransport,
-    confirmArrival,
-  } = useReferrals();
+  const { referrals, resolveBarrier } = useReferrals();
+  const { toast, report } = useToast();
+  const [sendingVanFor, setSendingVanFor] = useState(null);
+  const [closing, setClosing] = useState(null);
+  const [closingNote, setClosingNote] = useState("");
 
-  // Find all referrals with barriers
-  const barrierCases = referrals.filter(
-    (r) => (r.barriers && r.barriers.length > 0) || r.transitBarrier || r.transit != null
-  );
+  const open = referrals.filter(findOpenBarrier);
+  const resolved = referrals.filter((r) => !findOpenBarrier(r) && (r.barriers || []).length > 0);
 
-  const [selectedCaseId, setSelectedCaseId] = useState(null);
-  const [activeFilter, setActiveFilter] = useState("all");
-  const { toast, showToast } = useToast();
-
-
-  // Filtered cases
-  const filteredCases = barrierCases.filter((c) => {
-    if (activeFilter === "all") return true;
-    if (activeFilter === "transit") return c.barriers?.some((b) => b.category === "TRANSPORT") || c.transitBarrier;
-    if (activeFilter === "financial") return c.barriers?.some((b) => b.category === "FINANCIAL");
-    if (activeFilter === "social") return c.barriers?.some((b) => b.category === "DEPENDENT_CARE" || b.category === "LINGUISTIC");
-    return true;
-  });
-
-  // The console always shows a case from the visible list, so its card is highlighted.
-  const activeCase = filteredCases.find((c) => c.id === selectedCaseId) || filteredCases[0] || null;
-  const canDispatch = activeCase ? canDispatchTransport(activeCase) : false;
-  const canConfirmArrival = activeCase?.status === ReferralStatus.ACKNOWLEDGED;
-
-  const primaryBarrier = activeCase?.barriers?.find((b) => b.status !== BarrierStatus.RESOLVED) || null;
-
-  const handleDispatchVan = () => {
-    if (!activeCase) return;
-
-    const res = dispatchTransport(activeCase.id, {
-      vehicle: "MediVan #04 (Silver Transit • Plate KA-01-AB-4892)",
-      driver: "Manjunath Gowda",
-      driverPhone: "+91 90000 19921",
-      eta: "12 mins",
-      requiresNeonatalKit: activeCase.referralType === "Child",
-      pickupAddress: activeCase.patientAddress || "Residence on file",
-      destinationFacility: activeCase.toFacility,
-    });
-
-    if (!res.success) {
-      showToast(`Action failed: ${res.reason}`, "error");
-      return;
-    }
-
-    showToast(`MediVan #04 dispatched for ${activeCase.patientName}! Driver Manjunath Gowda en route (ETA 12m).`);
+  const closeDialog = () => {
+    setClosing(null);
+    setClosingNote("");
   };
 
-  const handleConfirmIntake = () => {
-    if (!activeCase) return;
-
-    const res = confirmArrival(activeCase.id, {
-      department: activeCase.department || "Sanjeevani OB / Neonatal Triage",
-      room: "Intake Bay 02",
-      verifiedBy: "Anitha Joseph, RN (Lead Coordinator)",
-      notes: "Physical arrival confirmed at hospital intake. Transit and admission barrier successfully resolved.",
-    });
-
-    if (!res.success) {
-      showToast(`Action failed: ${res.reason}`, "error");
-      return;
-    }
-
-    showToast(`Care received! Case #${activeCase.id} successfully checked in at ${activeCase.toFacility}.`);
+  const handleCloseBarrier = () => {
+    report(
+      resolveBarrier(closing.id, findOpenBarrier(closing).id, closingNote.trim()),
+      `Barrier closed for ${closing.patientName}.`,
+    );
+    closeDialog();
   };
 
   return (
-    <div className="flex flex-col w-full pb-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto space-y-6 pt-6">
-      {/* Toast Notification */}
+    <Page>
       <Toast toast={toast} />
+      <PageHeader title="Barriers" />
 
-      {/* Operational Alert Banner */}
-      <div className="bg-primary text-white p-5 rounded-2xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="p-2.5 bg-white/10 rounded-xl shrink-0">
-            <span className="material-symbols-outlined text-secondary-fixed text-[26px]">
-              warning_amber
-            </span>
-          </div>
-          <div className="space-y-0.5">
-            <span className="font-label-sm text-[10px] uppercase tracking-wider text-secondary-fixed font-bold">
-              Core Operational Principle
-            </span>
-            <p className="font-body-sm text-xs sm:text-sm text-white/90">
-              <strong className="text-white font-semibold">"A referral sent is not care received."</strong>{" "}
-              Overdue arrivals and socioeconomic transit disruptions must be resolved by care coordinators before a patient is lost to care.
-            </p>
-          </div>
-        </div>
-
-        <span className="text-[11px] font-label-sm text-secondary-fixed bg-primary-container px-3 py-1 rounded-full border border-secondary/30 shrink-0">
-          Connected Domain Store Active
-        </span>
-      </div>
-
-      {/* Main Split Layout: Left Cases List (4 cols) / Right Resolution Console (8 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Overdue Cases Stack */}
-        <div className="lg:col-span-4 space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="font-title-sm text-sm font-bold text-primary">Overdue Cases with Barriers</h3>
-            <span className="text-xs text-on-surface-variant font-medium">({filteredCases.length})</span>
-          </div>
-
-          {/* Quick Category Filter Pills */}
-          <div className="flex flex-wrap gap-1.5 pb-1">
-            {[
-              { id: "all", label: "All" },
-              { id: "transit", label: "Transit" },
-              { id: "financial", label: "Financial" },
-              { id: "social", label: "Social/Childcare" },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setActiveFilter(f.id)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                  activeFilter === f.id
-                    ? "bg-primary text-white font-semibold"
-                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
-                }`}
-              >
-                {f.label}
-              </button>
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-ink-muted">Open ({open.length})</h2>
+        {open.length === 0 ? (
+          <EmptyState>No open barriers.</EmptyState>
+        ) : (
+          <ul className="space-y-4">
+            {open.map((r) => (
+              <BarrierCase key={r.id} r={r} onSendVan={setSendingVanFor} onClose={setClosing} />
             ))}
-          </div>
+          </ul>
+        )}
+      </section>
 
-          <div className="space-y-2.5">
-            {filteredCases.length === 0 && (
-              <div className="p-5 rounded-xl bg-surface-container-lowest border border-surface-container text-xs text-on-surface-variant text-center">
-                No cases match this filter.
-              </div>
-            )}
-            {filteredCases.map((c) => {
-              const isSelected = c.id === activeCase?.id;
-              const isUrgent = isHighAcuity(c.priority);
-              const barrier = c.barriers?.find((b) => b.status !== BarrierStatus.RESOLVED) || c.barriers?.[0];
-
-              return (
-                <div
-                  key={c.id}
-                  onClick={() => setSelectedCaseId(c.id)}
-                  className={`p-4 rounded-xl cursor-pointer transition-all border ${
-                    isSelected
-                      ? "bg-surface-container-lowest border-secondary shadow-md ring-2 ring-secondary/20"
-                      : "bg-surface-container-lowest border-surface-container hover:bg-surface-container-low"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-title-sm text-sm font-bold text-primary">{c.patientName}</span>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isUrgent ? "bg-error-container text-on-error-container" : "bg-surface-container text-primary"
-                      }`}
-                    >
-                      {c.priority}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">
-                    {c.condition || c.reason}
-                  </p>
-
-                  <div className="mt-2.5 pt-2 border-t border-surface-container/60 flex items-center justify-between text-[11px]">
-                    <span className="text-secondary font-semibold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[13px]">warning</span>
-                      {barrier ? barrier.category : "Transit Deficit"}
-                    </span>
-                    <span className="font-data-tabular text-on-surface-variant">{c.id}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: Case Deep-Dive & Playbook Actions */}
-        <div className="lg:col-span-8 space-y-5">
-          {activeCase ? (
-            <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-surface-container/60 space-y-6">
-              {/* Case Header */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-surface-container pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-headline-md text-xl font-bold text-primary">
-                      {activeCase.patientName}
-                    </span>
-                    <span className="text-xs font-data-tabular text-on-surface-variant">
-                      ({activeCase.patientId || activeCase.id})
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-surface-container text-primary">
-                      {activeCase.age || "Perinatal"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-on-surface-variant mt-1">
-                    Route: <strong className="text-on-surface">{activeCase.fromFacility}</strong> →{" "}
-                    <strong className="text-secondary">{activeCase.toFacility}</strong>
-                  </p>
-                </div>
-
-                <Link
-                  to={`/referral/${activeCase.id}`}
-                  className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary text-xs font-semibold flex items-center gap-1"
-                >
-                  <span>Open Full Chart</span>
-                  <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+      {resolved.length > 0 && (
+        <details className="text-sm text-ink-muted">
+          <summary className="cursor-pointer font-semibold text-ink">Resolved ({resolved.length})</summary>
+          <ul className="mt-2 space-y-2">
+            {resolved.map((r) => (
+              <li key={r.id} className="break-words">
+                <Link to={`/referral/${r.id}`} className="font-semibold text-ink underline">
+                  {r.patientName}
                 </Link>
-              </div>
+                : {r.barriers[r.barriers.length - 1].title}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
-              {/* Identified Barrier Card */}
-              {primaryBarrier ? (
-                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-label-sm text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px]">report</span>
-                      Active Barrier: {primaryBarrier.category}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">
-                      {primaryBarrier.status}
-                    </span>
-                  </div>
-                  <h4 className="font-title-sm text-sm text-primary font-bold">{primaryBarrier.title}</h4>
-                  <p className="text-xs text-on-surface leading-relaxed">
-                    {primaryBarrier.description || activeCase.reason}
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 rounded-xl bg-surface-container-low text-xs text-on-surface-variant">
-                  No active barriers on this case.
-                </div>
-              )}
+      {sendingVanFor && (
+        <SendVanDialog referral={sendingVanFor} onClose={() => setSendingVanFor(null)} onResult={report} />
+      )}
 
-              {/* Action Playbook */}
-              <div className="space-y-3">
-                <h4 className="font-title-sm text-sm text-primary font-bold">
-                  Care Coordinator Action Playbook
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    onClick={handleDispatchVan}
-                    disabled={!canDispatch}
-                    title={canDispatch ? undefined : "Transport is already under way or no longer needed"}
-                    className="p-3.5 rounded-xl bg-secondary text-white font-label-md text-xs font-semibold hover:bg-on-secondary-container transition-all shadow-xs flex items-center gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="material-symbols-outlined text-[22px]">local_taxi</span>
-                    <div>
-                      <div className="font-bold">Dispatch MediVan #04</div>
-                      <div className="text-[10px] text-white/80 font-normal">
-                        Vehicle with neonatal transport kit
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      showToast("Demo only: no bed hold request was sent.");
-                    }}
-                    className="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-primary font-label-md text-xs font-semibold transition-all border border-surface-container flex items-center gap-2 text-left"
-                  >
-                    <span className="material-symbols-outlined text-[22px] text-secondary">
-                      notification_important
-                    </span>
-                    <div>
-                      <div className="font-bold">Extend Bed Hold</div>
-                      <div className="text-[10px] text-on-surface-variant font-normal">
-                        Notify receiving charge nurse of delay
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      showToast("Demo only: no re-triage request was sent.");
-                    }}
-                    className="p-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-primary font-label-md text-xs font-semibold transition-all border border-surface-container flex items-center gap-2 text-left"
-                  >
-                    <span className="material-symbols-outlined text-[22px] text-error">
-                      stethoscope
-                    </span>
-                    <div>
-                      <div className="font-bold">Physician Re-triage</div>
-                      <div className="text-[10px] text-on-surface-variant font-normal">
-                        Request on-call clinician trajectory review
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={handleConfirmIntake}
-                    disabled={!canConfirmArrival}
-                    title={canConfirmArrival ? undefined : "The facility must acknowledge the referral first, and arrival can be confirmed only once"}
-                    className="p-3.5 rounded-xl bg-primary text-white font-label-md text-xs font-semibold hover:bg-primary-container transition-all shadow-xs flex items-center gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="material-symbols-outlined text-[22px]">verified</span>
-                    <div>
-                      <div className="font-bold">Confirm Physical Arrival</div>
-                      <div className="text-[10px] text-white/80 font-normal">
-                        Patient arrived at intake bay • Sign off
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Case Chronological Audit Trail */}
-              <div className="space-y-3 pt-4 border-t border-surface-container">
-                <h4 className="font-title-sm text-sm text-primary font-bold">
-                  Chronological Event Audit Trail
-                </h4>
-
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {(activeCase.timeline || []).slice().reverse().map((t, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-lg bg-surface-container-low text-xs flex items-start justify-between gap-3"
-                    >
-                      <div>
-                        <span className="font-semibold text-primary">{t.status.replace(/_/g, " ")}</span>
-                        <p className="text-on-surface-variant mt-0.5">{t.notes}</p>
-                      </div>
-                      <span className="text-[10px] font-data-tabular text-on-surface-variant shrink-0">
-                        {new Date(t.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-surface-container-lowest p-10 rounded-2xl border border-surface-container text-center text-sm text-on-surface-variant">
-              No active barrier case selected.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+      {closing && (
+        <FormDialog
+          title={`Close barrier: ${findOpenBarrier(closing).title}`}
+          onCancel={closeDialog}
+          onSave={handleCloseBarrier}
+          saveLabel="Close barrier"
+          saveDisabled={!closingNote.trim()}
+        >
+          <Field label="How was it solved?">
+            <Textarea value={closingNote} onChange={(e) => setClosingNote(e.target.value)} />
+          </Field>
+        </FormDialog>
+      )}
+    </Page>
   );
 };
 

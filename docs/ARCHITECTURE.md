@@ -3,7 +3,7 @@
 **Document:** `docs/ARCHITECTURE.md`  
 **Version:** 3.0.0  
 **Status:** IMPLEMENTED & VERIFIED  
-**Auditor/Architect:** Principal Software & Healthcare Technology Architect  
+**Auditor/Architect:** Principal Software & Healthcare Technology Architect
 
 ---
 
@@ -14,11 +14,11 @@ Navexa Health is engineered as a **modular, domain-driven maternal and neonatal 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           PRESENTATION LAYER                            │
-│  React 18 + React Router v6 + Google Stitch Material 3 Design System    │
+│  React 18 + React Router v6 + design tokens and UI kit (docs/design.md) │
 ├────────────────────┬────────────────────┬───────────────────────────────┤
 │ Operational Hubs   │ Clinical Intake    │ Patient & Community           │
 │ - Coordinator Desk │ - Receiving Triage │ - Patient & Family Journey    │
-│ - Navigator Desk   │ - Case Details     │ - 42-Day Postpartum Continuity│
+│ - Caseload         │ - Case Details     │ - 42-Day Postpartum Continuity│
 │ - Barrier Desk     │ - Referral Wizard  │ - Regional Facility Directory │
 │ - Transport Fleet  │                    │                               │
 ├────────────────────┴────────────────────┴───────────────────────────────┤
@@ -44,17 +44,17 @@ Navexa Health is engineered as a **modular, domain-driven maternal and neonatal 
 
 The platform is divided into distinct, role-specific operational workspaces operating upon a single shared domain store:
 
-| Module | Route | Primary Responsibilities | Data Inputs | Data Outputs |
-| :--- | :--- | :--- | :--- | :--- |
-| **Module 1: Referral Management** | `/create`, `/referral/:id` | Referral creation wizard, clinical narrative capture, urgency stratification, full chart & event ledger inspection. | Clinician inputs, demographic & obstetric metrics, indication narrative. | Persisted `Referral` entity with `CREATED` & `SENT` milestones. |
-| **Module 2: Receiving Facility** | `/facility` | Intake triage review, hospital bed reservation, decline/rejection logging, regional hospital redirection, physical arrival confirmation, and structured clinical outcome recording. | Inbound transfers, staff attribution, room/bay allocation, clinical assessment findings. | Status mutations: `ACKNOWLEDGED`, `REJECTED`, `REDIRECTED`, `ARRIVAL_CONFIRMED`, `COMPLETED`. |
-| **Module 3: Care Coordination** | `/coordinator` | High-level triage command center, 6 dynamic KPI ribbon pods, operational priority queue, staff workload balancing, regional capacity grid. | Central `ReferralContext` collection. | Triage prioritization, case escalations, shift handover audit reports. |
-| **Module 4: Care Navigation** | `/navigator` | Community social worker desk, contact attempt logging (call, voicemail, home visit), preferred language & interpreter scheduling, barrier flagging. | Patient contact attempts, social determinants of health (SDOH). | `CommunicationLog`, updated `Barrier` records. |
-| **Module 5: Barrier Resolution** | `/barriers` | Dedicated barrier mitigation desk, root-cause diagnostics, specialized transit dispatch, receiving bed hold extension. | Unresolved barrier records, transit deficits. | Transition of barriers to `RESOLVED`, trigger of `TransportRequest`. |
-| **Module 6: Transport Operations** | `/transport` | Medical fleet tracking (MediVan #04 with neonatal transport kit, Transit Van #02, Ambulance #01), vehicle assignment, driver dispatch, pickup confirmation, and disruption reporting. | Transit requests, pickup address, passenger neonatal transport kit requirements. | `TransportRequest` lifecycle mutations (`DISPATCHED` → `PICKED_UP` → `ARRIVED` / `FAILED`). |
-| **Module 7: Patient & Family** | `/patient` | Reassuring, plain-language patient roadmap, dynamic transit status, driver ETA, assigned navigator card, emergency 108 advisory, what-to-bring checklist. | Active referral records, live transport status. | Read-only patient guidance (zero clinical notes exposed). |
-| **Module 8: Continuity of Care** | `/continuity` | 42-day postpartum maternal surveillance and 28-day neonatal well-baby tracking. Independent care plan lifecycle after hospital referral closure. | Completed referral records, touchpoint checklists. | Completed touchpoints (Day 3, Day 7, Day 14, Day 42) with clinical findings. |
-| **Module 9: Regional Care Grid** | `/network` | Directory of 5 participating regional medical centers, bed velocity, direct transfer contacts, and service capabilities. | Master facility registry. | Selected destination facility for referral creation or hospital redirection. |
+| Module                             | Route                      | Primary Responsibilities                                                                                                                                                                                                                                                                     | Data Inputs                                                                              | Data Outputs                                                                                  |
+| :--------------------------------- | :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------- |
+| **Module 1: Referral Management**  | `/create`, `/referral/:id` | Single-page referral form, clinical narrative capture, urgency stratification, full chart & event ledger inspection.                                                                                                                                                                         | Clinician inputs, demographic & obstetric metrics, indication narrative.                 | Persisted `Referral` entity with `CREATED` & `SENT` milestones.                               |
+| **Module 2: Receiving Facility**   | `/facility`                | Intake triage review, hospital bed reservation, decline logging (the referral then floats until the patient chooses), arrival confirmation by case ID for any patient who reaches this hospital, and structured clinical outcome recording.                                                  | Inbound transfers, staff attribution, room/bay allocation, clinical assessment findings. | Status mutations: `ACKNOWLEDGED`, `REJECTED`, `REDIRECTED`, `ARRIVAL_CONFIRMED`, `COMPLETED`. |
+| **Module 3: Care Coordination**    | `/coordinator`             | Urgent cases not yet arrived, totals, and a filterable referral queue.                                                                                                                                                                                                                       | Central `ReferralContext` collection.                                                    | Triage prioritization, case escalations, shift handover audit reports.                        |
+| **Module 4: Care Navigation**      | `/navigator`               | Coordinator's Caseload screen: contact attempt logging (call, voicemail, home visit), preferred language & interpreter scheduling, barrier flagging.                                                                                                                                         | Patient contact attempts, social determinants of health (SDOH).                          | `CommunicationLog`, updated `Barrier` records.                                                |
+| **Module 5: Barrier Resolution**   | `/barriers`                | Dedicated barrier mitigation desk, root-cause diagnostics, specialized transit dispatch, receiving bed hold extension.                                                                                                                                                                       | Unresolved barrier records, transit deficits.                                            | Transition of barriers to `RESOLVED`, trigger of `TransportRequest`.                          |
+| **Module 6: Transport Operations** | `/transport`               | Medical fleet tracking (MediVan #04 with neonatal transport kit, Transit Van #02, Ambulance #01), vehicle assignment, driver dispatch, pickup confirmation, and disruption reporting.                                                                                                        | Transit requests, pickup address, passenger neonatal transport kit requirements.         | `TransportRequest` lifecycle mutations (`DISPATCHED` → `PICKED_UP` → `ARRIVED` / `FAILED`).   |
+| **Module 7: Patient & Family**     | `/patient`                 | Reassuring, plain-language patient roadmap, dynamic transit status, driver ETA, assigned navigator card, emergency 108 advisory, what-to-bring checklist, embedded OpenStreetMap of the referred hospital with Google Maps directions (hospital location only, never the patient's address). | Active referral records, live transport status.                                          | Read-only patient guidance (zero clinical notes exposed).                                     |
+| **Module 8: Continuity of Care**   | `/continuity`              | 42-day postpartum maternal surveillance and 28-day neonatal well-baby tracking. Independent care plan lifecycle after hospital referral closure.                                                                                                                                             | Completed referral records, touchpoint checklists.                                       | Completed touchpoints (Day 3, Day 7, Day 14, Day 42) with clinical findings.                  |
+| **Module 9: Regional Care Grid**   | `/network`                 | Directory of 5 participating regional medical centers, bed velocity, direct transfer contacts, and service capabilities.                                                                                                                                                                     | Master facility registry.                                                                | Selected destination facility for referral creation or hospital redirection.                  |
 
 ---
 
@@ -62,6 +62,7 @@ The platform is divided into distinct, role-specific operational workspaces oper
 
 All application state is consolidated within `src/context/ReferralContext.jsx`, eliminating isolated local component state:
 1. **Unified Storage Structure:**
+
    ```json
    {
      "referrals": [ ... ],
@@ -86,4 +87,3 @@ To maintain strict clinical safety:
 - **Arrival $\neq$ Treatment:** A physical arrival confirmation (`ARRIVAL_CONFIRMED`) records entry into the facility, but does **not** mark clinical care as complete.
 - **Referral Closure $\neq$ Care Termination:** When a referral reaches `COMPLETED`, the system automatically establishes a linked **42-Day Continuing Care Plan** (`FollowUpPlan`). Closing the referral episode never terminates the continuing care surveillance.
 - **Role Scoping:** Only authorized clinical roles (MD, MS (OBG), B.Sc Nursing) can record clinical findings and outcomes. Care navigators and social workers are restricted to administrative coordination and barrier mitigation.
-
