@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FormDialog } from "../components/Dialog.jsx";
+import {
+  actionsColumn,
+  caseIdColumn,
+  conditionColumn,
+  fromColumn,
+  patientColumn,
+  priorityColumn,
+  serialColumn,
+  typeColumn,
+} from "../components/referralColumns.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
 import {
   Badge,
   Button,
-  Card,
-  EmptyState,
+  DataTable,
   Field,
   FilterTabs,
   Input,
@@ -17,7 +26,7 @@ import {
 } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { formatMinutes, getResponseClock } from "../domain/alarms.js";
-import { isHighAcuity, PatientType, ReferralStatus } from "../domain/enums.js";
+import { PatientType, ReferralStatus } from "../domain/enums.js";
 import { hasArrivedAtFacility, isFloating } from "../domain/workflow.js";
 
 const TABS = [
@@ -37,6 +46,61 @@ const TABS = [
   { id: "completed", label: "Done", empty: "No completed cases yet.", statuses: [ReferralStatus.COMPLETED] },
   { id: "declined", label: "Declined", empty: "None declined.", statuses: [ReferralStatus.REJECTED] },
 ];
+
+const replyColumn = {
+  id: "reply",
+  header: "Reply by",
+  // Minutes left shift by the same amount for every row as time passes, so any fixed clock sorts them right.
+  accessorFn: (r) => getResponseClock(r, 0)?.minutesLeft,
+  sortUndefined: "last",
+  enableGlobalFilter: false,
+  meta: { className: "whitespace-nowrap" },
+  cell: ({ row: { original: r }, table }) => {
+    const clock = getResponseClock(r, table.options.meta.now);
+    if (!clock) return null;
+    return (
+      <Badge tone={clock.isOverdue ? "danger" : "neutral"}>
+        {clock.isOverdue ? `${formatMinutes(-clock.minutesLeft)} late` : `${formatMinutes(clock.minutesLeft)} left`}
+      </Badge>
+    );
+  },
+};
+
+const intakeActions = actionsColumn(({ row: { original: r }, table }) => {
+  const { onAcknowledge, ask } = table.options.meta;
+  return (
+    <div className="flex justify-end gap-2">
+      {TABS[0].statuses.includes(r.status) && (
+        <>
+          <Button size="sm" variant="primary" onClick={() => onAcknowledge(r)}>
+            Acknowledge
+          </Button>
+          <Button size="sm" onClick={() => ask("arrival", r)}>
+            Patient is here
+          </Button>
+          <Button size="sm" variant="danger-quiet" onClick={() => ask("reject", r)}>
+            Decline
+          </Button>
+        </>
+      )}
+      {r.status === ReferralStatus.ACKNOWLEDGED && (
+        <Button size="sm" variant="primary" onClick={() => ask("arrival", r)}>
+          Confirm arrival
+        </Button>
+      )}
+      {r.status === ReferralStatus.ARRIVAL_CONFIRMED && (
+        <Button size="sm" variant="primary" onClick={() => ask("outcome", r)}>
+          Record outcome
+        </Button>
+      )}
+    </div>
+  );
+});
+
+const baseColumns = [serialColumn(), caseIdColumn(), patientColumn(), priorityColumn()];
+const tailColumns = [typeColumn(), conditionColumn(), fromColumn(), intakeActions];
+const QUEUE_COLUMNS = [...baseColumns, ...tailColumns];
+const PENDING_COLUMNS = [...baseColumns, replyColumn, ...tailColumns];
 
 const BLANK_FORM = {
   rejectReason: "",
@@ -170,7 +234,7 @@ const FacilityDashboard = () => {
   );
 
   return (
-    <Page>
+    <Page width="full">
       <Toast toast={toast} />
 
       <div className="space-y-3">
@@ -223,88 +287,35 @@ const FacilityDashboard = () => {
         onSelect={(id) => setParam("tab", id)}
       />
 
-      <div className="space-y-4">
-        {list.length === 0 ? (
-          <EmptyState>{TABS.find((t) => t.id === activeTab).empty}</EmptyState>
-        ) : (
-          list.map((r) => {
-            const isPending = TABS[0].statuses.includes(r.status);
-            const isAccepted = r.status === ReferralStatus.ACKNOWLEDGED;
-            const isArrived = r.status === ReferralStatus.ARRIVAL_CONFIRMED;
-            const clock = isPending ? getResponseClock(r, now) : null;
-            return (
-              <Card as="article" key={r.id} className="space-y-3">
-                <div className="space-y-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-display text-base font-semibold text-ink break-words">{r.patientName}</h2>
-                    {isHighAcuity(r.priority) && (
-                      <Badge tone="danger" className="uppercase">
-                        {r.priority}
-                      </Badge>
-                    )}
-                    {clock && (
-                      <Badge tone={clock.isOverdue ? "danger" : "neutral"}>
-                        {clock.isOverdue
-                          ? `Reply ${formatMinutes(-clock.minutesLeft)} late`
-                          : `Reply within ${formatMinutes(clock.minutesLeft)}`}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-ink-muted break-words">{r.condition || r.reason}</p>
-                  <p className="text-sm text-ink-muted">From {r.fromFacility}</p>
-                </div>
-
-                <details className="text-sm text-ink-muted">
-                  <summary className="cursor-pointer font-semibold text-ink">Details</summary>
-                  <div className="mt-2 space-y-1 break-words">
-                    <p>
-                      {r.id} · {r.referralType} · {r.priority} acuity · {r.status}
-                    </p>
-                    <p>Referred by: {r.fromClinician || "Clinician on file"}</p>
-                    <p>
-                      Contact: {r.caregiverContact || r.patientPhone} · Language: {r.language || "English"}
-                    </p>
-                    {r.transit && (
-                      <p>
-                        Transit: {r.transit.vehicle || "Assigned"} ({r.transit.status})
-                      </p>
-                    )}
-                    <Button as={Link} to={`/referral/${r.id}`} variant="link" size="flush">
-                      Open chart
-                    </Button>
-                  </div>
-                </details>
-
-                {(isPending || isAccepted || isArrived) && (
-                  <div className="grid grid-cols-2 sm:flex gap-2 pt-3 border-t border-line">
-                    {isPending && (
-                      <>
-                        <Button variant="primary" className="col-span-2" onClick={() => handleAcknowledge(r)}>
-                          Acknowledge
-                        </Button>
-                        <Button onClick={() => ask("arrival", r)}>Patient is here</Button>
-                        <Button variant="danger-quiet" onClick={() => ask("reject", r)}>
-                          Decline
-                        </Button>
-                      </>
-                    )}
-                    {isAccepted && (
-                      <Button variant="primary" className="col-span-2" onClick={() => ask("arrival", r)}>
-                        Confirm arrival
-                      </Button>
-                    )}
-                    {isArrived && (
-                      <Button variant="primary" className="col-span-2" onClick={() => ask("outcome", r)}>
-                        Record outcome
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </Card>
-            );
-          })
+      <DataTable
+        key={activeTab}
+        label={TABS.find((t) => t.id === activeTab).label}
+        data={list}
+        columns={activeTab === "pending" ? PENDING_COLUMNS : QUEUE_COLUMNS}
+        context={{ now, onAcknowledge: handleAcknowledge, ask }}
+        searchPlaceholder="Search name, ID, condition or clinic"
+        emptyText={TABS.find((t) => t.id === activeTab).empty}
+        noMatchText="No patients match."
+        renderDetail={(r) => (
+          <>
+            <p>
+              {r.id} · {r.referralType} · {r.priority} acuity · {r.status}
+            </p>
+            <p>Referred by: {r.fromClinician || "Clinician on file"}</p>
+            <p>
+              Contact: {r.caregiverContact || r.patientPhone} · Language: {r.language || "English"}
+            </p>
+            {r.transit && (
+              <p>
+                Transit: {r.transit.vehicle || "Assigned"} ({r.transit.status})
+              </p>
+            )}
+            <Button as={Link} to={`/referral/${r.id}`} variant="link" size="flush">
+              Open chart
+            </Button>
+          </>
         )}
-      </div>
+      />
 
       {modal?.type === "arrival" && (
         <FormDialog

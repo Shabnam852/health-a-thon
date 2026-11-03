@@ -1,4 +1,4 @@
-const WIDTHS = { sm: "max-w-2xl", md: "max-w-3xl", lg: "max-w-5xl" };
+const WIDTHS = { sm: "max-w-2xl", md: "max-w-3xl", lg: "max-w-5xl", full: "max-w-none" };
 
 // The content column of a screen, so width, gutters and rhythm match everywhere.
 const Page = ({ width = "lg", className = "", children }) => (

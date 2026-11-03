@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FormDialog } from "../components/Dialog.jsx";
+import { actionsColumn, serialColumn } from "../components/referralColumns.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
 import {
   Badge,
   Button,
   Card,
+  DataTable,
   EmptyState,
   Field,
-  FilterTabs,
   Icon,
   Page,
   PageHeader,
@@ -27,20 +28,125 @@ const STATE_BADGES = {
 
 const countDone = (r) => r.followUpPlan.tasks.filter((t) => t.status === FollowUpStatus.COMPLETED).length;
 
+const STATE_ORDER = [
+  FollowUpStatus.ESCALATED,
+  FollowUpStatus.MISSED,
+  FollowUpStatus.DUE,
+  FollowUpStatus.PLANNED,
+  FollowUpStatus.SCHEDULED,
+  FollowUpStatus.COMPLETED,
+];
+const STATE_LABELS = {
+  [FollowUpStatus.ESCALATED]: "Escalated",
+  [FollowUpStatus.MISSED]: "Missed",
+  [FollowUpStatus.DUE]: "Due now",
+  [FollowUpStatus.PLANNED]: "Upcoming",
+  [FollowUpStatus.SCHEDULED]: "Upcoming",
+  [FollowUpStatus.COMPLETED]: "Done",
+};
+const STATE_TONES = {
+  [FollowUpStatus.ESCALATED]: "danger-solid",
+  [FollowUpStatus.MISSED]: "danger",
+  [FollowUpStatus.DUE]: "warning",
+  [FollowUpStatus.COMPLETED]: "accent",
+};
+
+// Every visit across every patient, one row each.
+const VISIT_COLUMNS = [
+  serialColumn(),
+  {
+    id: "caseId",
+    header: "Case ID",
+    accessorFn: (v) => v.referral.id,
+    meta: { className: "whitespace-nowrap tabular-nums text-ink-muted" },
+  },
+  {
+    id: "patient",
+    header: "Patient",
+    accessorFn: (v) => v.referral.patientName,
+    meta: { filter: true, className: "min-w-32" },
+    cell: ({ row: { original: v }, table }) => (
+      <Link
+        to={`/referral/${v.referral.id}`}
+        onClick={() => table.options.meta.onOpenCase(v.referral.id)}
+        className="font-semibold text-ink hover:underline"
+      >
+        {v.referral.patientName}
+      </Link>
+    ),
+  },
+  { id: "visit", header: "Visit", accessorFn: (v) => v.task.title, meta: { className: "min-w-56 text-ink" } },
+  {
+    id: "due",
+    header: "Due",
+    accessorFn: (v) => v.task.dueDate,
+    meta: { className: "whitespace-nowrap tabular-nums" },
+    cell: ({ row: { original: v } }) => (
+      <span>
+        {v.task.dueDate.slice(0, 10)}
+        <span className="block text-xs text-ink-muted">day {v.task.dayOffset}</span>
+      </span>
+    ),
+  },
+  {
+    id: "state",
+    header: "State",
+    accessorFn: (v) => STATE_LABELS[v.state],
+    sortingFn: (a, b) => STATE_ORDER.indexOf(a.original.state) - STATE_ORDER.indexOf(b.original.state),
+    meta: { filter: true },
+    cell: ({ row: { original: v } }) => <Badge tone={STATE_TONES[v.state] || "neutral"}>{STATE_LABELS[v.state]}</Badge>,
+  },
+  {
+    id: "assigned",
+    header: "Assigned to",
+    accessorFn: (v) => v.task.targetRole || v.referral.followUpPlan.leadWorker || "",
+    meta: { filter: true, className: "min-w-40 text-ink-muted" },
+  },
+  {
+    id: "notes",
+    header: "Focus or findings",
+    accessorFn: (v) => (v.state === FollowUpStatus.COMPLETED ? v.task.notes : v.task.clinicalFocus) || "",
+    meta: { className: "min-w-48 text-ink-muted" },
+  },
+  actionsColumn(
+    ({ row: { original: v }, table }) =>
+      v.state !== FollowUpStatus.COMPLETED && (
+        <Button size="sm" onClick={() => table.options.meta.onMarkDone(v)}>
+          Mark done
+        </Button>
+      ),
+  ),
+];
+
 const ContinuityOfCare = () => {
-  const { referrals, completeFollowUpTask, role, activeReferralId, now } = useReferrals();
+  const { referrals, completeFollowUpTask, role, activeReferralId, setActiveReferralId, now } = useReferrals();
   const isPatient = role === RoleId.PATIENT;
 
-  // Links from a patient's case set them active, so they open on that patient's plan.
-  const [selectedPlanId, setSelectedPlanId] = useState(activeReferralId);
   const [completeModalTask, setCompleteModalTask] = useState(null);
   const [completionNotes, setCompletionNotes] = useState("");
   const { toast, showToast } = useToast();
 
   // A patient sees only their own plan.
   const plans = referrals.filter((r) => r.followUpPlan != null && (!isPatient || r.id === activeReferralId));
-  const activeReferral = plans.find((r) => r.id === selectedPlanId) || plans[0] || null;
+  const activeReferral = plans.find((r) => r.id === activeReferralId) || plans[0] || null;
   const plan = activeReferral?.followUpPlan;
+
+  // Missed and escalated visits first, then by due date.
+  const visits = plans
+    .flatMap((r) =>
+      r.followUpPlan.tasks.map((task) => ({
+        id: `${r.id}-${task.id}`,
+        referral: r,
+        task,
+        state: getFollowUpState(task, now),
+      })),
+    )
+    .sort(
+      (a, b) =>
+        STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state) || a.task.dueDate.localeCompare(b.task.dueDate),
+    );
+  const missedCount = visits.filter((v) => [FollowUpStatus.MISSED, FollowUpStatus.ESCALATED].includes(v.state)).length;
+  const dueCount = visits.filter((v) => v.state === FollowUpStatus.DUE).length;
 
   const closeCompleteModal = () => {
     setCompleteModalTask(null);
@@ -48,9 +154,12 @@ const ContinuityOfCare = () => {
   };
 
   const handleConfirmTaskCompletion = () => {
-    if (!completeModalTask || !activeReferral) return;
+    // Every path that opens the dialog stores the task's own referral, so there is no fallback
+    // that could complete a visit on whichever patient happens to be active.
+    const forReferral = completeModalTask?.referral;
+    if (!forReferral) return;
     const res = completeFollowUpTask(
-      activeReferral.id,
+      forReferral.id,
       completeModalTask.id,
       completionNotes || "Touchpoint successfully completed and clinical findings documented.",
     );
@@ -60,25 +169,39 @@ const ContinuityOfCare = () => {
   };
 
   return (
-    <Page width="md">
+    <Page width={isPatient ? "md" : "full"}>
       <Toast toast={toast} />
 
-      <PageHeader title={isPatient ? "My check-ups" : "Follow-ups"} />
+      <PageHeader
+        title={isPatient ? "My check-ups" : "Follow-ups"}
+        subtitle={
+          isPatient
+            ? undefined
+            : [
+                `${plans.length} ${plans.length === 1 ? "patient" : "patients"}`,
+                missedCount > 0 && `${missedCount} missed`,
+                dueCount > 0 && `${dueCount} due now`,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+        }
+      />
 
-      {plans.length > 1 && (
-        <FilterTabs
-          label="Follow-up plans"
-          items={plans.map((r) => ({
-            id: r.id,
-            label: r.patientName,
-            count: `${countDone(r)}/${r.followUpPlan.tasks.length}`,
-          }))}
-          selected={activeReferral.id}
-          onSelect={setSelectedPlanId}
+      {!isPatient ? (
+        <DataTable
+          label="Follow-up visits"
+          data={visits}
+          columns={VISIT_COLUMNS}
+          context={{
+            onOpenCase: setActiveReferralId,
+            onMarkDone: (v) => setCompleteModalTask({ ...v.task, referral: v.referral }),
+          }}
+          searchPlaceholder="Search patient, visit or worker"
+          emptyText="No follow-ups yet. They start when a referral is completed."
+          noMatchText="No visits match."
+          pageSize={50}
         />
-      )}
-
-      {plan ? (
+      ) : plan ? (
         <Card as="section" className="space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
@@ -129,7 +252,11 @@ const ContinuityOfCare = () => {
                       ) : isPatient ? (
                         <span className="text-sm text-ink-muted">Your care team will record this</span>
                       ) : (
-                        <Button size="sm" className="w-full sm:w-auto" onClick={() => setCompleteModalTask(task)}>
+                        <Button
+                          size="sm"
+                          className="w-full sm:w-auto"
+                          onClick={() => setCompleteModalTask({ ...task, referral: activeReferral })}
+                        >
                           Mark done
                         </Button>
                       )}
@@ -170,7 +297,9 @@ const ContinuityOfCare = () => {
           onSave={handleConfirmTaskCompletion}
           saveLabel="Save"
         >
-          <Field label={`What was found at the visit for ${activeReferral.patientName}?`}>
+          <Field
+            label={`What was found at the visit for ${(completeModalTask.referral || activeReferral).patientName}?`}
+          >
             <Textarea
               rows={4}
               placeholder="e.g., Blood pressure 118/76. Wound clean and dry. Feeding well."

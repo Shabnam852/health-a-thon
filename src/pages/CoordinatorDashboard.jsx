@@ -2,8 +2,19 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Dialog from "../components/Dialog.jsx";
 import HospitalChoice from "../components/HospitalChoice.jsx";
+import {
+  actionsColumn,
+  caseIdColumn,
+  conditionColumn,
+  fromColumn,
+  patientColumn,
+  priorityColumn,
+  serialColumn,
+  toColumn,
+  typeColumn,
+} from "../components/referralColumns.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { Badge, Button, Card, EmptyState, FilterTabs, Input, Page, PageHeader } from "../components/ui/index.js";
+import { Button, DataTable, FilterTabs, Page, PageHeader } from "../components/ui/index.js";
 import { TIME_LIMITS_NOTE } from "../config/timeLimits.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { AlarmKind } from "../domain/alarms.js";
@@ -16,13 +27,8 @@ import {
   sortByAcuity,
   UrgencyLevel,
 } from "../domain/enums.js";
-import {
-  canDispatchTransport,
-  findOpenBarrier,
-  getDestination,
-  hasArrivedAtFacility,
-  isFloating,
-} from "../domain/workflow.js";
+import { getHospitalRow, getNetworkSummary } from "../domain/network.js";
+import { canDispatchTransport, findOpenBarrier, hasArrivedAtFacility, isFloating } from "../domain/workflow.js";
 
 const filters = [
   { id: "all", label: "All" },
@@ -41,6 +47,97 @@ const statusLabels = {
 const statusLabel = (status) =>
   statusLabels[status] || status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, " ");
 
+const QUEUE_COLUMNS = [
+  serialColumn(),
+  caseIdColumn(),
+  patientColumn(),
+  priorityColumn(),
+  typeColumn(),
+  conditionColumn(),
+  fromColumn(),
+  toColumn(),
+  {
+    id: "status",
+    header: "Status",
+    accessorFn: (r) => statusLabel(r.status),
+    meta: { filter: true, className: "font-semibold text-ink min-w-28" },
+  },
+  actionsColumn(
+    ({ row: { original: r }, table }) =>
+      isFloating(r) && (
+        <Button size="sm" variant="primary" onClick={() => table.options.meta.onChoose(r)}>
+          Record choice
+        </Button>
+      ),
+  ),
+];
+
+// The coordinator's to-do list: what is wrong with each case, and the one thing to do about it.
+const TODO_COLUMNS = [
+  serialColumn(),
+  caseIdColumn(),
+  patientColumn(),
+  priorityColumn(),
+  conditionColumn(),
+  {
+    id: "problem",
+    header: "What's wrong",
+    accessorFn: (row) => (row.alarms.length ? row.alarms.map((a) => a.title).join(" ") : statusLabel(row.status)),
+    meta: { className: "min-w-56" },
+    cell: ({ row: { original: row } }) =>
+      row.alarms.length ? (
+        <span className="space-y-1 block">
+          {row.alarms.map((a) => (
+            <span key={a.id} className="block">
+              <span className="block font-semibold text-danger">{a.title}</span>
+              <span className="block text-xs text-ink-muted">{a.detail}</span>
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span>
+          <span className="block font-semibold text-ink">{statusLabel(row.status)}</span>
+          {row.barrier && <span className="block text-xs text-danger">{row.barrier.title}</span>}
+        </span>
+      ),
+  },
+  actionsColumn(({ row: { original: r }, table }) => {
+    const { onChoose, onOpenCase, hospitalCallLink, patientCallLink } = table.options.meta;
+    // One button per kind of alarm, however many alarms of that kind the case has.
+    const has = (kind) => r.alarms.some((a) => a.kind === kind);
+    const isTransport = r.barrier?.category === BarrierCategory.TRANSPORT;
+    return (
+      <div className="flex justify-end gap-2">
+        {has(AlarmKind.NO_PATIENT_CHOICE) && patientCallLink(r) && (
+          <Button as="a" size="sm" href={patientCallLink(r)}>
+            Call patient
+          </Button>
+        )}
+        {has(AlarmKind.NO_HOSPITAL_REPLY) && hospitalCallLink(r) && (
+          <Button as="a" size="sm" href={hospitalCallLink(r)}>
+            Call hospital
+          </Button>
+        )}
+        {has(AlarmKind.FOLLOW_UP_MISSED) && (
+          <Button as={Link} size="sm" to="/continuity" onClick={() => onOpenCase(r.id)}>
+            See follow-ups
+          </Button>
+        )}
+        {r.alarms.length === 0 && r.barrier && (
+          <Button as={Link} to={isTransport ? "/transport" : "/barriers"} variant="danger-quiet" size="sm">
+            {!isTransport ? "Fix barrier" : canDispatchTransport(r) ? "Arrange van" : "Track van"}
+          </Button>
+        )}
+        {isFloating(r) && (
+          <Button size="sm" variant="primary" onClick={() => onChoose(r)}>
+            Record choice
+          </Button>
+        )}
+      </div>
+    );
+  }),
+];
+
 const CoordinatorDashboard = () => {
   const [searchParams] = useSearchParams();
   const {
@@ -48,6 +145,7 @@ const CoordinatorDashboard = () => {
     facilities,
     navigators,
     alarms,
+    now,
     setActiveReferralId,
     recordPatientChoice,
     recordPatientGoingElsewhere,
@@ -55,7 +153,6 @@ const CoordinatorDashboard = () => {
   const [choosingFor, setChoosingFor] = useState(null);
 
   const [activeTab, setActiveTab] = useState("all");
-  const [filterQuery, setFilterQuery] = useState("");
   const { toast, report } = useToast();
 
   // The URL decides the screen: the full list, or what needs attention now.
@@ -66,20 +163,23 @@ const CoordinatorDashboard = () => {
     [referrals],
   );
 
-  const filteredReferrals = useMemo(() => {
-    const q = filterQuery.trim().toLowerCase();
-    return openReferrals.filter((r) => {
-      // A mother and baby referred together belong under both.
-      if (activeTab === "maternal" && r.referralType === PatientType.CHILD) return false;
-      if (activeTab === "neonatal" && r.referralType === PatientType.MATERNAL) return false;
-      if (activeTab === "transport" && !(r.transit || r.transitBarrier)) return false;
-      if (activeTab === "overdue" && r.status !== ReferralStatus.SENT) return false;
-      if (!q) return true;
-      return [r.patientName, r.id, r.condition, r.fromFacility, r.toFacility].some((v) =>
-        (v || "").toLowerCase().includes(q),
-      );
-    });
-  }, [openReferrals, activeTab, filterQuery]);
+  const filteredReferrals = useMemo(
+    () =>
+      openReferrals.filter((r) => {
+        // A mother and baby referred together belong under both.
+        if (activeTab === "maternal" && r.referralType === PatientType.CHILD) return false;
+        if (activeTab === "neonatal" && r.referralType === PatientType.MATERNAL) return false;
+        if (activeTab === "transport" && !(r.transit || r.transitBarrier)) return false;
+        if (activeTab === "overdue" && r.status !== ReferralStatus.SENT) return false;
+        return true;
+      }),
+    [openReferrals, activeTab],
+  );
+
+  const tableContext = useMemo(
+    () => ({ onOpenCase: setActiveReferralId, onChoose: setChoosingFor }),
+    [setActiveReferralId],
+  );
 
   // A case already raised as an alarm is not listed twice.
   const alarmedIds = new Set(alarms.map((a) => a.referral.id));
@@ -87,185 +187,88 @@ const CoordinatorDashboard = () => {
     (r) => !alarmedIds.has(r.id) && (isFloating(r) || (isHighAcuity(r.priority) && !hasArrivedAtFacility(r))),
   );
 
-  const numbers = [
-    { label: "Open referrals", value: openReferrals.length },
-    { label: "Waiting to arrive", value: openReferrals.filter((r) => !hasArrivedAtFacility(r)).length },
-    { label: "Blocked by a barrier", value: referrals.filter((r) => findOpenBarrier(r)).length },
-    { label: "At the hospital", value: referrals.filter((r) => r.status === ReferralStatus.ARRIVAL_CONFIRMED).length },
+  // Alarmed cases first, then urgent cases still on their way. One row per case: a case with
+  // several alarms lists them all in one row.
+  const alarmsByCase = new Map();
+  for (const alarm of alarms) {
+    const id = alarm.referral.id;
+    if (!alarmsByCase.has(id)) alarmsByCase.set(id, { referral: alarm.referral, alarms: [] });
+    alarmsByCase.get(id).alarms.push(alarm);
+  }
+  const todo = [
+    ...[...alarmsByCase.values()].map(({ referral, alarms: list }) => ({ ...referral, alarms: list })),
+    ...attentionCases.map((r) => ({ ...r, alarms: [], barrier: findOpenBarrier(r) })),
   ];
+
+  const summary = [
+    `${openReferrals.length} open`,
+    `${openReferrals.filter((r) => !hasArrivedAtFacility(r)).length} not arrived`,
+    `${referrals.filter((r) => findOpenBarrier(r)).length} blocked`,
+    `${referrals.filter((r) => r.status === ReferralStatus.ARRIVAL_CONFIRMED).length} at hospital`,
+    // Same count as the Hospitals page: beds held for referred patients are not free.
+    `${getNetworkSummary(facilities.map((f) => getHospitalRow(f, referrals, now))).bedsFree} beds free`,
+  ].join(" · ");
+
+  const todoContext = {
+    ...tableContext,
+    hospitalCallLink: (r) => telHref(facilities.find((f) => f.name === r.toFacility)?.phone),
+    patientCallLink: (r) => telHref(r.caregiverContact) || telHref(r.patientPhone),
+  };
 
   const finishChoice = (res, message) => {
     report(res, message);
     setChoosingFor(null);
   };
 
-  const recordChoiceButton = (r) =>
-    isFloating(r) && (
-      <Button size="sm" variant="primary" onClick={() => setChoosingFor(r)}>
-        Record patient's choice
-      </Button>
-    );
-
-  const hospitalCallLink = (r) => telHref(facilities.find((f) => f.name === r.toFacility)?.phone);
-  const patientCallLink = (r) => telHref(r.caregiverContact) || telHref(r.patientPhone);
-
-  const patientLink = (r) => (
-    <Link to={`/referral/${r.id}`} onClick={() => setActiveReferralId(r.id)} className="min-w-0 flex-1 rounded-control">
-      <span className="flex flex-wrap items-center gap-2">
-        <span className="font-bold text-ink">{r.patientName}</span>
-        <Badge tone={isHighAcuity(r.priority) ? "danger" : "neutral"} className="uppercase">
-          {r.priority}
-        </Badge>
-      </span>
-      <span className="block text-sm text-ink-muted mt-0.5">{r.condition || r.reason}</span>
-    </Link>
-  );
-
   return (
-    <Page>
+    <Page width="full">
       <Toast toast={toast} />
 
-      <PageHeader title={isQueueView ? "Open referrals" : "Coordinator"} />
+      <PageHeader
+        title={isQueueView ? "Open referrals" : "Coordinator"}
+        subtitle={isQueueView ? undefined : summary}
+        actions={
+          !isQueueView && (
+            <Button as={Link} to="/coordinator?view=queue" variant="link" size="sm">
+              All open referrals
+            </Button>
+          )
+        }
+      />
 
       {isQueueView ? (
         <section className="space-y-4">
-          <Input
-            aria-label="Search referrals"
-            placeholder="Search name, ID, condition or hospital"
-            type="search"
-            value={filterQuery}
-            onChange={(e) => setFilterQuery(e.target.value)}
-          />
           <FilterTabs label="Filter referrals" items={filters} selected={activeTab} onSelect={setActiveTab} />
-
-          {filteredReferrals.length === 0 ? (
-            <EmptyState>No referrals match.</EmptyState>
-          ) : (
-            <ul className="space-y-4">
-              {filteredReferrals.map((r) => (
-                <Card as="li" key={r.id} className="flex flex-col lg:flex-row lg:items-center gap-3">
-                  {patientLink(r)}
-                  <span className="text-sm text-ink-muted lg:text-right">
-                    {r.fromFacility} → {getDestination(r)}
-                    <span className="block font-semibold text-ink">{statusLabel(r.status)}</span>
-                  </span>
-                  {recordChoiceButton(r)}
-                </Card>
-              ))}
-            </ul>
-          )}
+          <DataTable
+            label="Open referrals"
+            data={filteredReferrals}
+            columns={QUEUE_COLUMNS}
+            context={tableContext}
+            searchPlaceholder="Search name, ID, condition or hospital"
+            emptyText="No referrals in this view."
+            noMatchText="No referrals match."
+          />
         </section>
       ) : (
-        <>
-          {alarms.length > 0 && (
-            <section className="space-y-3">
-              <div>
-                <h2 className="font-display text-base text-ink font-semibold">Act now ({alarms.length})</h2>
-                <p className="text-sm text-ink-muted">{TIME_LIMITS_NOTE}</p>
-              </div>
-              <ul className="space-y-4">
-                {alarms.map((alarm) => {
-                  const r = alarm.referral;
-                  return (
-                    <Card
-                      as="li"
-                      key={alarm.id}
-                      className="flex flex-col lg:flex-row lg:items-center gap-3 border-danger"
-                    >
-                      {patientLink(r)}
-                      <span className="text-sm lg:text-right">
-                        <span className="block font-semibold text-danger">{alarm.title}</span>
-                        <span className="block text-ink-muted">{alarm.detail}</span>
-                      </span>
-                      {alarm.kind === AlarmKind.NO_PATIENT_CHOICE && patientCallLink(r) && (
-                        <Button as="a" size="sm" href={patientCallLink(r)}>
-                          Call patient
-                        </Button>
-                      )}
-                      {recordChoiceButton(r)}
-                      {alarm.kind === AlarmKind.NO_HOSPITAL_REPLY && hospitalCallLink(r) && (
-                        <Button as="a" size="sm" href={hospitalCallLink(r)}>
-                          Call hospital
-                        </Button>
-                      )}
-                      {alarm.kind === AlarmKind.FOLLOW_UP_MISSED && (
-                        <Button as={Link} size="sm" to="/continuity" onClick={() => setActiveReferralId(r.id)}>
-                          See follow-ups
-                        </Button>
-                      )}
-                    </Card>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-
-          <section className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-display text-base text-ink font-semibold">Urgent, not yet arrived</h2>
-              <Button as={Link} to="/coordinator?view=queue" variant="link" size="sm">
-                All open referrals
-              </Button>
-            </div>
-
-            {attentionCases.length === 0 ? (
-              <EmptyState>Nobody urgent is waiting to arrive.</EmptyState>
-            ) : (
-              <ul className="space-y-4">
-                {attentionCases.map((r) => {
-                  const barrier = findOpenBarrier(r);
-                  const isTransport = barrier?.category === BarrierCategory.TRANSPORT;
-                  return (
-                    <Card as="li" key={r.id} className="flex flex-col lg:flex-row lg:items-center gap-3">
-                      {patientLink(r)}
-                      <span className="text-sm font-semibold text-ink">{statusLabel(r.status)}</span>
-                      {recordChoiceButton(r)}
-                      {barrier && (
-                        <Button
-                          as={Link}
-                          to={isTransport ? "/transport" : "/barriers"}
-                          variant="danger-quiet"
-                          size="sm"
-                        >
-                          {!isTransport ? "Fix barrier" : canDispatchTransport(r) ? "Arrange van" : "Track van"}
-                        </Button>
-                      )}
-                    </Card>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          <section aria-label="Totals" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {numbers.map((n) => (
-              <Card key={n.label}>
-                <div className="font-display text-3xl font-semibold text-ink tabular-nums">{n.value}</div>
-                <div className="text-sm text-ink-muted">{n.label}</div>
-              </Card>
-            ))}
-          </section>
-
-          <Card as="details">
-            <summary className="cursor-pointer text-sm font-semibold text-ink">Team and beds</summary>
-            <ul className="mt-3 space-y-1 text-sm">
-              {navigators.map((nav) => (
-                <li key={nav.id} className="flex justify-between gap-3">
-                  <span className="text-ink font-medium">{nav.name}</span>
-                  <span className="text-ink-muted">
-                    {referrals.filter((r) => r.navigator?.name === nav.name).length} cases
-                  </span>
-                </li>
-              ))}
-              <li className="flex justify-between gap-3 pt-2 border-t border-line">
-                <span className="text-ink font-medium">Beds free</span>
-                <span className="text-ink-muted">
-                  {facilities.reduce((sum, f) => sum + f.bedsAvailable, 0)} in {facilities.length} hospitals
-                </span>
-              </li>
-            </ul>
-          </Card>
-        </>
+        <section className="space-y-2">
+          <DataTable
+            label="To do"
+            data={todo}
+            columns={TODO_COLUMNS}
+            context={todoContext}
+            getRowClassName={(row) => (row.alarms.length ? "bg-danger-soft/40" : "")}
+            searchPlaceholder="Search name, ID or problem"
+            emptyText="Nothing needs you right now."
+            noMatchText="Nothing matches."
+          />
+          {alarms.length > 0 && <p className="text-xs text-ink-muted">{TIME_LIMITS_NOTE}</p>}
+          <p className="text-sm text-ink-muted">
+            <span className="font-semibold text-ink">Team: </span>
+            {navigators
+              .map((nav) => `${nav.name} (${referrals.filter((r) => r.navigator?.name === nav.name).length})`)
+              .join(" · ")}
+          </p>
+        </section>
       )}
 
       {choosingFor && (

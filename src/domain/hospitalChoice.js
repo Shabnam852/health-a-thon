@@ -13,7 +13,8 @@ const treatsCase = (hospital, referralType) =>
     hospital.treats.includes(type),
   );
 
-const isSuitable = (hospital, referral) =>
+/** Whether a hospital can treat this kind of case at this urgency. Beds are checked separately. */
+export const canTakeCase = (hospital, referral) =>
   treatsCase(hospital, referral.referralType) && (!isHighAcuity(referral.priority) || hospital.takesUrgent);
 
 /** Hospitals a new referral can be sent to: they take urgent cases, and aren't the hospital sending it. */
@@ -30,7 +31,7 @@ export const getHospitalOptions = (referral, facilities = []) =>
         !(referral.declinedBy || []).includes(hospital.name) &&
         hospital.name !== referral.fromFacility &&
         hospital.bedsAvailable > 0 &&
-        isSuitable(hospital, referral),
+        canTakeCase(hospital, referral),
     )
     .sort((a, b) => b.bedsAvailable - a.bedsAvailable)
     .map((hospital) => ({ ...hospital, directionsUrl: getDirectionsUrl(hospital) }));
