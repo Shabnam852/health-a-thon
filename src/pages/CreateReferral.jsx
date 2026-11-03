@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Toast, { useToast } from "../components/Toast.jsx";
 import { Button, Card, Field, Input, Page, PageHeader, Select, Textarea } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext";
-import { PatientType, ReferralStatus, UrgencyLevel } from "../domain/enums.js";
+import { PATIENT_TYPE_LABELS, PatientType, ReferralStatus, UrgencyLevel } from "../domain/enums.js";
 import { getReferralDestinations } from "../domain/hospitalChoice.js";
 
 const MATERNAL_VITALS = [
@@ -41,11 +41,7 @@ const SAMPLES = {
   },
 };
 
-const TYPES = [
-  [PatientType.MATERNAL, "Mother"],
-  [PatientType.CHILD, "Newborn"],
-  [PatientType.DYAD, "Mother & baby"],
-];
+const TYPES = [PatientType.MATERNAL, PatientType.CHILD, PatientType.DYAD].map((t) => [t, PATIENT_TYPE_LABELS[t]]);
 const URGENCY = [
   [UrgencyLevel.ROUTINE, "Routine", "7-14 days"],
   [UrgencyLevel.PRIORITY, "Priority", "48-72 hours"],

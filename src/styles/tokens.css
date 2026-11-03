@@ -37,6 +37,11 @@
   --color-danger: 150 18 27;
   --color-danger-soft: 253 236 236;
   --color-danger-strong: 120 12 20;
+  /* Urgent (orange) and priority (amber) referrals */
+  --color-warning: 138 52 0;
+  --color-warning-soft: 255 237 220;
+  --color-caution: 102 72 0;
+  --color-caution-soft: 252 244 204;
 
   /* Bright highlight: same in both themes */
   --color-highlight: 165 243 236;
@@ -96,6 +101,10 @@
   --color-danger: 255 170 170;
   --color-danger-soft: 58 21 25;
   --color-danger-strong: 255 214 214;
+  --color-warning: 255 192 145;
+  --color-warning-soft: 60 34 16;
+  --color-caution: 245 214 120;
+  --color-caution-soft: 50 43 14;
 
   --color-focus: 111 224 217;
 

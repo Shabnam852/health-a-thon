@@ -1,10 +1,28 @@
 import { useState } from "react";
-import CaseCard, { DetailRow } from "../components/CaseCard.jsx";
+import { Link } from "react-router-dom";
 import { FormDialog } from "../components/Dialog.jsx";
+import {
+  actionsColumn,
+  caseIdColumn,
+  patientColumn,
+  priorityColumn,
+  serialColumn,
+} from "../components/referralColumns.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { Button, EmptyState, Field, Input, Page, PageHeader, Select, Textarea } from "../components/ui/index.js";
+import {
+  Badge,
+  Button,
+  DataTable,
+  DetailRow,
+  Field,
+  Input,
+  Page,
+  PageHeader,
+  Select,
+  Textarea,
+} from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { BarrierCategory, BarrierStatus, ReferralStatus } from "../domain/enums.js";
+import { BARRIER_CATEGORY_LABELS, BarrierCategory, BarrierStatus, ReferralStatus } from "../domain/enums.js";
 import { findOpenBarrier, getDestination } from "../domain/workflow.js";
 
 const blankForm = {
@@ -16,49 +34,63 @@ const blankForm = {
   desc: "",
 };
 
-const NavigatorCase = ({ r, onOpen }) => {
-  const barrier = findOpenBarrier(r);
-  return (
-    <CaseCard
-      referral={r}
-      summary={barrier ? barrier.title : `${r.fromFacility} → ${getDestination(r)}`}
-      actions={
-        <>
-          <Button variant="primary" onClick={() => onOpen("contact", r)}>
-            Log contact
-          </Button>
-          <Button onClick={() => onOpen("barrier", r)}>Raise barrier</Button>
-        </>
-      }
-    >
-      <DetailRow label="Phone">{r.patientPhone || r.caregiverContact}</DetailRow>
-      <DetailRow label="Language">
-        {r.language || "English"}
-        {r.interpreterNeeded && " (interpreter needed)"}
-      </DetailRow>
-      <DetailRow label="Route">
-        {r.fromFacility} → {getDestination(r)}
-      </DetailRow>
-      <DetailRow label="Case">
-        {r.id}, {r.referralType}, {r.status}
-      </DetailRow>
-    </CaseCard>
-  );
-};
+const STAGE_BLOCKED = "Blocked by a barrier";
+const STAGE_ACTIVE = "Active";
 
-const Section = ({ title, cases, onOpen }) =>
-  cases.length > 0 && (
-    <section className="space-y-4">
-      <h2 className="text-sm font-semibold text-ink-muted">
-        {title} ({cases.length})
-      </h2>
-      <ul className="space-y-4">
-        {cases.map((r) => (
-          <NavigatorCase key={r.id} r={r} onOpen={onOpen} />
-        ))}
-      </ul>
-    </section>
-  );
+const NavigatorDetail = ({ r }) => (
+  <>
+    <DetailRow label="Phone">{r.patientPhone || r.caregiverContact}</DetailRow>
+    <DetailRow label="Language">
+      {r.language || "English"}
+      {r.interpreterNeeded && " (interpreter needed)"}
+    </DetailRow>
+    <DetailRow label="Route">
+      {r.fromFacility} → {getDestination(r)}
+    </DetailRow>
+    <DetailRow label="Case">
+      {r.id}, {r.referralType}, {r.status}
+    </DetailRow>
+    <Button as={Link} to={`/referral/${r.id}`} variant="link" size="flush">
+      Open case
+    </Button>
+  </>
+);
+
+const CASELOAD_COLUMNS = [
+  serialColumn(),
+  caseIdColumn(),
+  patientColumn(),
+  priorityColumn(),
+  {
+    id: "stage",
+    header: "Stage",
+    accessorFn: (r) => (findOpenBarrier(r) ? STAGE_BLOCKED : STAGE_ACTIVE),
+    meta: { filter: true, className: "whitespace-nowrap" },
+    cell: ({ getValue }) => (getValue() === STAGE_BLOCKED ? <Badge tone="danger">{getValue()}</Badge> : getValue()),
+  },
+  {
+    id: "summary",
+    header: "Barrier or route",
+    accessorFn: (r) => findOpenBarrier(r)?.title || `${r.fromFacility} → ${getDestination(r)}`,
+    meta: { className: "min-w-56 text-ink-muted" },
+  },
+  {
+    id: "language",
+    header: "Language",
+    accessorFn: (r) => r.language || "English",
+    meta: { filter: true },
+  },
+  actionsColumn(({ row: { original: r }, table }) => (
+    <div className="flex justify-end gap-2">
+      <Button size="sm" variant="primary" onClick={() => table.options.meta.open("contact", r)}>
+        Log contact
+      </Button>
+      <Button size="sm" onClick={() => table.options.meta.open("barrier", r)}>
+        Raise barrier
+      </Button>
+    </div>
+  )),
+];
 
 const NavigatorWorkspace = () => {
   const { referrals, recordContactAttempt, identifyBarrier } = useReferrals();
@@ -76,8 +108,8 @@ const NavigatorWorkspace = () => {
 
   // A floating patient stays on the list: the coordinator is the one calling them about their choice.
   const active = referrals.filter((r) => r.status !== ReferralStatus.COMPLETED);
-  const blocked = active.filter(findOpenBarrier);
-  const others = active.filter((r) => !findOpenBarrier(r));
+  // Blocked cases first: they need a call today.
+  const rows = [...active.filter(findOpenBarrier), ...active.filter((r) => !findOpenBarrier(r))];
 
   const handleSaveContact = () => {
     const { referral } = dialog;
@@ -125,13 +157,20 @@ const NavigatorWorkspace = () => {
   };
 
   return (
-    <Page>
+    <Page width="full">
       <Toast toast={toast} />
       <PageHeader title="Caseload" />
 
-      <Section title="Blocked by a barrier" cases={blocked} onOpen={open} />
-      <Section title="Other active cases" cases={others} onOpen={open} />
-      {active.length === 0 && <EmptyState>No active cases.</EmptyState>}
+      <DataTable
+        label="Caseload"
+        data={rows}
+        columns={CASELOAD_COLUMNS}
+        context={{ open }}
+        searchPlaceholder="Search name, ID, barrier or hospital"
+        emptyText="No active cases."
+        noMatchText="No cases match."
+        renderDetail={(r) => <NavigatorDetail r={r} />}
+      />
 
       {dialog?.type === "contact" && (
         <FormDialog
@@ -172,12 +211,11 @@ const NavigatorWorkspace = () => {
         >
           <Field label="Type">
             <Select value={form.category} onChange={set("category")}>
-              <option value="TRANSPORT">Transport</option>
-              <option value="FINANCIAL">Cost</option>
-              <option value="DEPENDENT_CARE">Childcare</option>
-              <option value="LINGUISTIC">Language</option>
-              <option value="WEATHER">Weather or road</option>
-              <option value="CLINICAL_HESITATION">Fear of the hospital</option>
+              {Object.entries(BARRIER_CATEGORY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="What is the problem?">

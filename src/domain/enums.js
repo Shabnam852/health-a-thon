@@ -42,6 +42,16 @@ export const BarrierCategory = {
   CLINICAL_HESITATION: "CLINICAL_HESITATION",
 };
 
+/** How each barrier type reads on screen. One list, so every screen names them the same way. */
+export const BARRIER_CATEGORY_LABELS = {
+  [BarrierCategory.TRANSPORT]: "Transport",
+  [BarrierCategory.FINANCIAL]: "Cost",
+  [BarrierCategory.DEPENDENT_CARE]: "Childcare",
+  [BarrierCategory.LINGUISTIC]: "Language",
+  [BarrierCategory.WEATHER]: "Weather or road",
+  [BarrierCategory.CLINICAL_HESITATION]: "Fear of the hospital",
+};
+
 export const FollowUpStatus = {
   PLANNED: "PLANNED",
   SCHEDULED: "SCHEDULED",
@@ -79,13 +89,21 @@ export const isHighAcuity = (priority) => priority === UrgencyLevel.URGENT || pr
 
 // Most urgent first. Stable, so equally urgent cases keep their order.
 const ACUITY_ORDER = [UrgencyLevel.STAT, UrgencyLevel.URGENT, UrgencyLevel.PRIORITY, UrgencyLevel.ROUTINE];
+export const acuityRank = (priority) => ACUITY_ORDER.indexOf(priority);
 export const sortByAcuity = (referrals) =>
-  [...referrals].sort((a, b) => ACUITY_ORDER.indexOf(a.priority) - ACUITY_ORDER.indexOf(b.priority));
+  [...referrals].sort((a, b) => acuityRank(a.priority) - acuityRank(b.priority));
 
 export const PatientType = {
   MATERNAL: "Maternal",
   CHILD: "Child",
   DYAD: "Dyad",
+};
+
+/** How each patient type reads on screen. */
+export const PATIENT_TYPE_LABELS = {
+  [PatientType.MATERNAL]: "Mother",
+  [PatientType.CHILD]: "Newborn",
+  [PatientType.DYAD]: "Mother & baby",
 };
 
 // Who performed an audited action. Wider than Role, which lists the app's personas.
