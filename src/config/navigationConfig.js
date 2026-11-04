@@ -22,6 +22,7 @@ export const roleDefinitions = {
     description: "Operational monitoring, triage priority queues, and network-wide care coordination.",
     allowedPrefixes: [
       "/coordinator",
+      "/patients",
       "/referral",
       "/referrals",
       "/barriers",
@@ -68,24 +69,10 @@ export const navigationConfig = {
       category: "COMMAND & TRIAGE",
     },
     {
-      title: "Queue",
-      icon: "assignment_late",
-      path: "/coordinator?view=queue",
-      matchPrefix: "/referrals",
-      category: "COMMAND & TRIAGE",
-    },
-    {
-      title: "Barriers",
-      icon: "warning_amber",
-      path: "/barriers",
-      matchPrefix: "/barriers",
-      category: "OPERATIONS",
-    },
-    {
-      title: "Caseload",
-      icon: "support_agent",
-      path: "/navigator",
-      matchPrefix: "/navigator",
+      title: "Patients",
+      icon: "groups",
+      path: "/patients",
+      matchPrefix: "/patients",
       category: "OPERATIONS",
     },
     {
@@ -165,6 +152,8 @@ export const navigationConfig = {
       tabLabel: "Help",
       icon: "help_outline",
       path: "/patient?view=support",
+      // The assistant screen sits under Get help, not under My journey.
+      matchPrefix: "/patient/assistant",
       category: "SUPPORT",
     },
   ],
@@ -207,7 +196,12 @@ export const getActiveNavItem = (items, pathname, search = "") => {
   }
   if (best) return best;
 
-  return items.find((item) => item.matchPrefix && matchesPrefix(pathname, item.matchPrefix)) || null;
+  // The most specific prefix wins: /patient/assistant belongs to Get help, not My journey.
+  return (
+    items
+      .filter((item) => item.matchPrefix && matchesPrefix(pathname, item.matchPrefix))
+      .sort((a, b) => b.matchPrefix.length - a.matchPrefix.length)[0] || null
+  );
 };
 
 /**
@@ -237,11 +231,10 @@ export const isKnownRoute = (pathname) => {
  * Finds the primary role that owns or has access to a given route.
  */
 export const getPrimaryRoleForRoute = (pathname) => {
-  if (pathname.startsWith("/patient")) return RoleId.PATIENT;
-  if (pathname.startsWith("/facility")) return RoleId.FACILITY;
-  if (pathname.startsWith("/coordinator")) return RoleId.COORDINATOR;
-  if (pathname.startsWith("/barriers")) return RoleId.COORDINATOR;
-  if (pathname.startsWith("/transport")) return RoleId.COORDINATOR;
-  if (pathname.startsWith("/create")) return RoleId.FACILITY;
+  // Whole path segments only: /patients is the coordinator's, not under /patient.
+  const under = (prefix) => matchesPrefix(pathname, prefix);
+  if (under("/patient")) return RoleId.PATIENT;
+  if (under("/facility")) return RoleId.FACILITY;
+  if (under("/create")) return RoleId.FACILITY;
   return RoleId.COORDINATOR;
 };

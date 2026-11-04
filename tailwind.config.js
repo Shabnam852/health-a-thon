@@ -47,7 +47,7 @@ export default {
         "danger-hover": color("danger-fill-hover"),
       },
       accentColor: { control: color("accent-fill") },
-      borderRadius: { control: "var(--radius-control)", card: "var(--radius-card)" },
+      borderRadius: { control: "var(--radius-control)", card: "var(--radius-card)", pill: "var(--radius-pill)" },
       boxShadow: { card: "var(--shadow-card)", raised: "var(--shadow-raised)", overlay: "var(--shadow-overlay)" },
       spacing: {
         sidebar: "var(--size-sidebar)",
@@ -63,7 +63,6 @@ export default {
         tabbar: "var(--size-tabbar)",
       },
       minWidth: { control: "var(--size-control)" },
-      transitionDuration: { fast: "var(--motion-fast)" },
       fontFamily: { display: "var(--font-display)", sans: "var(--font-sans)" },
     },
   },

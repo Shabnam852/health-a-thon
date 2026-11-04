@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/ThemeToggle.jsx";
-import { Badge, Button, Card, Icon, Tile } from "../components/ui/index.js";
+import { BrandMark, Button, Card, Icon, Pictogram, Tile } from "../components/ui/index.js";
 import { useDemoStory } from "../components/useDemoStory.js";
 import { STORY_REFERRAL_ID } from "../config/demoStory.js";
 import { RoleId } from "../config/navigationConfig.js";
@@ -18,7 +18,7 @@ const careTeam = [
     id: RoleId.COORDINATOR,
     title: "Coordinator",
     route: "/coordinator",
-    icon: "grid_view",
+    pictogram: "coordinator",
     stat: "urgentNotArrived",
     caption: "urgent, not yet arrived",
   },
@@ -26,7 +26,7 @@ const careTeam = [
     id: RoleId.FACILITY,
     title: "Hospital",
     route: "/facility",
-    icon: "domain",
+    pictogram: "hospital",
     stat: "expectedArrivals",
     caption: "expected to arrive",
   },
@@ -78,9 +78,12 @@ const JourneyStrip = ({ referral }) => (
   </Card>
 );
 
+// The quiet "go" cue on each role tile.
+const RoleArrow = () => <Icon name="chevron_right" className="text-ink-muted group-hover:text-accent" />;
+
 const RoleSelection = () => {
   const navigate = useNavigate();
-  const { referrals, facilities, setRole, setActiveReferralId, setStoryStep } = useReferrals();
+  const { referrals, facilities, setRole, setActiveReferralId, setActiveFacilityId, setStoryStep } = useReferrals();
   const { goToStep } = useDemoStory();
 
   const storyReferral = referrals.find((r) => r.id === STORY_REFERRAL_ID);
@@ -91,6 +94,8 @@ const RoleSelection = () => {
     setStoryStep(null);
     setRole(role);
     if (referralId) setActiveReferralId(referralId);
+    // The Hospital tile's count is for this hospital, so open that hospital's Intake.
+    if (role === RoleId.FACILITY && intakeFacility) setActiveFacilityId(intakeFacility.id);
     navigate(route);
   };
 
@@ -99,20 +104,15 @@ const RoleSelection = () => {
       <main id="main-content" tabIndex={-1} className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 space-y-8">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div
-              aria-hidden="true"
-              className="w-8 h-8 rounded-control bg-brand flex items-center justify-center text-on-fill font-bold text-sm"
-            >
-              N
-            </div>
+            <BrandMark size="sm" />
             <span className="font-bold text-ink">Navexa Health</span>
           </div>
           <ThemeToggle iconOnly />
         </div>
 
         <header className="space-y-4">
-          <Badge tone="highlight">Demo: synthetic data</Badge>
-          <h1 className="font-display text-3xl sm:text-5xl font-bold text-ink tracking-tight leading-tight">
+          <p className="text-sm text-ink-muted">Demo with made-up patients</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-tight">
             A referral sent is not care received.
           </h1>
           <p className="text-base sm:text-lg text-ink-muted">
@@ -128,16 +128,21 @@ const RoleSelection = () => {
 
         <section aria-label="Choose a role" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-4">
           <div className="lg:col-span-2">
-            <h2 className="text-sm font-semibold text-ink-muted mb-2">Care team</h2>
+            <h2 className="text-sm font-semibold text-ink-muted mb-3">Care team</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {careTeam.map((r) => (
-                <Tile key={r.id} onClick={() => enter(r.id, r.route)}>
-                  <span className="flex items-center gap-2 text-sm font-semibold">
-                    <Icon name={r.icon} />
-                    {r.title}
+                <Tile key={r.id} onClick={() => enter(r.id, r.route)} className="group">
+                  <span className="flex items-start justify-between gap-3">
+                    <Pictogram name={r.pictogram} />
+                    <RoleArrow />
                   </span>
-                  <span className="block font-display text-3xl font-semibold tabular-nums mt-3">{stats[r.stat]}</span>
-                  <span className="block text-sm text-ink-muted">{r.caption}</span>
+                  <span className="block font-display text-lg font-semibold mt-4">{r.title}</span>
+                  <span className="block mt-1 text-sm text-ink-muted">
+                    <span className="font-display text-2xl font-semibold text-ink tabular-nums mr-1.5">
+                      {stats[r.stat]}
+                    </span>
+                    {r.caption}
+                  </span>
                 </Tile>
               ))}
             </div>
@@ -145,16 +150,17 @@ const RoleSelection = () => {
 
           {storyReferral && (
             <div className="flex flex-col">
-              <h2 className="text-sm font-semibold text-ink-muted mb-2">Patients</h2>
+              <h2 className="text-sm font-semibold text-ink-muted mb-3">Patients</h2>
               <Tile
-                className="flex-1 flex flex-col"
+                className="group flex-1 flex flex-col"
                 onClick={() => enter(RoleId.PATIENT, "/patient", storyReferral.id)}
               >
-                <span className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="family_restroom" />
-                  Family
+                <span className="flex items-start justify-between gap-3">
+                  <Pictogram name="family" />
+                  <RoleArrow />
                 </span>
-                <span className="block text-sm text-ink-muted mt-3">{getFamilyUpdate(storyReferral)}</span>
+                <span className="block font-display text-lg font-semibold mt-4">Family</span>
+                <span className="block text-sm text-ink-muted mt-1">{getFamilyUpdate(storyReferral)}</span>
               </Tile>
             </div>
           )}

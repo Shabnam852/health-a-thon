@@ -1,0 +1,9 @@
+/* Material Symbols Rounded: softer corners and a lighter stroke than Outlined, closer to the calm
+   pictography of Nordic health services. One variable font; weight and fill are set per icon. */
+@font-face {
+  font-family: "Material Symbols Rounded";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("../../node_modules/material-symbols/material-symbols-rounded.woff2") format("woff2");
+}

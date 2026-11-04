@@ -289,6 +289,21 @@ describe("Transport actions", () => {
     }
   });
 
+  it("starts a re-dispatch after a failed trip without the old trip's pickup and arrival times", () => {
+    const failed = withTransit(TransportStatus.FAILED);
+    failed.transit = {
+      ...failed.transit,
+      pickedUpAt: "2026-11-01T08:00:00.000Z",
+      arrivedAt: "2026-11-01T08:30:00.000Z",
+    };
+    const r = applied(workflow.dispatchTransport(failed, { vehicle: "Van", driver: "D" }, NOW));
+    assert.equal(r.transit.pickedUpAt, null);
+    assert.equal(r.transit.arrivedAt, null);
+    // Arrival then stamps the new trip's pickup, not the failed one's.
+    const arrived = applied(workflow.confirmArrival(r, {}, "2026-11-01T11:00:00.000Z"));
+    assert.equal(arrived.transit.pickedUpAt, "2026-11-01T11:00:00.000Z");
+  });
+
   it("refuses to dispatch a vehicle already moving or arrived", () => {
     for (const status of [TransportStatus.DISPATCHED, TransportStatus.PICKED_UP, TransportStatus.ARRIVED]) {
       rejected(workflow.dispatchTransport(withTransit(status), { vehicle: "Van" }, NOW), /Cannot dispatch/);
@@ -576,5 +591,68 @@ describe("UI bug regressions", () => {
       still.barriers.map((b) => b.status),
       ["IN_PROGRESS"],
     );
+  });
+});
+
+describe("recordFamilyReport", () => {
+  it("quotes a danger sign and asks staff to call, without diagnosing", () => {
+    const result = workflow.recordFamilyReport(makeReferral(), { question: "She is bleeding a lot", emergency: true });
+    assert.ok(result.success);
+    assert.equal(result.alerts[0].type, "CRITICAL");
+    assert.match(result.alerts[0].message, /"She is bleeding a lot"/);
+    assert.equal(result.referral.timeline.at(-1).status, TimelineEvent.DANGER_SIGN_REPORTED);
+  });
+
+  it("raises a barrier from the family once per category", () => {
+    const report = { category: BarrierCategory.FINANCIAL, summary: "No money for the bus." };
+    const first = workflow.recordFamilyReport(makeReferral(), { question: "no money", report });
+    assert.ok(first.success);
+    const barrier = first.referral.barriers.at(-1);
+    assert.equal(barrier.category, BarrierCategory.FINANCIAL);
+    assert.match(barrier.description, /Family, via assistant/);
+    const again = workflow.recordFamilyReport(first.referral, { question: "still no money", report });
+    assert.equal(again.success, false);
+  });
+
+  it("puts a transport problem on the transport board", () => {
+    const report = { category: BarrierCategory.TRANSPORT, summary: "No way to get there." };
+    const result = workflow.recordFamilyReport(makeReferral({ transitBarrier: false }), { question: "no bus", report });
+    assert.equal(result.referral.transitBarrier, true);
+  });
+
+  it("ignores an unknown category or an empty report", () => {
+    assert.equal(workflow.recordFamilyReport(makeReferral(), { question: "hi" }).success, false);
+    const odd = { category: "MAGIC", summary: "x" };
+    assert.equal(workflow.recordFamilyReport(makeReferral(), { question: "hi", report: odd }).success, false);
+  });
+});
+
+describe("handoff summary", () => {
+  const summary = { situation: "Mother, 36 weeks.", background: "", referrerAssessment: "", request: "", missing: [] };
+
+  it("is a draft until a named person confirms it", () => {
+    const saved = workflow.saveHandoff(makeReferral(), summary);
+    assert.ok(saved.success);
+    assert.equal(saved.referral.handoff.confirmedAt, null);
+    assert.equal(workflow.confirmHandoff(saved.referral, { confirmedBy: "  " }).success, false);
+    const confirmed = workflow.confirmHandoff(saved.referral, { confirmedBy: "Dr. Rao" });
+    assert.equal(confirmed.referral.handoff.confirmedBy, "Dr. Rao");
+    assert.equal(confirmed.referral.timeline.at(-1).status, TimelineEvent.HANDOFF_CONFIRMED);
+    assert.equal(workflow.confirmHandoff(confirmed.referral, { confirmedBy: "Dr. Rao" }).success, false);
+  });
+
+  it("sends no name, phone or address to the AI", () => {
+    const referral = makeReferral({
+      patientName: "Sunita Devi",
+      patientPhone: "+91 90000 11111",
+      patientAddress: "12 MG Road",
+      reason: "Sunita Devi has high BP; call +91 90000 11111",
+      timeline: [{ status: "SENT", date: "2026-11-04T10:00:00Z", notes: "Sent for Sunita Devi" }],
+    });
+    const sent = JSON.stringify(workflow.handoffRecord(referral));
+    assert.equal(sent.includes("Sunita"), false);
+    assert.equal(sent.includes("90000"), false);
+    assert.equal(sent.includes("MG Road"), false);
+    assert.match(sent, /high BP/);
   });
 });

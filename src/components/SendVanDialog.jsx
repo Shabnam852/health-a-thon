@@ -10,7 +10,8 @@ const SendVanDialog = ({ referral, onClose, onResult }) => {
   const vans = getFreeVans(fleet, referrals);
   const [vanId, setVanId] = useState(vans[0]?.id);
   const [eta, setEta] = useState("");
-  const van = vans.find((v) => v.id === vanId);
+  // The chosen van may have been sent elsewhere while this dialog was open.
+  const van = vans.find((v) => v.id === vanId) || vans[0];
 
   const send = () => {
     const res = dispatchTransport(referral.id, buildDispatch(referral, van, eta.trim()));
@@ -25,7 +26,7 @@ const SendVanDialog = ({ referral, onClose, onResult }) => {
       ) : (
         <>
           <Field label="Van">
-            <Select value={vanId} onChange={(e) => setVanId(e.target.value)}>
+            <Select value={van.id} onChange={(e) => setVanId(e.target.value)}>
               {vans.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}: {v.equippedWith}

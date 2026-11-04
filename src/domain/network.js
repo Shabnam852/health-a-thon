@@ -48,7 +48,8 @@ export const getInboundLoad = (hospital, referrals = []) => {
   return {
     awaitingReply: count(ReferralStatus.SENT),
     onTheWay: count(ReferralStatus.ACKNOWLEDGED),
-    inCare: count(ReferralStatus.ARRIVAL_CONFIRMED),
+    // The bed stays held while the assessment is recorded, until the case is completed.
+    inCare: count(ReferralStatus.ARRIVAL_CONFIRMED) + count(ReferralStatus.CLINICAL_ASSESSMENT_RECORDED),
   };
 };
 
@@ -71,7 +72,8 @@ export const getOccupancy = (hospital, referrals = []) => {
 /** Minutes from a referral being sent to the hospital accepting it. */
 const replyMinutes = (referral) => {
   const timeline = referral.timeline || [];
-  const acceptedAt = timeline.findIndex((t) => t.status === ReferralStatus.ACKNOWLEDGED);
+  // The last acceptance is the current hospital's: an earlier one may have been withdrawn.
+  const acceptedAt = timeline.findLastIndex((t) => t.status === ReferralStatus.ACKNOWLEDGED);
   if (acceptedAt < 0) return null;
   const sent = timeline.slice(0, acceptedAt).findLast((t) => t.status === ReferralStatus.SENT);
   if (!sent) return null;

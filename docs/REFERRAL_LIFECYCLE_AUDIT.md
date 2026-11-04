@@ -1,7 +1,8 @@
 # Navexa Health — Referral Lifecycle & Workflow Audit
 
 **Document:** `docs/REFERRAL_LIFECYCLE_AUDIT.md`  
-**Version:** 2.0.0  
+**Version:** 2.1.0  
+**Updated:** November 04, 2026 (diagram, stages 6-18 as noted, scenarios 02, 03, 06, 10)  
 **Audit Date:** November 01, 2026  
 **Auditor:** Maternal & Neonatal Healthcare Workflow Specialist & Software Architect
 
@@ -17,17 +18,20 @@ stateDiagram-v2
     SENT --> ACKNOWLEDGED: Facility Acknowledge (/facility)
     SENT --> REJECTED: Facility Decline
     SENT --> REDIRECTED: Re-route
-    ACKNOWLEDGED --> ARRIVAL_CONFIRMED: Intake Check-In (/facility or /coordinator)
+    ACKNOWLEDGED --> ARRIVAL_CONFIRMED: Confirm arrival (/facility)
+    SENT --> ARRIVAL_CONFIRMED: Patient arrives
+
     ACKNOWLEDGED --> REJECTED: Facility Decline
     ACKNOWLEDGED --> REDIRECTED: Re-route
-    REJECTED --> REDIRECTED: Re-route
+    REJECTED --> REDIRECTED: Patient chooses a hospital
+    REJECTED --> ARRIVAL_CONFIRMED: Patient arrives anyway
     REDIRECTED --> SENT: Resubmitted to new facility
     ARRIVAL_CONFIRMED --> CLINICAL_ASSESSMENT_RECORDED: Record Clinical Outcome
     CLINICAL_ASSESSMENT_RECORDED --> COMPLETED: 42-Day Plan Activated
     COMPLETED --> [*]: Terminal State (continuing care follows)
 ```
 
-> **Note:** the diagram above shows the current rules in `src/domain/transitions.js`. The stage-by-stage audit below is a snapshot from before later fixes, so its file citations and gaps may be out of date.
+> **Note:** the diagram above shows the current rules in `src/domain/transitions.js`. The stage-by-stage audit below is a snapshot from before later fixes, so its file citations and gaps may be out of date. Stages 6, 9, 10, 12, 13, 14, 17 and 18, and scenarios 02, 03, 06 and 10, were checked against the code on November 04, 2026 and updated. The other stages are as first written. Verdicts marked PASS (in code) were read from the code and workflow rules, not run in a browser.
 
 ---
 
@@ -85,10 +89,10 @@ stateDiagram-v2
 
 ### Stage 6: Referral Acceptance, Rejection, or Redirection
 
-- **Implementation Status:** `BROKEN / PARTIALLY IMPLEMENTED`
-- **File Citations:** [`src/pages/FacilityDashboard.jsx:62-97`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L62-L97)
-- **Actual Functionality:** System only supports acceptance (via acknowledgement).
-- **Missing Functionality:** **Rejection and Redirection are completely ABSENT.** If a hospital has no open NICU beds or surgical capacity, there is no button or workflow to reject or re-route the patient to another regional hospital.
+- **Implementation Status:** `IMPLEMENTED`
+- **File Citations:** [`src/pages/FacilityDashboard.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx), [`src/domain/workflow.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/domain/workflow.js)
+- **Actual Functionality:** Acknowledge moves `SENT` to `ACKNOWLEDGED`. Decline needs a reason (`REJECTED`), and the referral floats until the family chooses a hospital. The choice is recorded as a redirect (`REDIRECTED`, then `SENT` to the new hospital).
+- **Missing Functionality:** There is no direct redirect button for the hospital. Bed figures for the choice list are seeded data, not a live feed.
 - **Data Required:** Acceptance flag, rejection reason code, redirect destination facility.
 - **Responsible Role:** Receiving Healthcare Facility.
 - **Failure Scenarios:** Hospital has zero beds available; patient sent to wrong facility with no digital redirection protocol.
@@ -115,20 +119,20 @@ stateDiagram-v2
 
 ### Stage 9: Barrier Identification
 
-- **Implementation Status:** `PARTIALLY IMPLEMENTED`
-- **File Citations:** [`src/pages/CreateReferral.jsx:70`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CreateReferral.jsx#L70), [`src/pages/BarrierResolution.jsx:23-28`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx#L23-L28)
-- **Actual Functionality:** Form captures transit barrier checkbox. `BarrierResolution.jsx` lists barriers (transport failure, no safe newborn transport, language, childcare).
-- **Missing Functionality:** Barrier taxonomy is hardcoded in `casesData`. No structured barrier taxonomy (transport, financial, cultural/linguistic, childcare, weather) that can be attached dynamically to any referral.
+- **Implementation Status:** `IMPLEMENTED`
+- **File Citations:** [`src/domain/enums.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/domain/enums.js), [`src/components/BarrierTables.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/BarrierTables.jsx)
+- **Actual Functionality:** Barriers use six categories (transport, cost, childcare, language, weather or road, fear of the hospital). Staff can raise them, and the family's assistant can raise one for a practical problem.
+- **Missing Functionality:** No severity field. Barriers still depend on the family or the patient telling staff.
 - **Data Required:** Barrier category, severity, notes.
 - **Responsible Role:** Care Navigator / Social Worker.
 - **Failure Scenarios:** Patient fails to disclose financial barrier due to stigma; navigator fails to record language barrier.
 
 ### Stage 10: Transport & Practical Assistance Coordination
 
-- **Implementation Status:** `BROKEN`
-- **File Citations:** [`src/pages/BarrierResolution.jsx:188-199`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx#L188-L199)
-- **Actual Functionality:** Action button "Dispatch Specialized Transit MediVan #04" exists and triggers toast notification.
-- **Missing Functionality:** `dispatchTransit` is invoked with string argument instead of object, causing `undefined` properties in timeline and data corruption. No real transit integration or vehicle telemetry.
+- **Implementation Status:** `IMPLEMENTED`
+- **File Citations:** [`src/components/SendVanDialog.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/components/SendVanDialog.jsx), [`src/domain/workflow.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/domain/workflow.js)
+- **Actual Functionality:** Send van asks for a van and ETA, then builds a structured dispatch. The transit moves to `DISPATCHED`, and any open transport barrier is resolved. Picked up and Report problem follow.
+- **Missing Functionality:** No real transit integration or vehicle telemetry. Vans and drivers are seeded data. No voucher system.
 - **Data Required:** Vehicle type, driver name, vehicle plate, passenger count, neonatal transport kit requirement, pickup address, ETA.
 - **Responsible Role:** Care Navigator / Transport Dispatcher.
 - **Failure Scenarios:** Vehicle dispatched without mandatory neonatal transport kit; driver unable to locate rural address; transport delayed in transit.
@@ -147,28 +151,28 @@ stateDiagram-v2
 
 - **Implementation Status:** `IMPLEMENTED`
 - **File Citations:** [`src/pages/FacilityDashboard.jsx:72-79`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L72-L79), [`src/pages/CoordinatorDashboard.jsx:471-483`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L471-L483)
-- **Actual Functionality:** Clicking "Confirm Arrival" / "Verify Arrival" mutates status from `ACKNOWLEDGED` to `ARRIVAL_CONFIRMED` and appends timestamped timeline note.
-- **Missing Functionality:** Arrival box in `ReferralDetails.jsx` displays static mock text about Clara Miller, RN, rather than reflecting actual intake clerk data.
+- **Actual Functionality:** Clicking "Confirm arrival" mutates status to `ARRIVAL_CONFIRMED`, records the ward, bed and staff member, and appends a timestamped timeline note. Allowed from `SENT`, `ACKNOWLEDGED` and `REJECTED`.
+- **Missing Functionality:** The name and role are typed by staff, not taken from a login. No link to a hospital bed system.
 - **Data Required:** Arrival timestamp, intake clerk ID, exam room / triage bay.
 - **Responsible Role:** Receiving Healthcare Facility Intake Staff.
 - **Failure Scenarios:** Patient arrives at hospital emergency entrance instead of maternity triage and remains unrecorded; clerk forgets to log arrival.
 
 ### Stage 13: Clinical Assessment & Service Outcome Recording
 
-- **Implementation Status:** `SIMULATED`
-- **File Citations:** [`src/pages/CoordinatorDashboard.jsx:484-496`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/CoordinatorDashboard.jsx#L484-L496)
-- **Actual Functionality:** Clicking "Record Outcome" sets status to `COMPLETED` and appends static text: `"Care completed and 42-day postpartum protocol established."`
-- **Missing Functionality:** No form exists to record clinical findings, diagnosis confirmation, procedures performed (e.g., C-section, phototherapy), maternal condition, or neonatal health metrics.
+- **Implementation Status:** `PARTIALLY IMPLEMENTED`
+- **File Citations:** [`src/pages/FacilityDashboard.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx), [`src/domain/workflow.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/domain/workflow.js)
+- **Actual Functionality:** The Record outcome modal records maternal status, delivery type, neonatal status, disposition and notes, and the referral completes with a 42-day plan. Only the fields for the patient's type are kept.
+- **Missing Functionality:** The form does not ask for diagnosis, TSB, APGAR or birth weight, although the data model can hold birth weight. The clinician name is typed in, not checked against a login.
 - **Data Required:** Diagnosis, clinical interventions, maternal outcome, neonatal outcome (APGAR, birth weight), admitting vs. discharge status.
 - **Responsible Role:** Receiving Clinician (Attending Physician / Midwife).
 - **Failure Scenarios:** Referral marked completed without patient actually receiving medical treatment; adverse clinical outcome unrecorded.
 
 ### Stage 14: Missed Referral Detection
 
-- **Implementation Status:** `UI ONLY`
-- **File Citations:** [`src/pages/BarrierResolution.jsx:11-18`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/BarrierResolution.jsx#L11-L18)
-- **Actual Functionality:** Visual tags display "+1h 25m overdue", but values are static strings in hardcoded `casesData`.
-- **Missing Functionality:** No background scheduler, cron job, or client-side timer calculating `Date.now() - createdAt` against clinical SLA thresholds.
+- **Implementation Status:** `PARTIALLY IMPLEMENTED`
+- **File Citations:** [`src/domain/alarms.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/domain/alarms.js)
+- **Actual Functionality:** The response clock is worked out from timestamps each time it is read (`src/domain/alarms.js`), with limits by priority. Overdue cases raise alarms in the app.
+- **Missing Functionality:** Alarms show only while a screen is open. No notification is sent to a supervisor.
 - **Data Required:** Expected arrival time, max transit SLA window, escalation threshold.
 - **Responsible Role:** System Automation / Care Coordinator.
 - **Failure Scenarios:** Overdue high-risk pregnancy lost in queue without coordinator awareness.
@@ -195,20 +199,20 @@ stateDiagram-v2
 
 ### Stage 17: Follow-Up Completion
 
-- **Implementation Status:** `SIMULATED / BROKEN`
-- **File Citations:** [`src/pages/FacilityDashboard.jsx:90-96`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/FacilityDashboard.jsx#L90-L96)
-- **Actual Functionality:** Action simply resets status from `FOLLOW_UP_REQUIRED` back to `ACKNOWLEDGED`.
-- **Missing Functionality:** Does not record what follow-up occurred (phone call, home visit, interpreter session) or whether patient contact was successful.
+- **Implementation Status:** `PARTIALLY IMPLEMENTED`
+- **File Citations:** [`src/domain/workflow.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/domain/workflow.js)
+- **Actual Functionality:** Completing a continuing care task records the findings and who completed it in the audit trail (`completeFollowUpTask`). Contact attempts are logged on the Patients page.
+- **Missing Functionality:** Contact attempts are not linked to a follow-up task.
 - **Data Required:** Contact log, outreach outcome, notes.
 - **Responsible Role:** Care Navigator / Community Health Worker.
 - **Failure Scenarios:** Failed contact attempt marked as successful follow-up.
 
 ### Stage 18: Continuing Maternal & Neonatal Care
 
-- **Implementation Status:** `UI ONLY`
-- **File Citations:** [`src/pages/ReferralDetails.jsx:124, 272-279`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L124#L272-L279)
-- **Actual Functionality:** UI displays static labels: `"Active 6-Week Continuity Protocol"` and `"6. Postpartum 42d"`.
-- **Missing Functionality:** When status reaches `COMPLETED`, the referral is closed and no further actions, tasks, or visits can be scheduled or tracked.
+- **Implementation Status:** `IMPLEMENTED`
+- **File Citations:** [`src/pages/ContinuityOfCare.jsx`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ContinuityOfCare.jsx), [`src/domain/workflow.js`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/domain/workflow.js)
+- **Actual Functionality:** The 42-day plan is created when a referral completes. The 42-day follow-up page (`/continuity`) shows touchpoints on days 3, 7, 14 and 42, and records visit findings.
+- **Missing Functionality:** Reminders are not sent to the family or the team. Visits cannot be added beyond the planned touchpoints.
 - **Data Required:** Postpartum visit schedule (days 3, 7, 14, 42), neonatal immunization schedule, depression screening.
 - **Responsible Role:** Community Midwife / Postpartum Care Team.
 - **Failure Scenarios:** Postpartum mother discharged after normal delivery develops unmonitored sepsis or secondary postpartum hemorrhage on day 5.
@@ -244,21 +248,21 @@ stateDiagram-v2
 
 ## 4. Failure & Edge-Case Test Matrix (16 Scenarios)
 
-| Scenario # | Test Scenario Description                           | Expected System Behavior                                                                                 | Actual Observed System Behavior                                                                | Compliance Verdict |
-| :--------: | :-------------------------------------------------- | :------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- | :----------------: |
-|   **01**   | Referral created but never acknowledged by hospital | System triggers SLA timer warning, flags case in coordinator queue, alerts supervisor.                   | Referral remains in `SENT` status indefinitely. No timer, SLA alert, or notification exists.   |      **FAIL**      |
-|   **02**   | Referral rejected by receiving facility             | Facility logs rejection with clinical reason; referral reverts to coordinator for immediate redirection. | **Rejection is impossible.** No reject button, status, or handler exists.                      |      **FAIL**      |
-|   **03**   | Receiving facility redirects patient elsewhere      | Facility selects alternate regional hospital with open beds; digital records transfer seamlessly.        | **Redirection is impossible.** No redirection pathway or data model exists.                    |      **FAIL**      |
-|   **04**   | Patient cannot be reached by phone                  | Navigator logs unsuccessful call attempt; system stages secondary outreach (SMS, home CHW visit).        | No call logging interface. Navigator cannot record unsuccessful contact.                       |      **FAIL**      |
-|   **05**   | Patient has no caregiver or support person          | Referral flags vulnerability; navigator coordinates hospital doula or community chaperone.               | Field is a simple text string. No lone-parent vulnerability flag exists.                       |      **FAIL**      |
-|   **06**   | Patient cannot arrange transportation               | Navigator books certified medical transit voucher; transit status updates live on patient view.          | Transit dispatch button exists, but passes string argument causing data corruption.            |      **FAIL**      |
-|   **07**   | Patient misses scheduled clinic appointment         | System detects absence past scheduled time, alerts navigator, creates follow-up outreach task.           | No appointment scheduling or appointment entities exist.                                       |      **FAIL**      |
-|   **08**   | Patient arrives but no outcome recorded             | Case remains in `ARRIVAL_CONFIRMED` under active observation until discharge documentation signed.       | System allows anyone to click "Record Outcome", closing case with static generic note.         |    **PARTIAL**     |
-|   **09**   | Navigator forgets to complete follow-up             | Automated escalation pings coordinator queue after 24h/48h inactivity window.                            | No reminders, task queues, or inactivity escalation mechanisms exist.                          |      **FAIL**      |
-|   **10**   | Referral completed but further care needed          | Closure generates linked Postpartum/Neonatal continuing care record with 6-week visit roadmap.           | Referral terminates completely upon `COMPLETED`. No continuing care records created.           |      **FAIL**      |
-|   **11**   | Duplicate referral created for same patient         | System detects active referral for patient MRN, warns user, prevents duplicate submission.               | System allows duplicate referrals to be created with identical names and MRNs.                 |      **FAIL**      |
-|   **12**   | Two users modify same referral simultaneously       | Optimistic locking / conflict resolution prevents overwriting; audit trail records both actors.          | Last write to `localStorage` unconditionally overwrites earlier write. No concurrency control. |      **FAIL**      |
-|   **13**   | Browser refreshed ($F5$) during workflow            | Form state recovered from draft cache; updated referrals preserved in memory.                            | Referrals survive in `localStorage`, but form draft and local audit rows are wiped.            |    **PARTIAL**     |
-|   **14**   | Unauthorized role opens sensitive URL               | User redirected to login or presented with permission denied boundary.                                   | Any user can navigate to `/facility`, `/coordinator`, or `/referral/:id` without restriction.  |      **FAIL**      |
-|   **15**   | Required form field missing on submit               | Form displays inline validation errors on empty fields and halts submission.                             | Form uses HTML required attributes on some fields, but pre-populates default state.            |      **PASS**      |
-|   **16**   | Network request fails                               | UI shows persistent offline banner, queues mutations in IndexedDB, retries on reconnection.              | Zero network requests exist; application operates purely in local browser memory.              |      **N/A**       |
+| Scenario # | Test Scenario Description                           | Expected System Behavior                                                                                 | Actual Observed System Behavior                                                                                          | Compliance Verdict |
+| :--------: | :-------------------------------------------------- | :------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------- | :----------------: |
+|   **01**   | Referral created but never acknowledged by hospital | System triggers SLA timer warning, flags case in coordinator queue, alerts supervisor.                   | Referral remains in `SENT` status indefinitely. No timer, SLA alert, or notification exists.                             |      **FAIL**      |
+|   **02**   | Referral rejected by receiving facility             | Facility logs rejection with clinical reason; referral reverts to coordinator for immediate redirection. | Facility declines with a reason. The referral floats until the family chooses a hospital, which the coordinator records. | **PASS (in code)** |
+|   **03**   | Receiving facility redirects patient elsewhere      | Facility selects alternate regional hospital with open beds; digital records transfer seamlessly.        | No facility redirect. The family chooses another hospital, and the referral is re-sent with its history.                 | **PASS (in code)** |
+|   **04**   | Patient cannot be reached by phone                  | Navigator logs unsuccessful call attempt; system stages secondary outreach (SMS, home CHW visit).        | No call logging interface. Navigator cannot record unsuccessful contact.                                                 |      **FAIL**      |
+|   **05**   | Patient has no caregiver or support person          | Referral flags vulnerability; navigator coordinates hospital doula or community chaperone.               | Field is a simple text string. No lone-parent vulnerability flag exists.                                                 |      **FAIL**      |
+|   **06**   | Patient cannot arrange transportation               | Navigator books certified medical transit voucher; transit status updates live on patient view.          | Send van records a dispatch with driver and ETA, and the patient journey shows it. No voucher system.                    |    **PARTIAL**     |
+|   **07**   | Patient misses scheduled clinic appointment         | System detects absence past scheduled time, alerts navigator, creates follow-up outreach task.           | No appointment scheduling or appointment entities exist.                                                                 |      **FAIL**      |
+|   **08**   | Patient arrives but no outcome recorded             | Case remains in `ARRIVAL_CONFIRMED` under active observation until discharge documentation signed.       | System allows anyone to click "Record Outcome", closing case with static generic note.                                   |    **PARTIAL**     |
+|   **09**   | Navigator forgets to complete follow-up             | Automated escalation pings coordinator queue after 24h/48h inactivity window.                            | No reminders, task queues, or inactivity escalation mechanisms exist.                                                    |      **FAIL**      |
+|   **10**   | Referral completed but further care needed          | Closure generates linked Postpartum/Neonatal continuing care record with 6-week visit roadmap.           | Completing a referral creates a 42-day plan with touchpoints on days 3, 7, 14 and 42.                                    | **PASS (in code)** |
+|   **11**   | Duplicate referral created for same patient         | System detects active referral for patient MRN, warns user, prevents duplicate submission.               | System allows duplicate referrals to be created with identical names and MRNs.                                           |      **FAIL**      |
+|   **12**   | Two users modify same referral simultaneously       | Optimistic locking / conflict resolution prevents overwriting; audit trail records both actors.          | Last write to `localStorage` unconditionally overwrites earlier write. No concurrency control.                           |      **FAIL**      |
+|   **13**   | Browser refreshed ($F5$) during workflow            | Form state recovered from draft cache; updated referrals preserved in memory.                            | Referrals survive in `localStorage`, but form draft and local audit rows are wiped.                                      |    **PARTIAL**     |
+|   **14**   | Unauthorized role opens sensitive URL               | User redirected to login or presented with permission denied boundary.                                   | Any user can navigate to `/facility`, `/coordinator`, or `/referral/:id` without restriction.                            |      **FAIL**      |
+|   **15**   | Required form field missing on submit               | Form displays inline validation errors on empty fields and halts submission.                             | Form uses HTML required attributes on some fields, but pre-populates default state.                                      |      **PASS**      |
+|   **16**   | Network request fails                               | UI shows persistent offline banner, queues mutations in IndexedDB, retries on reconnection.              | Zero network requests exist; application operates purely in local browser memory.                                        |      **N/A**       |

@@ -11,26 +11,31 @@ export const demoStorySteps = [
   {
     role: RoleId.COORDINATOR,
     path: `/referral/${STORY_REFERRAL_ID}`,
+    title: "Accepted, not yet arrived",
     text: "The hospital accepted this newborn, but the baby hasn't arrived. The case stays open.",
   },
   {
     role: RoleId.COORDINATOR,
-    path: "/barriers",
+    path: "/patients?show=blocked",
+    title: "Clear the transport barrier",
     text: "The family only has a two-wheeler, so the coordinator arranges a safe van.",
   },
   {
     role: RoleId.FACILITY,
     path: "/facility?tab=intransit",
+    title: "Hospital confirms arrival",
     text: "The hospital confirms arrival. Only this moves the referral forward.",
   },
   {
     role: RoleId.PATIENT,
     path: "/patient",
+    title: "What the family sees",
     text: "The family sees where things stand and what happens next, in plain words.",
   },
   {
     role: RoleId.COORDINATOR,
     path: "/continuity",
+    title: "Follow-up after discharge",
     text: "Care continues after discharge. Meera Devi's follow-ups run to day 42.",
   },
 ];

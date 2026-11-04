@@ -20,3 +20,9 @@ describe("demoStorySteps", () => {
     assert.ok(initialSeedReferrals.some((r) => r.id === STORY_REFERRAL_ID));
   });
 });
+
+describe("demo step titles", () => {
+  it("gives every step a short title", () => {
+    for (const step of demoStorySteps) assert.ok(step.title && step.title.length <= 40, step.text);
+  });
+});

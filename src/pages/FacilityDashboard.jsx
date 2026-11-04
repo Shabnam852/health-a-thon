@@ -16,6 +16,7 @@ import {
   Badge,
   Button,
   DataTable,
+  Disclosure,
   Field,
   FilterTabs,
   Input,
@@ -27,7 +28,7 @@ import {
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { formatMinutes, getResponseClock } from "../domain/alarms.js";
 import { PatientType, ReferralStatus } from "../domain/enums.js";
-import { hasArrivedAtFacility, isFloating } from "../domain/workflow.js";
+import { isFloating } from "../domain/workflow.js";
 
 const TABS = [
   {
@@ -70,26 +71,49 @@ const intakeActions = actionsColumn(({ row: { original: r }, table }) => {
   const { onAcknowledge, ask } = table.options.meta;
   return (
     <div className="flex justify-end gap-2">
-      {TABS[0].statuses.includes(r.status) && (
+      {/* The workflow only acknowledges or confirms arrival for a referral that has been sent. */}
+      {r.status === ReferralStatus.SENT && (
         <>
-          <Button size="sm" variant="primary" onClick={() => onAcknowledge(r)}>
+          <Button
+            aria-label={`Acknowledge for ${r.patientName}`}
+            size="sm"
+            variant="primary"
+            onClick={() => onAcknowledge(r)}
+          >
             Acknowledge
           </Button>
-          <Button size="sm" onClick={() => ask("arrival", r)}>
+          <Button aria-label={`Patient is here for ${r.patientName}`} size="sm" onClick={() => ask("arrival", r)}>
             Patient is here
-          </Button>
-          <Button size="sm" variant="danger-quiet" onClick={() => ask("reject", r)}>
-            Decline
           </Button>
         </>
       )}
+      {TABS[0].statuses.includes(r.status) && (
+        <Button
+          aria-label={`Decline for ${r.patientName}`}
+          size="sm"
+          variant="danger-quiet"
+          onClick={() => ask("reject", r)}
+        >
+          Decline
+        </Button>
+      )}
       {r.status === ReferralStatus.ACKNOWLEDGED && (
-        <Button size="sm" variant="primary" onClick={() => ask("arrival", r)}>
+        <Button
+          aria-label={`Confirm arrival for ${r.patientName}`}
+          size="sm"
+          variant="primary"
+          onClick={() => ask("arrival", r)}
+        >
           Confirm arrival
         </Button>
       )}
       {r.status === ReferralStatus.ARRIVAL_CONFIRMED && (
-        <Button size="sm" variant="primary" onClick={() => ask("outcome", r)}>
+        <Button
+          aria-label={`Record outcome for ${r.patientName}`}
+          size="sm"
+          variant="primary"
+          onClick={() => ask("outcome", r)}
+        >
           Record outcome
         </Button>
       )}
@@ -102,10 +126,21 @@ const tailColumns = [typeColumn(), conditionColumn(), fromColumn(), intakeAction
 const QUEUE_COLUMNS = [...baseColumns, ...tailColumns];
 const PENDING_COLUMNS = [...baseColumns, replyColumn, ...tailColumns];
 
+// Where an arriving patient is admitted, as an Indian government hospital names it.
+const WARDS = {
+  [PatientType.MATERNAL]: ["Labour room", "Antenatal ward", "Postnatal ward", "Obstetric HDU", "Casualty"],
+  [PatientType.CHILD]: ["SNCU", "NICU", "Paediatric ward", "Casualty"],
+  [PatientType.DYAD]: ["Postnatal ward", "Labour room", "SNCU", "Obstetric HDU", "Casualty"],
+};
+const STAFF_ROLES = ["Staff nurse", "Ward sister", "Duty doctor", "Medical officer", "ANM"];
+
 const BLANK_FORM = {
   rejectReason: "",
-  arrivalBay: "",
+  arrivalWard: "",
+  arrivalBed: "",
+  arrivalIp: "",
   arrivalStaff: "",
+  arrivalRole: STAFF_ROLES[0],
   clinicianName: "",
   maternalStatus: "STABLE",
   deliveryType: "SPONTANEOUS_VAGINAL",
@@ -129,9 +164,8 @@ const FacilityDashboard = () => {
   } = useReferrals();
 
   const [modal, setModal] = useState(null); // { type: 'reject' | 'arrival' | 'outcome', referral }
-  const [caseIdQuery, setCaseIdQuery] = useState("");
   const [form, setForm] = useState(BLANK_FORM);
-  const { toast, showToast, report } = useToast();
+  const { toast, report } = useToast();
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   // A link can name a hospital. Otherwise this is the hospital chosen last.
@@ -142,7 +176,8 @@ const FacilityDashboard = () => {
     if (linkedFacilityId) setActiveFacilityId(linkedFacilityId);
   }, [linkedFacilityId, setActiveFacilityId]);
 
-  const inbound = referrals.filter((r) => r.toFacility?.toLowerCase().includes(currentFacility.name.toLowerCase()));
+  // An exact match, as on the hospitals board: a partial name must not pull in another hospital's cases.
+  const inbound = referrals.filter((r) => r.toFacility === currentFacility.name);
   const queues = Object.fromEntries(TABS.map((t) => [t.id, inbound.filter((r) => t.statuses.includes(r.status))]));
 
   // No tab in the URL: open the first queue that needs attention.
@@ -175,49 +210,42 @@ const FacilityDashboard = () => {
     finish(res, `Acknowledged ${ref.patientName}. Bed reserved.`);
   };
 
+  const arrivalWards = (ref) => WARDS[ref.referralType] || WARDS[PatientType.MATERNAL];
   const handleConfirmArrivalAction = () => {
     const ref = modal.referral;
+    const ward = form.arrivalWard || arrivalWards(ref)[0];
+    const room = `${ward}, bed ${form.arrivalBed.trim()}`;
+    const ip = form.arrivalIp.trim();
     const res = confirmArrival(ref.id, {
       atFacility: currentFacility.name,
-      department: currentFacility.name,
-      room: form.arrivalBay,
-      verifiedBy: form.arrivalStaff,
-      notes: "Patient physically arrived and checked in.",
+      department: ward,
+      room,
+      verifiedBy: `${form.arrivalStaff.trim()} (${form.arrivalRole})`,
+      notes: `Patient physically arrived and was admitted${ip ? `, IP no. ${ip}` : ""}.`,
     });
-    finish(res, `${ref.patientName} arrived and checked into ${form.arrivalBay}.`);
-    setCaseIdQuery("");
+    finish(res, `${ref.patientName} admitted to ${room}.`);
   };
 
   const handleConfirmReject = () => {
     const ref = modal.referral;
     finish(
-      rejectReferral(ref.id, undefined, form.rejectReason),
+      rejectReferral(ref.id, undefined, form.rejectReason.trim()),
       `Declined ${ref.patientName}. They can now choose another hospital.`,
     );
   };
 
   // A patient can walk in anywhere, so reception finds them by the case ID they were given.
-  const handleFindCase = (e) => {
-    e.preventDefault();
-    const wanted = caseIdQuery.trim().toLowerCase();
-    const found = referrals.find((r) => r.id.toLowerCase() === wanted);
-    if (!found) return showToast(`No case with ID ${caseIdQuery.trim()}.`, "error");
-    if (hasArrivedAtFacility(found))
-      return showToast(`${found.patientName} has already arrived at ${found.toFacility}.`, "error");
-    ask("arrival", found);
-  };
-
   const handleConfirmOutcome = () => {
     const ref = modal.referral;
     const res = recordClinicalOutcome(ref.id, {
       // The record keeps only the fields for this patient type.
-      clinicianName: form.clinicianName,
+      clinicianName: form.clinicianName.trim(),
       clinicianRole: "MD / MS (OBG)",
       maternalStatus: form.maternalStatus,
       deliveryType: form.deliveryType,
       neonatalStatus: form.neonatalStatus,
       disposition: form.disposition,
-      clinicalNotes: form.clinicalNotes || "Clinical assessment completed. Patient stabilized.",
+      clinicalNotes: form.clinicalNotes.trim() || "Clinical assessment completed. Patient stabilized.",
     });
     finish(res, `Outcome recorded for ${ref.patientName}. Follow-ups started.`);
   };
@@ -256,9 +284,8 @@ const FacilityDashboard = () => {
             </Select>
           }
         />
-        <details className="text-sm text-ink-muted">
-          <summary className="cursor-pointer font-semibold text-ink">Hospital details</summary>
-          <div className="mt-2 space-y-1 break-words">
+        <Disclosure title="Hospital details" icon="local_hospital" variant="inline">
+          <div className="space-y-1 break-words text-sm text-ink-muted">
             <p>
               {currentFacility.type} · {currentFacility.location}
             </p>
@@ -268,17 +295,8 @@ const FacilityDashboard = () => {
             </p>
             <p>Can treat: {currentFacility.capabilities.join(", ")}</p>
           </div>
-        </details>
+        </Disclosure>
       </div>
-
-      <form onSubmit={handleFindCase} className="flex flex-col sm:flex-row sm:items-end gap-2">
-        <Field label="Patient at reception? Enter their case ID" className="flex-1">
-          <Input value={caseIdQuery} onChange={(e) => setCaseIdQuery(e.target.value)} />
-        </Field>
-        <Button type="submit" disabled={!caseIdQuery.trim()}>
-          Find case
-        </Button>
-      </form>
 
       <FilterTabs
         label="Queues"
@@ -323,7 +341,7 @@ const FacilityDashboard = () => {
           onCancel={closeModal}
           onSave={handleConfirmArrivalAction}
           saveLabel="Confirm arrival"
-          saveDisabled={!form.arrivalBay.trim() || !form.arrivalStaff.trim()}
+          saveDisabled={!form.arrivalBed.trim() || !form.arrivalStaff.trim()}
         >
           <p className="text-sm text-ink-muted">
             {modal.referral.patientName} has reached {currentFacility.name}.
@@ -331,12 +349,49 @@ const FacilityDashboard = () => {
               !isFloating(modal.referral) &&
               ` They were expected at ${modal.referral.toFacility}.`}
           </p>
-          <Field label="Room or bay">
-            <Input value={form.arrivalBay} onChange={(e) => set("arrivalBay", e.target.value)} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Ward">
+              <Select
+                value={form.arrivalWard || arrivalWards(modal.referral)[0]}
+                onChange={(e) => set("arrivalWard", e.target.value)}
+              >
+                {arrivalWards(modal.referral).map((w) => (
+                  <option key={w}>{w}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Bed number">
+              <Input
+                value={form.arrivalBed}
+                inputMode="numeric"
+                placeholder="e.g. 12"
+                onChange={(e) => set("arrivalBed", e.target.value)}
+              />
+            </Field>
+          </div>
+          <Field label="IP number" hint="The in-patient number from the admission register, if given yet.">
+            <Input
+              value={form.arrivalIp}
+              placeholder="e.g. IP/2026/04512"
+              onChange={(e) => set("arrivalIp", e.target.value)}
+            />
           </Field>
-          <Field label="Checked in by">
-            <Input value={form.arrivalStaff} onChange={(e) => set("arrivalStaff", e.target.value)} />
-          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Received by">
+              <Input
+                value={form.arrivalStaff}
+                placeholder="Name"
+                onChange={(e) => set("arrivalStaff", e.target.value)}
+              />
+            </Field>
+            <Field label="Role">
+              <Select value={form.arrivalRole} onChange={(e) => set("arrivalRole", e.target.value)}>
+                {STAFF_ROLES.map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
         </FormDialog>
       )}
 

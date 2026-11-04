@@ -10,6 +10,18 @@ const canTabTo = (el) => {
   return !folded || (el.parentElement === folded && el.tagName === "SUMMARY");
 };
 
+// Modals can nest (a dialog opened inside the menu drawer) and unmount in either order, so the page
+// unlocks only when the last one goes. Restoring a saved value per modal could leave the page locked.
+let scrollLocks = 0;
+let overflowBeforeLock = "";
+const lockScroll = () => {
+  if (scrollLocks++ === 0) overflowBeforeLock = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+};
+const unlockScroll = () => {
+  if (--scrollLocks === 0) document.body.style.overflow = overflowBeforeLock;
+};
+
 /**
  * Modal behaviour for a panel: moves focus in, keeps Tab inside, closes on Escape,
  * stops the page behind from scrolling, and returns focus to where it was.
@@ -26,9 +38,7 @@ export const useModalFocus = (panelRef, onClose) => {
     const focusable = () => [...panel.querySelectorAll(FOCUSABLE)].filter(canTabTo);
 
     (focusable()[0] || panel).focus();
-    // A dialog can open inside the menu drawer, which must keep the page locked when it closes.
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockScroll();
 
     const handleKeyDown = (e) => {
       if (e.key !== "Escape" && e.key !== "Tab") return;
@@ -41,10 +51,13 @@ export const useModalFocus = (panelRef, onClose) => {
       const items = focusable();
       const first = items[0];
       const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
+      const active = document.activeElement;
+      // Focus can rest on the panel itself (a click on its text), which is neither first nor last.
+      const atEdge = active === panel || !panel.contains(active);
+      if (e.shiftKey && (active === first || atEdge)) {
         e.preventDefault();
         last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && (active === last || atEdge)) {
         e.preventDefault();
         first?.focus();
       }
@@ -53,7 +66,7 @@ export const useModalFocus = (panelRef, onClose) => {
 
     return () => {
       panel.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
       opener?.focus?.();
     };
   }, [panelRef]);

@@ -12,7 +12,8 @@
       "!package-lock.json",
       "!NAVEXA_SYSTEM_SUMMARY.json",
       "!docs/stitch-source",
-      "!docs/diagrams/page.template.html"
+      "!docs/diagrams/page.template.html",
+      "!.claude"
     ]
   },
   "formatter": {

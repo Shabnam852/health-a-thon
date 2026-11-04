@@ -75,9 +75,20 @@ const DataTable = ({
     columns: tableColumns,
     meta: context,
     state: { sorting, globalFilter, columnFilters, expanded },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    onColumnFiltersChange: setColumnFilters,
+    // Pages build `data` fresh each render, so TanStack's auto-reset would send the table back to
+    // page 1 whenever anything on the page re-rendered. Reset only when the user changes the view.
+    onSortingChange: (u) => {
+      setSorting(u);
+      table.resetPageIndex();
+    },
+    onGlobalFilterChange: (u) => {
+      setGlobalFilter(u);
+      table.resetPageIndex();
+    },
+    onColumnFiltersChange: (u) => {
+      setColumnFilters(u);
+      table.resetPageIndex();
+    },
     onExpandedChange: setExpanded,
     getRowId,
     getRowCanExpand: () => Boolean(renderDetail),
@@ -91,9 +102,14 @@ const DataTable = ({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       pagination: { pageSize },
-      columnVisibility: Object.fromEntries(columns.filter((c) => c.meta?.hidden).map((c) => [c.id, false])),
+      // A column def may carry only an accessorKey, whose id TanStack derives from it.
+      columnVisibility: Object.fromEntries(
+        columns.filter((c) => c.meta?.hidden).map((c) => [c.id ?? c.accessorKey, false]),
+      ),
     },
-    autoResetPageIndex: true,
+    autoResetPageIndex: false,
+    // Rows are keyed by id, so an open row stays open across new data.
+    autoResetExpanded: false,
   });
 
   const filterColumns = table.getAllLeafColumns().filter((c) => c.columnDef.meta?.filter);
@@ -237,11 +253,7 @@ const DataTable = ({
                           aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} details`}
                           onClick={row.getToggleExpandedHandler()}
                         >
-                          <Icon
-                            name="chevron_right"
-                            size="sm"
-                            className={`transition-transform duration-fast ${row.getIsExpanded() ? "rotate-90" : ""}`}
-                          />
+                          <Icon name="chevron_right" size="sm" className={row.getIsExpanded() ? "rotate-90" : ""} />
                         </Button>
                       </td>
                     )}

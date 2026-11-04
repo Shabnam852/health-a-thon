@@ -1,19 +1,24 @@
-architecture-beta
+flowchart LR
   accTitle: Architecture
-  accDescr: GitHub Actions deploys to Vercel, which serves the app to the browser. In the browser, the app saves to localStorage and links to OpenStreetMap and Google Maps.
-  group hosting(cloud)[Hosting]
-  group browser(internet)[Browser]
-  group maps(internet)[Maps]
-
-  service actions(server)[GitHub Actions] in hosting
-  service vercel(server)[Vercel] in hosting
-  service app(server)[Navexa app] in browser
-  service store(disk)[localStorage] in browser
-  service osm(internet)[OpenStreetMap] in maps
-  service gmaps(internet)[Google Maps] in maps
-
-  actions:R --> L:vercel
-  vercel:R --> L:app
-  app:B --> T:store
-  app:R --> L:osm
-  app:R --> L:gmaps
+  accDescr: GitHub Actions deploys to Vercel, which serves the app and its AI functions. In the browser, the app saves to localStorage, links to OpenStreetMap and Google Maps, and calls the AI functions. The AI functions call Claude and Sarvam, and keep their keys on the server.
+  subgraph Hosting
+    actions[GitHub Actions] --> vercel[Vercel]
+    vercel --> fn["AI functions<br/>api/ and server/"]
+  end
+  subgraph Browser
+    app[Navexa app] --> store[(localStorage)]
+  end
+  subgraph Maps
+    osm[OpenStreetMap]
+    gmaps[Google Maps]
+  end
+  subgraph AI["AI services"]
+    claude[Claude]
+    sarvam[Sarvam]
+  end
+  vercel -->|serves| app
+  app -->|asks| fn
+  app --> osm
+  app --> gmaps
+  fn --> claude
+  fn --> sarvam

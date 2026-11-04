@@ -28,6 +28,8 @@ const Toast = ({ toast }) => {
   const isError = toast?.type === "error";
   const message = toast && (
     <div
+      // The guided-demo bar sits in the same corner and holds its Next button, so lift the toast clear of it.
+      style={{ transform: "translateY(calc(-1 * var(--story-bar-height, 0px)))" }}
       className={`fixed bottom-above-tabs mb-2 lg:mb-0 lg:bottom-6 inset-x-4 sm:left-auto sm:right-6 z-50 px-4 py-3 rounded-control shadow-overlay flex items-center gap-3 text-on-fill ${isError ? "bg-danger" : "bg-brand"}`}
     >
       <Icon name={isError ? "error" : "check_circle"} className={isError ? "text-on-fill" : "text-highlight"} />

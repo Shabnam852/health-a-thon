@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { resolveTheme, THEME_KEY } from "../config/theme.js";
+import { THEME_KEY } from "../config/theme.js";
 import { Button, Icon } from "./ui/index.js";
 
-const THEME_COLORS = { light: "#f6f8fa", dark: "#0d121e" };
+// The browser bar matches the page canvas in each theme (tokens.css).
+const THEME_COLORS = { light: "#f7f4f0", dark: "#121110" };
 // The desktop sidebar stays mounted behind the phone drawer, so toggles must keep each other in step.
 const THEME_CHANGED = "navexa-theme-changed";
 
@@ -23,9 +24,9 @@ const save = (theme) => {
 };
 
 const ThemeToggle = ({ fullWidth = false, iconOnly = false }) => {
-  const [theme, setTheme] = useState(() =>
-    resolveTheme(readSaved(), window.matchMedia("(prefers-color-scheme: dark)").matches),
-  );
+  // Start from the class index.html already set: a toggle mounted later (the phone drawer) must not undo a
+  // choice that could not be saved, which re-resolving from storage and the device setting would do.
+  const [theme, setTheme] = useState(() => (document.documentElement.classList.contains("dark") ? "dark" : "light"));
   const isDark = theme === "dark";
 
   useEffect(() => {
@@ -54,17 +55,18 @@ const ThemeToggle = ({ fullWidth = false, iconOnly = false }) => {
     window.dispatchEvent(new CustomEvent(THEME_CHANGED, { detail: next }));
   };
 
+  // The button names what it switches to, so it never reads "Dark mode" while dark mode is on.
+  const label = isDark ? "Light mode" : "Dark mode";
   return (
     <Button
       onClick={toggle}
-      aria-pressed={isDark}
-      aria-label="Dark mode"
-      title="Dark mode"
+      aria-label={`Switch to ${label.toLowerCase()}`}
+      title={`Switch to ${label.toLowerCase()}`}
       fullWidth={fullWidth}
       size={iconOnly ? "icon" : "md"}
     >
-      <Icon name={isDark ? "dark_mode" : "light_mode"} />
-      {!iconOnly && "Dark mode"}
+      <Icon name={isDark ? "light_mode" : "dark_mode"} />
+      {!iconOnly && label}
     </Button>
   );
 };

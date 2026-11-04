@@ -7,56 +7,58 @@
   color-scheme: light;
 
   /* Page and panels */
-  --color-canvas: 246 248 250;
+  --color-canvas: 247 244 240;
   --color-surface: 255 255 255;
-  --color-muted: 246 248 250;
-  --color-subtle: 235 238 241;
-  --color-subtle-strong: 223 227 232;
+  --color-muted: 242 239 234;
+  --color-subtle: 234 231 225;
+  --color-subtle-strong: 224 219 212;
 
   /* Lines */
-  --color-line: 227 232 238;
-  --color-line-strong: 120 130 148;
+  --color-line: 219 215 208;
+  --color-line-strong: 120 116 109;
 
   /* Text */
-  --color-ink: 26 31 54;
-  --color-ink-muted: 70 77 100;
+  --color-ink: 32 30 26;
+  --color-ink-muted: 76 73 67;
 
   /* Solid fills. Text on them uses on-fill in both themes. */
-  --color-brand: 10 37 64;
-  --color-brand-hover: 23 56 92;
-  --color-accent-fill: 0 92 88;
-  --color-accent-fill-hover: 0 74 71;
-  --color-danger-fill: 163 20 30;
-  --color-danger-fill-hover: 133 15 24;
+  --color-brand: 13 53 48;
+  --color-brand-hover: 20 66 60;
+  --color-accent-fill: 10 96 87;
+  --color-accent-fill-hover: 0 81 73;
+  --color-danger-fill: 163 24 32;
+  --color-danger-fill-hover: 133 17 24;
   --color-on-fill: 255 255 255;
-  --color-on-fill-muted: 209 228 255;
+  --color-on-fill-muted: 205 228 224;
 
   /* Accent and danger as text, borders and soft backgrounds */
-  --color-accent: 0 88 84;
-  --color-accent-soft: 225 245 243;
-  --color-danger: 150 18 27;
-  --color-danger-soft: 253 236 236;
-  --color-danger-strong: 120 12 20;
+  --color-accent: 0 85 77;
+  --color-accent-soft: 224 242 239;
+  --color-danger: 151 26 32;
+  --color-danger-soft: 252 236 234;
+  --color-danger-strong: 121 13 20;
   /* Urgent (orange) and priority (amber) referrals */
-  --color-warning: 138 52 0;
-  --color-warning-soft: 255 237 220;
-  --color-caution: 102 72 0;
-  --color-caution-soft: 252 244 204;
+  --color-warning: 132 57 0;
+  --color-warning-soft: 254 234 219;
+  --color-caution: 101 75 7;
+  --color-caution-soft: 248 241 211;
 
-  /* Bright highlight: same in both themes */
-  --color-highlight: 165 243 236;
-  --color-on-highlight: 0 40 38;
+  /* Bright highlight for the one thing to look at next (the Next step, the demo's Next button) */
+  --color-highlight: 223 239 236;
+  --color-on-highlight: 13 53 48;
 
-  --color-focus: 0 92 88;
+  --color-focus: 10 96 87;
 
   /* Radii */
-  --radius-control: 0.5rem;
-  --radius-card: 0.75rem;
+  --radius-control: 0.75rem;
+  --radius-card: 1.25rem;
+  /* Buttons and chips are pills, the calm shape Nordic health services use. */
+  --radius-pill: 999px;
 
   /* Elevation */
-  --shadow-card: 0 1px 2px rgb(26 31 54 / 0.06);
-  --shadow-raised: 0 2px 5px rgb(26 31 54 / 0.1), 0 1px 1px rgb(26 31 54 / 0.06);
-  --shadow-overlay: 0 16px 48px rgb(26 31 54 / 0.2), 0 4px 12px rgb(26 31 54 / 0.1);
+  --shadow-card: 0 1px 2px rgb(27 33 31 / 0.04);
+  --shadow-raised: 0 1px 2px rgb(27 33 31 / 0.08);
+  --shadow-overlay: 0 8px 24px rgb(27 33 31 / 0.12);
 
   /* Layout */
   --size-sidebar: 16.875rem;
@@ -66,51 +68,51 @@
   --size-control: 2.75rem;
   --size-control-sm: 2.25rem;
 
-  /* Motion */
-  --motion-fast: 120ms;
-
   /* Type */
-  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-display: "Inter", system-ui, -apple-system, sans-serif;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
 }
 
 :root.dark {
   color-scheme: dark;
 
-  --color-canvas: 13 18 30;
-  --color-surface: 21 28 43;
-  --color-muted: 27 35 52;
-  --color-subtle: 36 45 64;
-  --color-subtle-strong: 44 54 75;
+  --color-canvas: 18 17 16;
+  --color-surface: 28 27 24;
+  --color-muted: 36 35 32;
+  --color-subtle: 46 43 40;
+  --color-subtle-strong: 57 54 50;
 
-  --color-line: 45 54 74;
-  --color-line-strong: 122 133 156;
+  --color-line: 59 57 53;
+  --color-line-strong: 143 140 133;
 
-  --color-ink: 240 243 248;
-  --color-ink-muted: 190 199 214;
+  --color-ink: 241 240 237;
+  --color-ink-muted: 192 189 184;
 
-  --color-brand: 26 54 88;
-  --color-brand-hover: 33 67 108;
-  --color-accent-fill: 0 96 92;
-  --color-accent-fill-hover: 0 84 80;
-  --color-danger-fill: 163 20 30;
-  --color-danger-fill-hover: 133 15 24;
+  --color-brand: 23 68 63;
+  --color-brand-hover: 29 80 74;
+  --color-accent-fill: 0 96 87;
+  --color-accent-fill-hover: 0 84 76;
+  --color-danger-fill: 163 24 32;
+  --color-danger-fill-hover: 133 17 24;
 
-  --color-accent: 111 224 217;
-  --color-accent-soft: 11 52 54;
-  --color-danger: 255 170 170;
-  --color-danger-soft: 58 21 25;
-  --color-danger-strong: 255 214 214;
-  --color-warning: 255 192 145;
-  --color-warning-soft: 60 34 16;
-  --color-caution: 245 214 120;
-  --color-caution-soft: 50 43 14;
+  --color-accent: 142 216 205;
+  --color-accent-soft: 19 52 48;
+  --color-danger: 249 173 170;
+  --color-danger-soft: 58 29 28;
+  --color-danger-strong: 255 213 210;
+  --color-warning: 249 192 151;
+  --color-warning-soft: 55 34 19;
+  --color-caution: 235 211 139;
+  --color-caution-soft: 46 39 19;
 
-  --color-focus: 111 224 217;
+  --color-on-fill-muted: 205 228 224;
+  --color-highlight: 187 225 218;
+  --color-on-highlight: 7 42 38;
+  --color-focus: 142 216 205;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-raised: 0 2px 5px rgb(0 0 0 / 0.4);
-  --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.55);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.45);
 }
 
 /* Touch screens get the full 44px target, even from small buttons. */

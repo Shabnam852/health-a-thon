@@ -12,6 +12,7 @@ import { Role } from "../domain/enums.js";
 import { createReferral } from "../domain/models.js";
 import * as workflow from "../domain/workflow.js";
 import { StorageAdapter } from "../services/storageAdapter.js";
+import { clearVoices } from "../services/voiceCache.js";
 
 const ReferralContext = createContext();
 
@@ -172,6 +173,33 @@ export const ReferralProvider = ({ children }) => {
   // BARRIER MANAGEMENT ACTIONS
   // ==========================================
 
+  // The family's assistant heard a danger sign or a practical problem: tell the staff.
+  const reportFromFamily = (referralId, report) => {
+    const result = applyToReferral(referralId, (r) => workflow.recordFamilyReport(r, report));
+    if (!result.success) return result;
+    const current = dataRef.current;
+    const stamp = Date.now();
+    commit({
+      ...current,
+      notifications: [
+        ...result.alerts.map((alert, i) => ({
+          id: `NOTIF-${stamp}-${i}`,
+          timestamp: "Just now",
+          ...alert,
+          link: `/referral/${referralId}`,
+          read: false,
+        })),
+        ...current.notifications,
+      ],
+    });
+    return result;
+  };
+
+  const saveHandoff = (referralId, summary) => applyToReferral(referralId, (r) => workflow.saveHandoff(r, summary));
+
+  const confirmHandoff = (referralId, confirmedBy) =>
+    applyToReferral(referralId, (r) => workflow.confirmHandoff(r, { confirmedBy }));
+
   const identifyBarrier = (referralId, barrierPayload) =>
     applyToReferral(referralId, (r) => workflow.identifyBarrier(r, barrierPayload));
 
@@ -227,6 +255,7 @@ export const ReferralProvider = ({ children }) => {
   // Demo Data Reset
   const resetDemoData = () => {
     StorageAdapter.clearData();
+    clearVoices();
     const freshReferrals = buildSeedReferrals();
     const freshData = {
       referrals: freshReferrals,
@@ -270,6 +299,9 @@ export const ReferralProvider = ({ children }) => {
         confirmArrival,
         recordClinicalOutcome,
         identifyBarrier,
+        reportFromFamily,
+        saveHandoff,
+        confirmHandoff,
         updateBarrierStatus,
         resolveBarrier,
         requestTransport,

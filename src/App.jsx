@@ -2,17 +2,18 @@ import { useEffect, useRef } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import AppShell from "./components/AppShell.jsx";
+import { ASSISTANT_PATH } from "./components/assistant/AssistantLauncher.jsx";
 import { getRoleDefinition, RoleId } from "./config/navigationConfig.js";
 import { useReferrals } from "./context/ReferralContext.jsx";
-import BarrierResolution from "./pages/BarrierResolution.jsx";
+import AssistantScreen from "./pages/AssistantScreen.jsx";
 import ContinuityOfCare from "./pages/ContinuityOfCare.jsx";
 import CoordinatorDashboard from "./pages/CoordinatorDashboard.jsx";
 import CreateReferral from "./pages/CreateReferral.jsx";
 import FacilityDashboard from "./pages/FacilityDashboard.jsx";
-import NavigatorWorkspace from "./pages/NavigatorWorkspace.jsx";
 import NetworkView from "./pages/NetworkView.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import PatientDashboard from "./pages/PatientDashboard.jsx";
+import Patients from "./pages/Patients.jsx";
 import ReferralDetails from "./pages/ReferralDetails.jsx";
 import RoleSelection from "./pages/RoleSelection.jsx";
 import TransportCoordination from "./pages/TransportCoordination.jsx";
@@ -20,7 +21,7 @@ import TransportCoordination from "./pages/TransportCoordination.jsx";
 // There is no standalone list page, so /referrals opens the role's own queue.
 const ReferralsRedirect = () => {
   const { role } = useReferrals();
-  const queues = { [RoleId.COORDINATOR]: "/coordinator?view=queue", [RoleId.FACILITY]: "/facility?tab=pending" };
+  const queues = { [RoleId.COORDINATOR]: "/patients", [RoleId.FACILITY]: "/facility?tab=pending" };
   return <Navigate to={queues[role] || getRoleDefinition(role).homePath} replace />;
 };
 
@@ -68,13 +69,16 @@ function App() {
         />
 
         <Route
-          path="/navigator"
+          path="/patients"
           element={
             <AppShell>
-              <NavigatorWorkspace />
+              <Patients />
             </AppShell>
           }
         />
+        {/* Queue, Caseload and Barriers are now tabs of Patients. */}
+        <Route path="/navigator" element={<Navigate to="/patients" replace />} />
+        <Route path="/barriers" element={<Navigate to="/patients?show=blocked" replace />} />
 
         <Route
           path="/referral/:id"
@@ -86,15 +90,6 @@ function App() {
         />
 
         <Route path="/referrals" element={<ReferralsRedirect />} />
-
-        <Route
-          path="/barriers"
-          element={
-            <AppShell>
-              <BarrierResolution />
-            </AppShell>
-          }
-        />
 
         <Route
           path="/transport"
@@ -128,6 +123,15 @@ function App() {
           element={
             <AppShell>
               <PatientDashboard />
+            </AppShell>
+          }
+        />
+
+        <Route
+          path={ASSISTANT_PATH}
+          element={
+            <AppShell>
+              <AssistantScreen />
             </AppShell>
           }
         />

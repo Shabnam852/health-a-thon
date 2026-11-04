@@ -10,6 +10,6 @@ The `.mmd` files here are the source for the project map. They are drawn from th
 
 Open `out/index.html` to see the page. `page.template.html` holds its text.
 
-The numbers in `15-demo-status`, `16-tests` and `18-demo-barriers` are typed in by hand, measured on 2 November 2026. The positions in `17-priorities` are estimates.
+The numbers in `15-demo-status`, `16-tests` and `18-demo-barriers` are typed in by hand, measured on 4 November 2026. The positions in `17-priorities` are estimates.
 
 zombie-mermaid needs Node 24 or newer, and is a dev dependency only: the app itself doesn't load it.

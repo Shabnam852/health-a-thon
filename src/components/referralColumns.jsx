@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { acuityRank, PATIENT_TYPE_LABELS, UrgencyLevel } from "../domain/enums.js";
+import { acuityRank, PATIENT_TYPE_LABELS, ReferralStatus, UrgencyLevel } from "../domain/enums.js";
 import { getDestination } from "../domain/workflow.js";
 import { Badge } from "./ui/index.js";
 
@@ -95,4 +95,20 @@ export const actionsColumn = (cell) => ({
   enableGlobalFilter: false,
   meta: { srOnly: true, sticky: true, className: "text-right" },
   cell,
+});
+
+const STATUS_LABELS = {
+  [ReferralStatus.SENT]: "Sent",
+  [ReferralStatus.ACKNOWLEDGED]: "Accepted",
+  [ReferralStatus.ARRIVAL_CONFIRMED]: "Arrived",
+  [ReferralStatus.REJECTED]: "Floating: patient choosing",
+};
+export const statusLabel = (status) =>
+  STATUS_LABELS[status] || status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, " ");
+
+export const statusColumn = () => ({
+  id: "status",
+  header: "Status",
+  accessorFn: (r) => statusLabel(r.status),
+  meta: { filter: true, className: "font-semibold text-ink min-w-28" },
 });

@@ -60,6 +60,19 @@ describe("follow-up state", () => {
     assert.equal(getFollowUpState(task, new Date("2026-11-02T00:01:00").getTime()), FollowUpStatus.DUE);
   });
 
+  it("counts calendar days across a clock change, not 24-hour blocks", () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "America/New_York"; // Clocks go forward on 2026-03-08.
+    try {
+      const task = { dueDate: "2026-03-06", status: FollowUpStatus.PLANNED };
+      // Three calendar days after the due day, 71.5 hours after its midnight.
+      assert.equal(getFollowUpState(task, new Date("2026-03-09T00:30:00").getTime()), FollowUpStatus.MISSED);
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
+  });
+
   it("leaves a completed visit completed, however late", () => {
     assert.equal(stateOn("2027-01-01", FollowUpStatus.COMPLETED), FollowUpStatus.COMPLETED);
   });

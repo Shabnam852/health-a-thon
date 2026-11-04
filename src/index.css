@@ -15,7 +15,15 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* The page never pans sideways, and the scrollbar's space is always kept, so content
+     doesn't shift left and right when the page grows or shrinks past one screen. */
+  html {
+    overflow-x: clip;
+    scrollbar-gutter: stable;
+  }
+
   body {
+    overflow-x: clip;
     overscroll-behavior: none;
   }
 
@@ -35,15 +43,23 @@
 }
 
 @layer components {
-  .material-symbols-outlined {
+  .icon {
     /* biome-ignore lint/a11y/useGenericFontNames: a fallback font would show the icon names as text. */
-    font-family: "Material Symbols Outlined";
+    font-family: "Material Symbols Rounded";
+    /* A light stroke reads as calm; FILL is switched on per icon for the selected state. */
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 350,
+      "GRAD" 0,
+      "opsz" 24;
     font-weight: normal;
     font-style: normal;
     line-height: 1;
     letter-spacing: normal;
     text-transform: none;
     display: inline-block;
+    /* A narrow button squeezes its text, never its icon. */
+    flex-shrink: 0;
     /* Until the font loads an icon is its name as text. Fix its box so nothing shifts. */
     width: 1em;
     height: 1em;

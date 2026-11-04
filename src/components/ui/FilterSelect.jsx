@@ -20,12 +20,18 @@ const FilterSelect = ({ label, value = "", options, onChange, allText = "all", c
   // The reset row is listed as "All", so typing either "all" or its button word finds it.
   const matches = ([v, text]) => !q || text.toLowerCase().includes(q) || (v === "" && "all".includes(q));
   const shown = [all, ...options].filter(matches);
-  const selectedText = options.find(([v]) => v === value)?.[1];
+  // A filter whose value has left the data (a row was edited) must still read as active, not as "all".
+  const selectedText = options.find(([v]) => v === value)?.[1] ?? (value === "" ? undefined : String(value));
 
   // Opening the list moves focus to its search box, so typing narrows it straight away.
   useEffect(() => {
     if (open) searchRef.current?.focus();
   }, [open]);
+
+  // Arrow keys move the highlight past the edge of the scrolling list, so bring it back into view.
+  useEffect(() => {
+    if (open) document.getElementById(`${listId}-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [open, active, listId]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -56,7 +62,7 @@ const FilterSelect = ({ label, value = "", options, onChange, allText = "all", c
   const onKeyDown = (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((i) => Math.min(i + 1, shown.length - 1));
+      setActive((i) => Math.max(0, Math.min(i + 1, shown.length - 1)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((i) => Math.max(i - 1, 0));
@@ -65,6 +71,10 @@ const FilterSelect = ({ label, value = "", options, onChange, allText = "all", c
       if (shown[active]) pick(shown[active][0]);
     } else if (e.key === "Escape") {
       e.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
+    } else if (e.key === "Tab") {
+      // Close and let Tab carry on from the button, so focus is not dropped when the list unmounts.
       setOpen(false);
       buttonRef.current?.focus();
     }

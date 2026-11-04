@@ -1,6 +1,6 @@
 C4Context
   accTitle: System context
-  accDescr: Coordinators, hospital staff and families use Navexa Health. Navexa sends only the hospital location to OpenStreetMap and Google Maps, and families can call emergency number 108.
+  accDescr: Coordinators, hospital staff and families use Navexa Health. Navexa sends only the hospital location to OpenStreetMap and Google Maps. It sends what the family asks the assistant, and what staff type, say or photograph for a draft, to Claude and Sarvam. Families can call emergency number 108.
   title Navexa Health in context
   Person(coordinator, "Care Coordinator", "Runs each case")
   Person(hospital, "Hospital staff", "Accept, admit and treat")
@@ -8,8 +8,12 @@ C4Context
   System_Ext(emergency, "108", "Emergency phone line")
   System(navexa, "Navexa Health", "Tracks a referral until care happens")
   System_Ext(maps, "Maps", "OpenStreetMap and Google Maps")
+  System_Ext(claude, "Claude", "Writes family answers and referral drafts")
+  System_Ext(sarvam, "Sarvam", "Speech to text, translation and voice")
   Rel(coordinator, navexa, "Manages cases")
   Rel(hospital, navexa, "Handles intake")
   Rel(family, navexa, "Checks status")
   Rel(family, emergency, "Calls")
   Rel(navexa, maps, "Hospital location")
+  Rel(navexa, claude, "Text and case details")
+  Rel(navexa, sarvam, "Speech and text")

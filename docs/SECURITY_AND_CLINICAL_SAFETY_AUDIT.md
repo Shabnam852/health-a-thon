@@ -1,7 +1,8 @@
 # Navexa Health — Security, Privacy & Clinical Safety Audit
 
 **Document:** `docs/SECURITY_AND_CLINICAL_SAFETY_AUDIT.md`  
-**Version:** 2.0.0  
+**Version:** 2.1.0  
+**Updated:** November 04, 2026 (section 3 for the AI features)  
 **Audit Date:** November 01, 2026  
 **Auditor:** Application Security Engineer & Healthcare Technology / Clinical Safety Architect
 
@@ -34,7 +35,7 @@ The application implements **simulated authentication** via a persona selector a
 
 ### 1.2 Sensitive Data Storage & Local Storage Exposure
 
-All patient demographic data, clinical narratives, medical history, caregiver phone numbers, and vitals are stored in unencrypted browser `localStorage` under the key `navexa_referrals_v2` ([`src/context/ReferralContext.jsx:20-40`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/context/ReferralContext.jsx#L20-L40)).
+All patient demographic data, clinical narratives, medical history, caregiver phone numbers, and vitals are stored in unencrypted browser `localStorage` under the key `navexa_domain_v6` (as of November 04, 2026) ([`src/context/ReferralContext.jsx:20-40`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/context/ReferralContext.jsx#L20-L40)).
 
 ```javascript
 // Data stored in plaintext in the browser's persistent storage:
@@ -66,6 +67,8 @@ The application contains multiple hardcoded visual badges and copy asserting ent
 | `ReferralDetails.jsx` Modal | `"Immutable SHA-256 Intake Handshake recorded"` | [`src/pages/ReferralDetails.jsx:325`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L325) | **FALSE CLAIM:** Static string displayed in a dummy modal. No cryptographic hashing or blockchain/ledger exists.                                       |
 | `ReferralDetails.jsx` Chat  | `"Encrypted Secure Chat: Channel open..."`      | [`src/pages/ReferralDetails.jsx:184`](file:///d:/ANTIGRAVITY/Healthathon/health-a-thon/src/pages/ReferralDetails.jsx#L184) | **FALSE CLAIM:** Triggers a browser `window.alert()`. No encrypted chat engine exists.                                                                 |
 
+> **Update, November 04, 2026:** these strings are no longer in `src/`. The table records the November 01 audit.
+
 > [!CAUTION]
 > Making unfounded regulatory compliance claims (e.g., "HIPAA Audit Compliant") before healthcare evaluators and technical judges creates severe medicolegal credibility risks and can trigger immediate disqualification. All such banners must be clearly labeled as **"Simulated Demonstration Interface"**.
 
@@ -94,7 +97,7 @@ The application contains multiple hardcoded visual badges and copy asserting ent
 
 #### Assumption 2: Administrative barrier resolution equals medical care.
 
-- **Vulnerability:** In `BarrierResolution.jsx`, clicking "Confirm Intake" immediately marks the case resolved and adds an audit row claiming "Care received!".
+- **Vulnerability (November 01 audit; the page and button have since been removed):** In `BarrierResolution.jsx`, clicking "Confirm Intake" immediately marks the case resolved and adds an audit row claiming "Care received!".
 - **Clinical Reality:** Resolving a transport barrier (e.g., getting a patient to the hospital door) is an administrative coordination milestone. It must **never** be conflated with clinical care delivery. A patient may arrive at triage and wait 4 hours in the waiting room before seeing an obstetrician. Navexa's UI risks falsely reporting "Care received" when only physical arrival has occurred.
 
 #### Assumption 3: Referral closure terminates the patient journey.
@@ -116,7 +119,7 @@ In obstetric emergencies (e.g., eclamptic seizures, cord prolapse, severe antepa
 
 A fundamental clinical safety principle is that **care navigators and coordinators must not diagnose patients or modify clinical care plans**.
 
-- **Observed System Confusion:** In `BarrierResolution.jsx:210-217`, the coordinator clicks "Emergency Acuity Retriage" which shows a toast claiming "Pediatrician / MFM On-Call Review Requested". However, the action is logged under the coordinator's name ("Anitha Joseph, RN").
+- **Observed System Confusion (November 01 audit; the page has since been removed):** In `BarrierResolution.jsx:210-217`, the coordinator clicks "Emergency Acuity Retriage" which shows a toast claiming "Pediatrician / MFM On-Call Review Requested". However, the action is logged under the coordinator's name ("Anitha Joseph, RN").
 - **Safety Requirement:** All clinical triage decisions, medication orders, and escalation authorizations must be explicitly attributed to a licensed physician or midwife, while administrative navigation (transport vouchers, language interpreters, childcare coordination) is attributed to the care navigator.
 
 ### 2.4 Clinical Rules Requiring Specialist Healthcare Validation
@@ -127,3 +130,21 @@ Before presenting this system to healthcare evaluators, the following clinical p
 2. **Neonatal Bilirubin Thresholds:** Total Serum Bilirubin (TSB) phototherapy vs. exchange transfusion curves based on American Academy of Pediatrics (AAP) hour-specific nomograms (Current demo: 21.4 mg/dL at 72 hours).
 3. **Severe Maternal Hypertension Parameters:** Systolic BP $\ge 160$ mmHg or Diastolic BP $\ge 110$ mmHg requiring emergency IV labetalol/hydralazine within 30–60 minutes.
 4. **Postpartum Surveillance Cadence:** Recommended touchpoints at Day 3 (lactation/jaundice), Day 7 (wound check/BP), Day 14, and Day 42 (comprehensive postpartum exam and contraception).
+
+## 3. AI features: safety rules (added 2026-11-04)
+
+Three AI features run on the server (`server/`), with the keys (ANTHROPIC_API_KEY and SARVAM_API_KEY) in server environment variables only. Every one is a draft or an alert for a person to act on. None makes a clinical decision. They have only been run against fake AI replies in tests. No live AI call has been made, because the keys are not set up yet.
+
+| Feature                                                                  | What the AI does                                                                                                                                                                                                                                       | What it may not do                                                                                                                                                                                                                                                                     | Who checks                                                                                                                                                                                      |
+| :----------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Family chat → staff alerts (`server/assistant.js`, `recordFamilyReport`) | A possible danger sign in the family's words raises a critical alert. A practical problem (cost, childcare, transport, language, weather, fear of the hospital) raises a barrier titled "(raised by family)", with the source "Family, via assistant". | Diagnose, judge whether a symptom is normal, or act on earlier turns of the chat (only the newest question can raise a report). One open barrier per category.                                                                                                                         | The care navigator calls the family to confirm.                                                                                                                                                 |
+| Handoff summary (`server/staffAi.js`, `HandoffCard`)                     | Rearranges the referral record into Situation, Background, Referring clinician's assessment, Request, and lists what is missing.                                                                                                                       | Add a diagnosis, risk, treatment or advice. Receive the patient's name, phone, address or record number (`handoffRecord` strips them, and scrubs names and long numbers from notes).                                                                                                   | Shown as "Drafted by AI" until a named person at the receiving hospital confirms they checked it. Logged in the audit trail.                                                                    |
+| Fill with AI on New referral (`server/staffAi.js`, `ReferralDraftCard`)  | Fills a draft of the referral form from any mix of a typed note, one or more recordings and a photo of a slip, sent together. Shows the source words for each field.                                                                                   | Overwrite what the clinician typed: it fills only empty or sample fields, and where it reads something different it offers "AI read: ... Use this / Keep mine". Set the priority (its output has no priority field). Choose the hospital (only a suggestion from the form's own list). | Each AI field is tagged (AI, Unclear, Edited, AI differs). The clinician chooses how soon and ticks "I've checked every field" before sending. Logged in the audit trail as `AI_DRAFT_CHECKED`. |
+
+All three tell the model that the note, record or chat is data, not instructions. The handoff and Fill with AI cards are labelled "Demo: made-up patients only"; the family assistant screen is not labelled that way.
+
+Gaps before any real use:
+
+- The server has no login and no server-side limit. The demo limit of 20 AI uses per browser is kept in the browser, so a script can call the AI routes directly and spend API credit.
+- A failed request that never reached the AI gives its use back in the browser.
+- Server tests use fake providers (`server/*.test.js`), so no live AI reply has been checked.

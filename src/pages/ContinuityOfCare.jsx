@@ -8,22 +8,187 @@ import {
   Button,
   Card,
   DataTable,
+  Disclosure,
   EmptyState,
   Field,
   Icon,
   Page,
   PageHeader,
+  Pictogram,
   Textarea,
 } from "../components/ui/index.js";
 import { isRouteAllowedForRole, RoleId } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { getFollowUpState } from "../domain/alarms.js";
+import { telHref } from "../domain/contact.js";
 import { FollowUpStatus } from "../domain/enums.js";
 
-const STATE_BADGES = {
-  [FollowUpStatus.DUE]: { tone: "highlight", label: "Due now" },
-  [FollowUpStatus.MISSED]: { tone: "danger", label: "Missed" },
-  [FollowUpStatus.ESCALATED]: { tone: "danger", label: "Escalated" },
+// One picture per kind of visit, so a family can tell the visits apart without reading the title.
+const VISIT_PICTOGRAMS = [
+  [/bilirubin|weight|newborn|neonatal|baby/i, "baby"],
+  [/emotional|mental/i, "wellbeing"],
+  [/lactation|maternal/i, "mother-baby"],
+  [/bp|surgical|wound/i, "nurse"],
+  [/exam|comprehensive/i, "doctor"],
+];
+const visitPictogram = (title = "") => VISIT_PICTOGRAMS.find(([re]) => re.test(title))?.[1] || "calendar";
+
+// "Saturday, 31 October": a date a family reads at a glance, not 2026-10-31.
+const friendlyDate = (dueDate) =>
+  new Date(`${dueDate.slice(0, 10)}T00:00:00`).toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+// "Day 3 Maternal & Lactation Check" is shown as "Maternal & Lactation Check"; the day goes on its own line.
+const visitName = (title = "") => title.replace(/^Day \d+\s+/, "");
+
+const PATIENT_STATE = {
+  [FollowUpStatus.COMPLETED]: { tone: "accent", label: "Done", icon: "check_circle" },
+  [FollowUpStatus.DUE]: { tone: "highlight", label: "Due today", icon: "today" },
+  [FollowUpStatus.MISSED]: { tone: "danger", label: "Missed", icon: "error" },
+  [FollowUpStatus.ESCALATED]: { tone: "danger", label: "Missed", icon: "error" },
+  [FollowUpStatus.PLANNED]: { tone: "neutral", label: "Coming up", icon: "event" },
+};
+const isLate = (state) => state === FollowUpStatus.MISSED || state === FollowUpStatus.ESCALATED;
+
+const CheckUps = ({ referral, now, role }) => {
+  const plan = referral.followUpPlan;
+  const nav = referral.navigator;
+  const navHref = telHref(nav?.phone);
+  const done = countDone(referral);
+  const next = plan.tasks.find((t) => t.status !== FollowUpStatus.COMPLETED);
+  const nextState = next && getFollowUpState(next, now);
+
+  return (
+    <>
+      {next ? (
+        <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm text-on-fill-muted">{isLate(nextState) ? "Missed check-up" : "Next check-up"}</p>
+              <h2 className="font-display text-xl sm:text-2xl font-semibold mt-1 break-words">
+                {friendlyDate(next.dueDate)}
+              </h2>
+              <p className="text-sm mt-1 break-words">
+                Day {next.dayOffset}: {visitName(next.title)}
+              </p>
+            </div>
+            <Pictogram name="calendar" tone="on-fill" size="lg" />
+          </div>
+          <p className="text-sm border-t border-on-fill/20 pt-3">
+            {isLate(nextState)
+              ? `${nav?.name?.split(",")[0] || "Your care navigator"} will call you to set a new time.`
+              : "Your care team will come to you or tell you where to go."}
+          </p>
+        </section>
+      ) : (
+        <section
+          role="status"
+          className="flex items-start gap-3 rounded-card border-l-4 border-accent bg-accent-soft p-4"
+        >
+          <Icon name="check_circle" className="text-accent mt-0.5" />
+          <p className="text-sm text-ink">
+            <strong>All check-ups are done.</strong> Well done looking after {referral.patientName.split(" ")[0]}.
+          </p>
+        </section>
+      )}
+
+      <Card as="section" title={`${referral.patientName}'s check-ups`} className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 -mt-2">
+          <p className="text-sm text-ink-muted tabular-nums">
+            {done} of {plan.tasks.length} done
+          </p>
+          {isRouteAllowedForRole(role, "/referral") && (
+            <Button as={Link} to={`/referral/${referral.id}`} variant="link" size="sm">
+              Open chart
+            </Button>
+          )}
+        </div>
+
+        <ol className="space-y-3">
+          {plan.tasks.map((task) => {
+            const state = getFollowUpState(task, now);
+            const meta = PATIENT_STATE[state] || PATIENT_STATE[FollowUpStatus.PLANNED];
+            const isDone = state === FollowUpStatus.COMPLETED;
+            return (
+              <li
+                key={task.id}
+                aria-current={task === next ? "step" : undefined}
+                className={`rounded-card border p-4 space-y-3 ${isLate(state) ? "border-danger" : task === next ? "border-accent" : "border-line"}`}
+              >
+                <div className="flex items-start gap-3">
+                  <Pictogram
+                    name={visitPictogram(task.title)}
+                    tone={isDone ? "neutral" : "ink"}
+                    size="sm"
+                    bare
+                    className="mt-1"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted">
+                      Day {task.dayOffset}
+                      <Badge tone={meta.tone}>{meta.label}</Badge>
+                    </p>
+                    <h3 className="font-semibold text-ink break-words">{visitName(task.title)}</h3>
+                    <p className="flex items-center gap-1.5 text-sm text-ink mt-1">
+                      <Icon name="calendar_today" size="sm" className="text-ink-muted" />
+                      {friendlyDate(task.dueDate)}
+                    </p>
+                  </div>
+                </div>
+
+                {isLate(state) && (
+                  <p className="flex items-start gap-2 text-sm text-danger-strong">
+                    <Icon name="call" size="sm" className="mt-0.5" />
+                    This visit was missed. Your care navigator will call you to set a new time.
+                  </p>
+                )}
+
+                {(task.clinicalFocus || task.targetRole || (isDone && task.notes)) && (
+                  <Disclosure title="What happens at this visit" variant="inline">
+                    <dl className="space-y-2 break-words text-sm">
+                      {task.clinicalFocus && (
+                        <div>
+                          <dt className="text-xs text-ink-muted">They will check</dt>
+                          <dd className="text-ink">{task.clinicalFocus}</dd>
+                        </div>
+                      )}
+                      {task.targetRole && (
+                        <div>
+                          <dt className="text-xs text-ink-muted">Who you will see</dt>
+                          <dd className="text-ink">{task.targetRole}</dd>
+                        </div>
+                      )}
+                      {isDone && task.notes && (
+                        <div>
+                          <dt className="text-xs text-ink-muted">What they found</dt>
+                          <dd className="text-ink">{task.notes}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </Disclosure>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </Card>
+
+      {nav && (
+        <Card as="section" title="Questions about a check-up?" className="space-y-3">
+          <p className="text-sm text-ink">{nav.name} can change a time, arrange a ride, or help with language.</p>
+          {navHref && (
+            <Button as="a" href={navHref} variant="primary" className="w-full sm:w-auto">
+              <Icon name="call" />
+              Call {nav.phone}
+            </Button>
+          )}
+        </Card>
+      )}
+    </>
+  );
 };
 
 const countDone = (r) => r.followUpPlan.tasks.filter((t) => t.status === FollowUpStatus.COMPLETED).length;
@@ -111,7 +276,11 @@ const VISIT_COLUMNS = [
   actionsColumn(
     ({ row: { original: v }, table }) =>
       v.state !== FollowUpStatus.COMPLETED && (
-        <Button size="sm" onClick={() => table.options.meta.onMarkDone(v)}>
+        <Button
+          aria-label={`Mark done for ${v.referral.patientName}`}
+          size="sm"
+          onClick={() => table.options.meta.onMarkDone(v)}
+        >
           Mark done
         </Button>
       ),
@@ -161,7 +330,7 @@ const ContinuityOfCare = () => {
     const res = completeFollowUpTask(
       forReferral.id,
       completeModalTask.id,
-      completionNotes || "Touchpoint successfully completed and clinical findings documented.",
+      completionNotes.trim() || "Touchpoint successfully completed and clinical findings documented.",
     );
     if (res.success) showToast(`"${completeModalTask.title}" marked done.`);
     else showToast(`Action failed: ${res.reason}`, "error");
@@ -202,86 +371,7 @@ const ContinuityOfCare = () => {
           pageSize={50}
         />
       ) : plan ? (
-        <Card as="section" className="space-y-6">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="font-display text-xl font-bold text-ink break-words">{activeReferral.patientName}</h2>
-              <p className="text-sm text-ink-muted tabular-nums">
-                {countDone(activeReferral)} of {plan.tasks.length} done
-                {plan.leadWorker ? ` · Lead: ${plan.leadWorker}` : ""}
-              </p>
-            </div>
-            {isRouteAllowedForRole(role, "/referral") && (
-              <Button as={Link} to={`/referral/${activeReferral.id}`} variant="link" size="sm">
-                Open chart
-              </Button>
-            )}
-          </div>
-
-          <ul className="divide-y divide-line">
-            {plan.tasks.map((task, idx) => {
-              const isDone = task.status === FollowUpStatus.COMPLETED;
-              const badge = STATE_BADGES[getFollowUpState(task, now)];
-              return (
-                <li key={task.id} className="py-4 first:pt-0 last:pb-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <span
-                        className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                          isDone ? "bg-accent text-on-fill" : "bg-subtle text-ink"
-                        }`}
-                      >
-                        {isDone ? <Icon name="check" size="sm" /> : idx + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-semibold text-ink">{task.title}</h3>
-                        <p className="text-sm text-ink-muted tabular-nums">
-                          Due {task.dueDate} (day {task.dayOffset})
-                        </p>
-                        {badge && (
-                          <Badge tone={badge.tone} className="mt-1">
-                            {badge.label}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="shrink-0">
-                      {isDone ? (
-                        <Badge tone="accent">Done</Badge>
-                      ) : isPatient ? (
-                        <span className="text-sm text-ink-muted">Your care team will record this</span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="w-full sm:w-auto"
-                          onClick={() => setCompleteModalTask({ ...task, referral: activeReferral })}
-                        >
-                          Mark done
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {(task.clinicalFocus || task.targetRole || (isDone && task.notes)) && (
-                    <details className="mt-3 text-sm text-ink-muted">
-                      <summary className="cursor-pointer font-semibold text-ink">Details</summary>
-                      <div className="mt-2 space-y-1 break-words">
-                        {task.clinicalFocus && <p>{task.clinicalFocus}</p>}
-                        {task.targetRole && <p>Assigned to: {task.targetRole}</p>}
-                        {isDone && task.notes && (
-                          <p>
-                            <strong className="text-ink">Findings:</strong> {task.notes}
-                          </p>
-                        )}
-                      </div>
-                    </details>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+        <CheckUps referral={activeReferral} now={now} role={role} />
       ) : (
         <EmptyState>
           {isPatient

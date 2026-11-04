@@ -7,6 +7,7 @@
 
 import {
   AuditRole,
+  BARRIER_CATEGORY_LABELS,
   BarrierCategory,
   BarrierStatus,
   CarePlanStatus,
@@ -22,6 +23,7 @@ import {
   createClinicalOutcome,
   createFollowUpPlan,
   createTransportRequest,
+  generateId,
 } from "./models.js";
 import {
   validateBarrierTransition,
@@ -531,6 +533,9 @@ export const dispatchTransport = (referral, dispatchPayload, now = nowIso()) => 
 
   const transit = {
     ...(referral.transit || createTransportRequest({ referralId: referral.id })),
+    // A new trip must not inherit the times of an earlier trip that failed.
+    pickedUpAt: null,
+    arrivedAt: null,
     ...dispatchPayload,
     status: TransportStatus.DISPATCHED,
     dispatchedAt: now,
@@ -716,7 +721,7 @@ export const recordContactAttempt = (
       ...referral,
       contactLogs: [
         ...(referral.contactLogs || []),
-        { id: `CNT-${Date.now()}`, date: now, method, outcome, notes, actor },
+        { id: generateId("CNT"), date: now, method, outcome, notes, actor },
       ],
     },
     {
@@ -732,3 +737,184 @@ export const recordContactAttempt = (
     },
   ),
 });
+
+// ==========================================
+// REPORTS FROM THE FAMILY'S ASSISTANT
+// ==========================================
+
+export const FAMILY_VIA_ASSISTANT = "Family, via assistant";
+const MAX_QUOTE_CHARS = 200;
+
+/**
+ * What the family's assistant passes on to their care navigator: a possible danger sign
+ * (their own words, quoted), and a practical problem raised as a barrier. Nothing is
+ * diagnosed; staff call the family to check. Returns { success, referral, alerts } where
+ * alerts are the notifications to show staff.
+ */
+export const recordFamilyReport = (
+  referral,
+  { question = "", emergency = false, report = null } = {},
+  now = nowIso(),
+) => {
+  const quote = String(question).trim().slice(0, MAX_QUOTE_CHARS);
+  const timeline = [];
+  const audit = [];
+  const alerts = [];
+  let barriers = referral.barriers || [];
+  let transitBarrier = referral.transitBarrier;
+
+  if (emergency && quote) {
+    timeline.push({
+      status: TimelineEvent.DANGER_SIGN_REPORTED,
+      date: now,
+      notes: `Family told the assistant: "${quote}". They were told to call 108. Call the family now.`,
+    });
+    audit.push(
+      createAuditEvent({
+        actor: FAMILY_VIA_ASSISTANT,
+        role: AuditRole.PATIENT,
+        action: "DANGER_SIGN_REPORTED",
+        details: `Possible danger sign in the family's words: "${quote}".`,
+        timestamp: now,
+      }),
+    );
+    alerts.push({
+      type: "CRITICAL",
+      title: "Possible danger sign reported",
+      message: `${referral.patientName}'s family wrote: "${quote}". Call them now.`,
+    });
+  }
+
+  const category = report && Object.values(BarrierCategory).includes(report.category) ? report.category : null;
+  const alreadyOpen = barriers.some((b) => b.category === category && b.status !== BarrierStatus.RESOLVED);
+  if (category && !alreadyOpen) {
+    const summary = String(report.summary || "")
+      .trim()
+      .slice(0, MAX_QUOTE_CHARS);
+    const barrier = createBarrier({
+      category,
+      title: `${BARRIER_CATEGORY_LABELS[category]} (raised by family)`,
+      description: `${summary} Source: ${FAMILY_VIA_ASSISTANT}. Call to confirm.`,
+      identifiedAt: now,
+    });
+    barriers = [...barriers, barrier];
+    transitBarrier = transitBarrier || category === BarrierCategory.TRANSPORT;
+    timeline.push({
+      status: TimelineEvent.BARRIER_FLAGGED,
+      date: now,
+      notes: `Barrier Flagged: ${barrier.title}. ${summary}`,
+    });
+    audit.push(
+      createAuditEvent({
+        actor: FAMILY_VIA_ASSISTANT,
+        role: AuditRole.PATIENT,
+        action: "BARRIER_IDENTIFIED",
+        details: `Raised from the assistant chat: ${summary}`,
+        timestamp: now,
+      }),
+    );
+    alerts.push({
+      type: "WARNING",
+      title: `${BARRIER_CATEGORY_LABELS[category]} barrier raised by family`,
+      message: `${referral.patientName}: ${summary}`,
+    });
+  }
+
+  if (alerts.length === 0) return fail("Nothing to report.");
+  return {
+    success: true,
+    alerts,
+    referral: withEvents({ ...referral, barriers, transitBarrier }, { timeline, audit }),
+  };
+};
+
+// ==========================================
+// HANDOFF SUMMARY
+// ==========================================
+
+/** Stores an AI-drafted handoff. It is a draft until a person confirms it. */
+export const saveHandoff = (referral, summary, now = nowIso()) => {
+  if (!summary?.situation) return fail("The summary is empty.");
+  return {
+    success: true,
+    referral: withEvents(
+      { ...referral, handoff: { ...summary, draftedAt: now, confirmedBy: null, confirmedAt: null } },
+      {
+        audit: [
+          createAuditEvent({
+            actor: "AI draft",
+            role: AuditRole.SYSTEM,
+            action: "HANDOFF_DRAFTED",
+            details: "Handoff summary drafted by AI from the referral record. Not yet checked.",
+            timestamp: now,
+          }),
+        ],
+      },
+    ),
+  };
+};
+
+/** A named clinician confirms they checked the drafted handoff against the record. */
+export const confirmHandoff = (referral, { confirmedBy } = {}, now = nowIso()) => {
+  const name = String(confirmedBy || "").trim();
+  if (!referral.handoff) return fail("There is no handoff summary to confirm.");
+  if (!name) return fail("Enter who checked the summary.");
+  if (referral.handoff.confirmedAt) return fail("This summary is already confirmed.");
+  return {
+    success: true,
+    referral: withEvents(
+      { ...referral, handoff: { ...referral.handoff, confirmedBy: name, confirmedAt: now } },
+      {
+        timeline: [
+          { status: TimelineEvent.HANDOFF_CONFIRMED, date: now, notes: `Handoff summary checked by ${name}.` },
+        ],
+        audit: [
+          createAuditEvent({
+            actor: name,
+            role: AuditRole.RECEIVING_FACILITY,
+            action: "HANDOFF_CONFIRMED",
+            details: "Checked the AI-drafted handoff summary against the record.",
+            timestamp: now,
+          }),
+        ],
+      },
+    ),
+  };
+};
+
+/**
+ * The parts of a referral the handoff summary may see: clinical facts only. No name,
+ * phone, address, record number or caregiver, so no identifying details leave the app.
+ */
+export const handoffRecord = (referral) => {
+  // Notes can name the patient or caregiver; those words are replaced before anything is sent.
+  const names = [referral.patientName, referral.caregiverName]
+    .map((n) => String(n || "").trim())
+    .filter((n) => n.length > 1);
+  const scrub = (text) =>
+    names
+      .reduce((out, name) => out.split(name).join("the patient"), String(text || ""))
+      .replace(/\+?\d[\d\s-]{6,}\d/g, "[number]");
+  return {
+    patientType: referral.referralType,
+    age: referral.age,
+    gestationalAge: referral.gestationalAge,
+    parity: referral.parity,
+    priority: referral.priority,
+    status: referral.status,
+    fromFacility: referral.fromFacility,
+    toFacility: referral.toFacility,
+    department: referral.department,
+    vitals: referral.vitals || {},
+    interpreterNeeded: Boolean(referral.interpreterNeeded),
+    language: referral.language,
+    needsTransport: Boolean(referral.transitBarrier),
+    openBarriers: (referral.barriers || [])
+      .filter((b) => b.status !== BarrierStatus.RESOLVED)
+      .map((b) => BARRIER_CATEGORY_LABELS[b.category] || b.category),
+    reasonForReferral: scrub(referral.reason || referral.condition),
+    timeline: (referral.timeline || [])
+      .slice(-12)
+      .map((t) => ({ date: t.date, event: t.status, notes: scrub(t.notes) })),
+  };
+};

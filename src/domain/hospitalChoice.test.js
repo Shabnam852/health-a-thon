@@ -30,6 +30,26 @@ describe("hospital options for a floating patient", () => {
     assert.deepEqual(names(referral, facilities), ["Suitable"]);
   });
 
+  it("counts beds held for accepted patients, so it never offers a hospital the network board shows as full", () => {
+    const facilities = [hospital("Held", { bedsAvailable: 2, totalBeds: 10 }), hospital("Open", { bedsAvailable: 1 })];
+    const held = (status) => ({ id: "X", toFacility: "Held", status });
+    const referrals = [held(ReferralStatus.ACKNOWLEDGED), held(ReferralStatus.ARRIVAL_CONFIRMED)];
+    const options = getHospitalOptions(urgentBaby, facilities, referrals);
+    assert.deepEqual(
+      options.map((h) => h.name),
+      ["Open"],
+    );
+    // One held bed: still offered, with the free count the board shows.
+    const one = getHospitalOptions(urgentBaby, facilities, referrals.slice(0, 1));
+    assert.deepEqual(
+      one.map((h) => [h.name, h.bedsAvailable]),
+      [
+        ["Held", 1],
+        ["Open", 1],
+      ],
+    );
+  });
+
   it("offers mother and baby together only hospitals that treat both", () => {
     const facilities = [hospital("Both"), hospital("Mothers only", { treats: [PatientType.MATERNAL] })];
     assert.deepEqual(names({ ...urgentBaby, referralType: PatientType.DYAD }, facilities), ["Both"]);

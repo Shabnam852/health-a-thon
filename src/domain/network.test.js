@@ -46,6 +46,25 @@ describe("hospital network", () => {
     assert.equal(getOccupancy(hospital(), completed).freeAfterArrivals, 5);
   });
 
+  it("keeps the bed held while the arrived patient's assessment is recorded", () => {
+    const assessed = [referral(ReferralStatus.CLINICAL_ASSESSMENT_RECORDED)];
+    assert.equal(getInboundLoad(hospital(), assessed).inCare, 1);
+    assert.equal(getOccupancy(hospital(), assessed).freeAfterArrivals, 4);
+  });
+
+  it("times a reply from the hospital that holds the case, not one that accepted and then withdrew", () => {
+    const withdrew = referral(ReferralStatus.ARRIVAL_CONFIRMED, {
+      timeline: [
+        { status: ReferralStatus.SENT, date: "2026-10-31T08:00:00Z" },
+        { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T08:05:00Z" },
+        { status: ReferralStatus.REJECTED, date: "2026-10-31T08:30:00Z" },
+        { status: ReferralStatus.SENT, date: "2026-10-31T09:00:00Z" },
+        { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T09:20:00Z" },
+      ],
+    });
+    assert.equal(getMedianReplyMinutes(hospital(), [withdrew]), 20);
+  });
+
   it("holds a bed for each accepted patient on the way", () => {
     const refs = [referral(ReferralStatus.ACKNOWLEDGED), referral(ReferralStatus.ACKNOWLEDGED)];
     assert.equal(getOccupancy(hospital(), refs).freeAfterArrivals, 3);

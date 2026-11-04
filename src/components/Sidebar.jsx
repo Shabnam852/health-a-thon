@@ -6,9 +6,10 @@ import {
   roleDefinitions,
 } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import ResetAssistantButton from "./ResetAssistantButton.jsx";
 import ResetDemoButton from "./ResetDemoButton.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
-import { Button, Field, Icon, Select } from "./ui/index.js";
+import { BrandMark, Button, Field, Icon, Select } from "./ui/index.js";
 
 const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
   const { role, setRole } = useReferrals();
@@ -40,10 +41,8 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
         <div className="px-5 py-4 bg-surface border-b border-line">
           <div className="flex items-center justify-between">
             <Link to={roleDef.homePath} onClick={handleItemClick} className="flex items-center gap-3 group">
-              <div className="w-9 h-9 rounded-control bg-brand flex items-center justify-center text-on-fill font-bold text-lg">
-                N
-              </div>
-              <span className="font-display text-base text-ink tracking-tight font-bold">Navexa Health</span>
+              <BrandMark />
+              <span className="font-display text-base text-ink font-bold">Navexa Health</span>
             </Link>
 
             {isMobileDrawer && (
@@ -64,7 +63,7 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
                 to={item.path}
                 aria-current={isActive ? "page" : undefined}
                 onClick={handleItemClick}
-                className={`flex items-center gap-3 px-3 min-h-control rounded-control transition-colors duration-fast text-sm ${
+                className={`flex items-center gap-3 px-3 min-h-control rounded-control text-sm ${
                   isActive
                     ? "bg-accent-soft text-accent font-semibold"
                     : "text-ink-muted font-medium hover:bg-subtle hover:text-ink"
@@ -83,6 +82,7 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
           <div className="flex-1 min-w-0">
             <ThemeToggle fullWidth />
           </div>
+          <ResetAssistantButton />
           <ResetDemoButton />
         </div>
         <Field label="Demo only: view as">

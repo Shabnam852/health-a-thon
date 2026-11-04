@@ -1,75 +1,85 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { ASSISTANT_PATH } from "../components/assistant/AssistantLauncher.jsx";
+import ListenButton from "../components/assistant/ListenButton.jsx";
+import { usePatientCase } from "../components/assistant/usePatientCase.js";
 import HospitalChoice from "../components/HospitalChoice.jsx";
 import HospitalMap from "../components/HospitalMap.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { Badge, Button, Card, EmptyState, Field, Icon, Page, PageHeader, Select } from "../components/ui/index.js";
+import { Button, Card, EmptyState, Field, Icon, Page, PageHeader, Pictogram, Select } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { BRING_LIST, getScreenSummary } from "../domain/assistant.js";
 import { telHref } from "../domain/contact.js";
-import { PatientType, ReferralStatus, TransportStatus, UrgencyLevel } from "../domain/enums.js";
+import { TransportStatus, UrgencyLevel } from "../domain/enums.js";
 import { getHospitalMap } from "../domain/hospitalMap.js";
-import { hasArrivedAtFacility, isFloating, isRideMoving } from "../domain/workflow.js";
+import { getPatientJourney, RIDE_STAGES } from "../domain/patientJourney.js";
 import { StorageAdapter } from "../services/storageAdapter.js";
 
 const PATIENT_VIEWS = ["transit", "checklist", "support"];
 
-// How far along the ride is, for the stages on the ride screen.
-const RIDE_STAGES = ["Ride requested", "Ride on the way", "Picked up", "Arrived at hospital"];
-const RIDE_STAGE_BY_STATUS = {
-  [TransportStatus.REQUESTED]: 1,
-  [TransportStatus.ASSIGNED]: 1,
-  [TransportStatus.DISPATCHED]: 2,
-  [TransportStatus.PICKED_UP]: 3,
-  [TransportStatus.ARRIVED]: 4,
+// Matches BRING_LIST, item by item.
+const BRING_PICTOGRAMS = ["id", "health-card", "medicines", "phone"];
+
+// The checklist shows the same items the assistant reads out.
+const CHECKLIST_ITEMS = BRING_LIST.map((text, index) => ({ id: index + 1, text, pictogram: BRING_PICTOGRAMS[index] }));
+
+// A contact with no number in it would be a dead link, so show nothing.
+const CallLink = ({ phone, children }) => {
+  const href = telHref(phone);
+  if (!href) return null;
+  return (
+    <Button as="a" href={href} variant="primary" className="w-full sm:w-auto">
+      <Icon name="call" />
+      {children}
+    </Button>
+  );
 };
 
-const CHECKLIST_ITEMS = [
-  { id: 1, text: "Photo ID (Aadhaar, Voter ID or Passport)" },
-  { id: 2, text: "Health card (Ayushman Bharat or ABHA), if you have one" },
-  { id: 3, text: "Mother and baby (MCP) card, and any medicines" },
-  { id: 4, text: "Slippers and a phone charger" },
-];
+// A driver is only worth calling while the van is theirs for this patient: not after a failed or cancelled ride.
+const DRIVER_STATUSES = [TransportStatus.ASSIGNED, TransportStatus.DISPATCHED, TransportStatus.PICKED_UP];
 
-const CallLink = ({ phone, children }) => (
-  <Button as="a" href={telHref(phone)} variant="primary" className="w-full sm:w-auto">
-    <Icon name="call" />
-    {children}
-  </Button>
+// A standard stepper: one status circle per step and a line joining them. Done is a filled circle
+// with a tick, the current step a ring, later steps an empty circle. The words say the same thing.
+const StepMarker = ({ done, now }) => (
+  <span
+    aria-hidden="true"
+    className={`relative z-10 w-6 h-6 shrink-0 rounded-full flex items-center justify-center ${
+      done
+        ? "bg-accent text-on-fill"
+        : now
+          ? "border-2 border-accent bg-surface"
+          : "border-2 border-line-strong bg-surface"
+    }`}
+  >
+    {done ? <Icon name="check" size="sm" /> : now ? <span className="w-2.5 h-2.5 rounded-full bg-accent" /> : null}
+  </span>
 );
 
 const StepList = ({ steps }) => (
   <ol>
     {steps.map((step, index) => {
       const isLast = index === steps.length - 1;
-      const nextIsDone = steps[index + 1]?.done;
       return (
         <li
           key={step.label}
           aria-current={step.isNow ? "step" : undefined}
-          className={`relative flex items-center gap-3 ${isLast ? "" : "pb-5"}`}
+          className={`relative flex items-start gap-3 ${isLast ? "" : "pb-5"}`}
         >
           {!isLast && (
             <span
               aria-hidden="true"
-              className={`absolute left-3.5 -translate-x-1/2 top-7 bottom-0 w-0.5 ${nextIsDone ? "bg-accent" : "bg-subtle"}`}
+              className={`absolute left-3 -translate-x-1/2 top-6 bottom-0 w-0.5 ${step.done ? "bg-accent" : "bg-line"}`}
             />
           )}
-          <span
-            className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center ${step.done ? "bg-accent text-on-fill" : "bg-subtle"}`}
-          >
-            <Icon name={step.done ? "check" : ""} size="sm" />
+          <StepMarker done={step.done} now={Boolean(step.isNow)} />
+          <span className="min-w-0 flex-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm leading-6">
+            <span className={step.isNow ? "font-semibold text-ink" : step.done ? "text-ink" : "text-ink-muted"}>
+              {step.label}
+            </span>
+            <span className={`text-xs font-semibold ${step.isNow ? "text-accent" : "text-ink-muted"}`}>
+              {step.done ? "Done" : step.isNow || "Not yet"}
+            </span>
           </span>
-          <span
-            className={`text-sm ${step.isNow ? "font-semibold text-ink" : step.done ? "text-ink" : "text-ink-muted"}`}
-          >
-            {step.label}
-            <span className="sr-only">{step.done ? " (done)" : " (not yet)"}</span>
-          </span>
-          {step.isNow && (
-            <Badge tone="highlight" className="ml-auto">
-              {step.isNow}
-            </Badge>
-          )}
         </li>
       );
     })}
@@ -90,37 +100,31 @@ const DetailList = ({ rows }) => (
 );
 
 const PatientDashboard = () => {
-  const {
-    referrals,
-    facilities,
-    activeReferralId,
-    setActiveReferralId,
-    recordPatientChoice,
-    recordPatientGoingElsewhere,
-  } = useReferrals();
+  const { referrals, setActiveReferralId, recordPatientChoice, recordPatientGoingElsewhere } = useReferrals();
+  const { referral, facilities } = usePatientCase();
   const { toast, report } = useToast();
   const [searchParams] = useSearchParams();
+  const [savedChecklists, setSavedChecklists] = useState(() => StorageAdapter.getChecklists());
 
-  const referral =
-    referrals.find((r) => r.id === activeReferralId) ||
-    referrals.find((r) => r.patientName?.includes("Fathima")) ||
-    referrals[0];
+  // Every hook is above, so an empty case list can bail out safely.
+  if (!referral) {
+    return (
+      <Page width="md">
+        <EmptyState pictogram="clipboard">There is no case to show yet.</EmptyState>
+      </Page>
+    );
+  }
 
+  const journey = getPatientJourney(referral, facilities);
+  const { isChild, who, tr, nav, floating, hospital, hospitalPhone, isRideFailed } = journey;
+  const { steps, nextStep, rideStage, rideSummary, showEta } = journey;
   // A newborn's page is read by the parent, so greet the parent and not "Baby".
-  const isChild = referral?.referralType === PatientType.CHILD;
   const greetedName = isChild ? referral?.caregiverName : referral?.patientName;
   const patientFirstName = greetedName?.split(" ")[0] || "there";
-  const tr = referral?.transit;
-  const nav = referral?.navigator;
-  const floating = referral ? isFloating(referral) : false;
-  // A hospital that declined is not where the patient is going.
-  const hospital = floating ? null : referral?.toFacility;
-  const hospitalPhone = facilities.find((f) => f.name === hospital)?.phone;
 
   const viewFromUrl = searchParams.get("view");
   const view = PATIENT_VIEWS.includes(viewFromUrl) ? viewFromUrl : "overview";
 
-  const [savedChecklists, setSavedChecklists] = useState(() => StorageAdapter.getChecklists());
   const checklist = CHECKLIST_ITEMS.map((item) => ({
     ...item,
     checked: Boolean(savedChecklists[referral?.id]?.[item.id]),
@@ -137,58 +141,9 @@ const PatientDashboard = () => {
     StorageAdapter.saveChecklists(next);
   };
 
-  // Progress comes from the real referral and ride status.
-  const status = referral?.status;
-  const isArrivalConfirmed = referral ? hasArrivedAtFacility(referral) : false;
-  const isTransitActive = isRideMoving(tr);
-  const hasOwnTransport = !tr && !referral?.transitBarrier;
-  const isRideFailed = tr?.status === TransportStatus.FAILED && !isArrivalConfirmed;
+  const isArrivalConfirmed = journey.isArrivalConfirmed;
   const hospitalMap = getHospitalMap(referral, facilities);
-  const who = isChild ? "your baby" : "you";
-
-  const steps = [
-    {
-      label: "Doctor sent the referral",
-      done: status !== ReferralStatus.CREATED,
-      next: "The doctor is sending your referral.",
-    },
-    {
-      label: "Hospital is ready for you",
-      done: status === ReferralStatus.ACKNOWLEDGED || isArrivalConfirmed,
-      next: floating ? "Choose a hospital to go to." : "The hospital is checking your referral.",
-    },
-    {
-      label: "Ride to the hospital",
-      done: tr?.status === TransportStatus.ARRIVED || isArrivalConfirmed,
-      next: isTransitActive
-        ? "Be ready at the door and keep your phone with you."
-        : isRideFailed
-          ? `${nav?.name?.split(",")[0] || "Your care navigator"} is arranging another ride.`
-          : hasOwnTransport
-            ? "Travel with your own transport. Tell your care navigator if that changes."
-            : "Your ride is being arranged.",
-    },
-    {
-      label: "Check in at the hospital",
-      done: isArrivalConfirmed,
-      next: `At the hospital, give case ID ${referral?.id} at the reception desk.`,
-    },
-    {
-      label: "Care and follow-up",
-      done: status === ReferralStatus.COMPLETED,
-      next: `The care team will look after ${who}. Follow-up visits are planned before you go home.`,
-    },
-  ];
-  const nextStep = steps.find((s) => !s.done) || steps[steps.length - 1];
-
-  const rideStage = isArrivalConfirmed ? RIDE_STAGES.length : RIDE_STAGE_BY_STATUS[tr?.status] || 0;
-  const rideSummary =
-    !tr && !isArrivalConfirmed
-      ? "No ride booked yet"
-      : isRideFailed
-        ? "Your ride had a problem"
-        : RIDE_STAGES[rideStage - 1] || "Your ride is being arranged";
-  const showEta = tr?.eta && !isArrivalConfirmed && !isRideFailed;
+  const listen = <ListenButton referral={referral} text={getScreenSummary(view, referral, facilities)} />;
 
   const finishChoice = (res, message) => report(res, message, "Something went wrong");
 
@@ -223,6 +178,7 @@ const PatientDashboard = () => {
               onChange={() => toggleChecklistItem(item.id)}
               className="w-5 h-5 rounded accent-control shrink-0"
             />
+            <Pictogram name={item.pictogram} tone={item.checked ? "neutral" : "ink"} size="sm" bare />
             <span className={item.checked ? "line-through text-ink-muted" : ""}>{item.text}</span>
           </label>
         ))}
@@ -256,10 +212,13 @@ const PatientDashboard = () => {
         id="emergency"
         className="bg-danger-soft text-danger-strong rounded-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
       >
-        <p className="text-sm font-semibold">
-          {floating && referral.priority === UrgencyLevel.STAT
-            ? "This is an emergency. Call 108 now, and choose a hospital after."
-            : "Severe bleeding, vision changes, intense constant pain, or reduced baby movement? Do not wait."}
+        <p className="flex items-start gap-3 text-sm font-semibold">
+          <Icon name="emergency" className="mt-0.5 shrink-0" />
+          <span>
+            {floating && referral.priority === UrgencyLevel.STAT
+              ? "This is an emergency. Call 108 now, and choose a hospital after."
+              : "Severe bleeding, vision changes, intense constant pain, or reduced baby movement? Do not wait."}
+          </span>
         </p>
         {/* The label is long: let it wrap on the narrowest phones instead of overflowing. */}
         <Button as="a" href="tel:108" variant="danger" wrap className="shrink-0">
@@ -272,33 +231,56 @@ const PatientDashboard = () => {
         <>
           {chooser || (
             <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 space-y-3">
-              <h2 className="font-display text-xl sm:text-2xl font-bold">{rideSummary}</h2>
-              {showEta && <p className="text-lg font-semibold tabular-nums">Arrives in {tr.eta}</p>}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-xl sm:text-2xl font-bold">{rideSummary}</h2>
+                  {showEta && <p className="text-lg font-semibold tabular-nums mt-1">Arrives in {tr.eta}</p>}
+                </div>
+                <Pictogram name={isArrivalConfirmed ? "hospital" : "van"} tone="on-fill" size="lg" className="-my-1" />
+              </div>
               <p className="text-sm border-t border-on-fill/20 pt-3">
                 <span className="font-semibold">Next:</span> {nextStep.next}
               </p>
             </section>
           )}
 
+          <div className="flex flex-wrap items-center gap-2">
+            {listen}
+            <Button as={Link} to={ASSISTANT_PATH} size="sm" className="lg:hidden">
+              <Icon name="support_agent" size="sm" />
+              Ask a question
+            </Button>
+          </div>
+
           <Card title="Your journey">
-            <StepList steps={steps.map((s) => ({ ...s, isNow: s === nextStep && !s.done ? "Next" : "" }))} />
+            <StepList
+              steps={steps.map((s) => ({
+                ...s,
+                isNow: s === nextStep && !s.done ? "Next" : "",
+              }))}
+            />
           </Card>
         </>
       )}
 
       {view === "transit" && (
         <>
-          <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6">
-            {showEta ? (
-              <>
-                <p className="text-sm text-on-fill-muted">Arrives in</p>
-                <p className="font-display text-5xl font-extrabold tabular-nums mt-1">{tr.eta}</p>
-              </>
-            ) : (
-              <h2 className="font-display text-2xl font-bold">{rideSummary}</h2>
-            )}
-            <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || "No hospital chosen yet"}</p>
+          <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {showEta ? (
+                <>
+                  <p className="text-sm text-on-fill-muted">Arrives in</p>
+                  <p className="font-display text-4xl font-semibold tabular-nums mt-1">{tr.eta}</p>
+                </>
+              ) : (
+                <h2 className="font-display text-2xl font-bold">{rideSummary}</h2>
+              )}
+              <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || "No hospital chosen yet"}</p>
+            </div>
+            <Pictogram name="van" tone="on-fill" size="lg" />
           </section>
+
+          <div>{listen}</div>
 
           {isRideFailed && (
             <p role="alert" className="p-4 rounded-card bg-danger-soft text-danger-strong text-sm">
@@ -310,11 +292,13 @@ const PatientDashboard = () => {
             (hospitalMap ? (
               <HospitalMap map={hospitalMap} />
             ) : (
-              <EmptyState>The way to the hospital will appear here once a hospital is confirmed.</EmptyState>
+              <EmptyState pictogram="route">
+                The way to the hospital will appear here once a hospital is confirmed.
+              </EmptyState>
             ))}
 
           {!tr && !isArrivalConfirmed ? (
-            <EmptyState>If you need a free ride, your care navigator will arrange it.</EmptyState>
+            <EmptyState pictogram="van">If you need a free ride, your care navigator will arrange it.</EmptyState>
           ) : (
             <Card title="Progress">
               <StepList
@@ -327,7 +311,7 @@ const PatientDashboard = () => {
             </Card>
           )}
 
-          {tr?.driver && !isArrivalConfirmed && (
+          {tr?.driver && DRIVER_STATUSES.includes(tr.status) && !isArrivalConfirmed && (
             <Card title="Your driver" className="space-y-3">
               <div className="flex items-center gap-3">
                 <span
@@ -348,13 +332,21 @@ const PatientDashboard = () => {
           {tr && (
             <Card title="Trip" className="space-y-3">
               <dl className="space-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-ink-muted">From</dt>
-                  <dd className="font-semibold text-ink break-words">{tr.pickupAddress || referral?.patientAddress}</dd>
+                <div className="flex items-start gap-3">
+                  <Icon name="home" className="text-ink-muted mt-0.5" />
+                  <div className="min-w-0">
+                    <dt className="text-xs text-ink-muted">From</dt>
+                    <dd className="font-semibold text-ink break-words">
+                      {tr.pickupAddress || referral?.patientAddress}
+                    </dd>
+                  </div>
                 </div>
-                <div>
-                  <dt className="text-xs text-ink-muted">To</dt>
-                  <dd className="font-semibold text-ink break-words">{hospital || "Not chosen yet"}</dd>
+                <div className="flex items-start gap-3">
+                  <Icon name="local_hospital" className="text-ink-muted mt-0.5" />
+                  <div className="min-w-0">
+                    <dt className="text-xs text-ink-muted">To</dt>
+                    <dd className="font-semibold text-ink break-words">{hospital || "Not chosen yet"}</dd>
+                  </div>
                 </div>
               </dl>
               <p className="flex items-center gap-2 text-sm font-semibold text-accent">
@@ -368,12 +360,33 @@ const PatientDashboard = () => {
 
       {view === "checklist" && (
         <Card title="What to bring" className="space-y-3">
+          {listen}
           {bring}
         </Card>
       )}
 
       {view === "support" && (
         <>
+          <Card title="Ask about your visit" className="space-y-3">
+            <p className="text-sm text-ink">
+              Type or speak a question in your language, and hear the answer. It knows your ride, hospital and next
+              steps. It can't give medical advice.
+            </p>
+            <p className="flex items-start gap-2 text-sm text-ink">
+              <Icon name="forward_to_inbox" className="text-accent shrink-0" />
+              <span>
+                <strong>Something stopping you from getting to the hospital?</strong> Tell it here, like no money for
+                the bus or no one to mind the children. Your care navigator will be told and will call you.
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button as={Link} to={ASSISTANT_PATH} variant="primary">
+                <Icon name="support_agent" />
+                Ask a question
+              </Button>
+              {listen}
+            </div>
+          </Card>
           {nav && (
             <Card title="Your care navigator" className="space-y-3">
               <div className="flex items-center gap-3">

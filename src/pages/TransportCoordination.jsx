@@ -99,17 +99,22 @@ const RIDE_COLUMNS = [
     return (
       <div className="flex justify-end gap-2">
         {canDispatchTransport(r) && (
-          <Button size="sm" variant="primary" onClick={() => onSendVan(r)}>
+          <Button
+            aria-label={`Send a van for ${r.patientName}`}
+            size="sm"
+            variant="primary"
+            onClick={() => onSendVan(r)}
+          >
             Send a van
           </Button>
         )}
         {dispatched && (
-          <Button size="sm" variant="primary" onClick={() => onPickup(r)}>
+          <Button aria-label={`Picked up for ${r.patientName}`} size="sm" variant="primary" onClick={() => onPickup(r)}>
             Picked up
           </Button>
         )}
         {moving && (
-          <Button size="sm" onClick={() => onReport(r)}>
+          <Button aria-label={`Report problem for ${r.patientName}`} size="sm" onClick={() => onReport(r)}>
             Report problem
           </Button>
         )}
@@ -166,7 +171,7 @@ const TransportCoordination = () => {
 
   const handleConfirmFailure = () => {
     report(
-      recordTransportFailure(failing.id, failureReason || "Mechanical breakdown / patient unable to travel"),
+      recordTransportFailure(failing.id, failureReason.trim() || "Mechanical breakdown / patient unable to travel"),
       `Problem recorded for ${failing.patientName} and sent to the coordinator.`,
     );
     closeFailure();

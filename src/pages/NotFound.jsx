@@ -10,7 +10,7 @@ const NotFound = () => {
   return (
     <Page width="sm" className="text-center">
       <Icon name="travel_explore" size="xl" className="text-ink-muted" />
-      <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Page not found</h1>
+      <h1 className="font-display text-2xl font-semibold text-ink">Page not found</h1>
       <Button as={Link} to={roleDef.homePath} variant="primary">
         Back to my screens
       </Button>

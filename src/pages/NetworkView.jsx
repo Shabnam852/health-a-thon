@@ -7,6 +7,7 @@ import { useReferrals } from "../context/ReferralContext.jsx";
 import { formatMinutes } from "../domain/alarms.js";
 import { telHref } from "../domain/contact.js";
 import { PATIENT_TYPE_LABELS, PatientType, UrgencyLevel } from "../domain/enums.js";
+import { getReferralDestinations } from "../domain/hospitalChoice.js";
 import {
   CARE_LEVEL_LABELS,
   fitsNeeds,
@@ -178,16 +179,17 @@ const BOARD_COLUMNS = [
     meta: { hidden: true },
   },
   actionsColumn(({ row: { original: h }, table }) => {
-    const { canOpenFacility, canCreate } = table.options.meta;
+    const { canOpenFacility, destinations, canCreate } = table.options.meta;
     return (
       <div className="flex justify-end gap-2">
         {canOpenFacility && (
-          <Button as={Link} to={`/facility?facility=${h.id}`} size="sm">
+          <Button aria-label={`Intake for ${h.name}`} as={Link} to={`/facility?facility=${h.id}`} size="sm">
             Intake
           </Button>
         )}
-        {canCreate && (
-          <Button as={Link} to="/create" size="sm" variant="primary">
+        {/* The new-referral form can only send to these hospitals, so offer Refer for no other. */}
+        {canCreate && destinations.includes(h.name) && (
+          <Button aria-label={`Refer for ${h.name}`} as={Link} to={`/create?to=${h.id}`} size="sm" variant="primary">
             Refer
           </Button>
         )}
@@ -257,7 +259,7 @@ const ServicesGrid = ({ rows, highlight }) => (
 );
 
 const NetworkView = () => {
-  const { facilities, referrals, role, now } = useReferrals();
+  const { facilities, activeFacility, referrals, role, now } = useReferrals();
   const [needs, setNeeds] = useState({ referralType: "", priority: "", service: "" });
   const [onlyFits, setOnlyFits] = useState(false);
 
@@ -277,6 +279,7 @@ const NetworkView = () => {
   const context = {
     hasNeeds,
     canOpenFacility: isRouteAllowedForRole(role, "/facility"),
+    destinations: getReferralDestinations(facilities, activeFacility.name),
     canCreate: isRouteAllowedForRole(role, "/create"),
   };
 

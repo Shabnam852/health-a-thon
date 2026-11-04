@@ -14,10 +14,18 @@ import {
   UrgencyLevel,
 } from "./enums.js";
 
+// Ids made in the same instant (a plan's tasks, say) share the time part, and four random
+// digits collide often enough to matter, so a repeat is never handed out again.
+const issuedIds = new Set();
+
 export const generateId = (prefix = "REF") => {
   const timestamp = Date.now().toString().slice(-4);
-  const random = Math.floor(1000 + Math.random() * 9000);
-  return `${prefix}-${timestamp}-${random}`;
+  let id;
+  do {
+    id = `${prefix}-${timestamp}-${Math.floor(1000 + Math.random() * 9000)}`;
+  } while (issuedIds.has(id));
+  issuedIds.add(id);
+  return id;
 };
 
 /**

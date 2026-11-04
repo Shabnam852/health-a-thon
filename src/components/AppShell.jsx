@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   getPrimaryRoleForRoute,
@@ -7,6 +7,7 @@ import {
   isRouteAllowedForRole,
 } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import AssistantLauncher from "./assistant/AssistantLauncher.jsx";
 import { useModalFocus } from "./Dialog.jsx";
 import MobileNav from "./MobileNav";
 import Sidebar from "./Sidebar";
@@ -39,6 +40,21 @@ const AppShell = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { role, setRole, storyStep } = useReferrals();
   const location = useLocation();
+
+  // The drawer is phone-only: it must not stay open, and keep the page locked, behind a new screen
+  // (Back button) or once the window grows to the desktop layout (a rotated tablet).
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = (e) => e.matches && setMobileMenuOpen(false);
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, [mobileMenuOpen]);
+  const [menuPath, setMenuPath] = useState(location.pathname);
+  if (menuPath !== location.pathname) {
+    setMenuPath(location.pathname);
+    setMobileMenuOpen(false);
+  }
 
   const currentRole = role || "coordinator";
   const roleDef = getRoleDefinition(currentRole);
@@ -80,7 +96,7 @@ const AppShell = ({ children }) => {
           {!isAllowed ? (
             <div className="w-full max-w-lg mx-auto py-16 px-4 sm:px-6 text-center space-y-4">
               <Icon name="lock" size="xl" className="text-danger" />
-              <h1 className="font-display text-2xl font-bold text-ink tracking-tight">For {requiredRoleDef.title}</h1>
+              <h1 className="font-display text-2xl font-semibold text-ink">For {requiredRoleDef.title}</h1>
               <p className="text-sm text-ink-muted">You are viewing as {roleDef.title}.</p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button as={Link} to={roleDef.homePath}>
@@ -97,6 +113,7 @@ const AppShell = ({ children }) => {
         </main>
       </div>
 
+      {isAllowed && <AssistantLauncher />}
       <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />
       <StoryBar />
     </div>
