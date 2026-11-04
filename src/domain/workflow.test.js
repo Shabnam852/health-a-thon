@@ -634,11 +634,43 @@ describe("handoff summary", () => {
     const saved = workflow.saveHandoff(makeReferral(), summary);
     assert.ok(saved.success);
     assert.equal(saved.referral.handoff.confirmedAt, null);
-    assert.equal(workflow.confirmHandoff(saved.referral, { confirmedBy: "  " }).success, false);
-    const confirmed = workflow.confirmHandoff(saved.referral, { confirmedBy: "Dr. Rao" });
+    assert.equal(saved.referral.handoff.forFacility, "Sanjeevani");
+    const at = { facility: "Sanjeevani" };
+    assert.equal(workflow.confirmHandoff(saved.referral, { ...at, confirmedBy: "  " }).success, false);
+    const confirmed = workflow.confirmHandoff(saved.referral, { ...at, confirmedBy: "Dr. Rao" });
     assert.equal(confirmed.referral.handoff.confirmedBy, "Dr. Rao");
     assert.equal(confirmed.referral.timeline.at(-1).status, TimelineEvent.HANDOFF_CONFIRMED);
-    assert.equal(workflow.confirmHandoff(confirmed.referral, { confirmedBy: "Dr. Rao" }).success, false);
+    assert.equal(workflow.confirmHandoff(confirmed.referral, { ...at, confirmedBy: "Dr. Rao" }).success, false);
+  });
+
+  it("can only be checked by the receiving hospital", () => {
+    const saved = applied(workflow.saveHandoff(makeReferral(), summary));
+    rejected(
+      workflow.confirmHandoff(saved, { confirmedBy: "Anitha Joseph", facility: "Kaveri" }),
+      /Only Sanjeevani can check/,
+    );
+    rejected(workflow.confirmHandoff(saved, { confirmedBy: "Anitha Joseph" }), /Only Sanjeevani can check/);
+  });
+
+  it("is dropped when the case moves to another hospital, so the new one drafts and checks its own", () => {
+    const sent = makeReferral({ status: ReferralStatus.SENT });
+    const checked = applied(
+      workflow.confirmHandoff(applied(workflow.saveHandoff(sent, summary)), {
+        confirmedBy: "Dr. Rao",
+        facility: "Sanjeevani",
+      }),
+    );
+    const declined = applied(workflow.rejectReferral(checked, { reason: "No NICU bed" }, NOW));
+    assert.equal(declined.handoff, null);
+    const redirected = applied(workflow.redirectReferral(checked, { toFacility: "Karuna" }, NOW));
+    assert.equal(redirected.handoff, null);
+    const walkedIn = applied(workflow.confirmArrival(checked, { atFacility: "Karuna", verifiedBy: "Nurse" }, NOW));
+    assert.equal(walkedIn.handoff, null);
+    const arrived = applied(workflow.confirmArrival(checked, { verifiedBy: "Nurse" }, NOW));
+    assert.equal(arrived.handoff.confirmedBy, "Dr. Rao");
+    // An older summary written for another hospital can't be checked here.
+    const stale = { ...checked, handoff: { ...checked.handoff, forFacility: "Kaveri", confirmedAt: null } };
+    rejected(workflow.confirmHandoff(stale, { confirmedBy: "Dr. Rao", facility: "Sanjeevani" }), /written for Kaveri/);
   });
 
   it("sends no name, phone or address to the AI", () => {
@@ -654,5 +686,39 @@ describe("handoff summary", () => {
     assert.equal(sent.includes("90000"), false);
     assert.equal(sent.includes("MG Road"), false);
     assert.match(sent, /high BP/);
+  });
+
+  it("finds a patient at reception by case ID, at any hospital", () => {
+    const floating = makeReferral({ id: "NX-1", status: ReferralStatus.REJECTED });
+    const done = makeReferral({ id: "NX-2", status: ReferralStatus.COMPLETED });
+    const draft = makeReferral({ id: "NX-3", status: ReferralStatus.CREATED });
+    const list = [floating, done, draft];
+    assert.equal(workflow.findCaseAtReception(list, " nx-1 ").referral, floating);
+    rejected(workflow.findCaseAtReception(list, "NX-9"), /No case with ID NX-9/);
+    rejected(workflow.findCaseAtReception(list, "NX-2"), /already arrived/);
+    rejected(workflow.findCaseAtReception(list, "NX-3"), /hasn't been sent/);
+    rejected(workflow.findCaseAtReception(list, "  "), /Enter the case ID/);
+  });
+
+  it("also removes first names, any case, and a caregiver written with who they are", () => {
+    const referral = makeReferral({
+      patientName: "Baby of Shalini Naidu",
+      caregiverName: "Shalini Naidu (Mother)",
+      caregiverContact: "Karthik Reddy (Father) - +91 90000 22222",
+      reason: "SHALINI reports poor feeding. Karthik says the baby is drowsy. Seen 2026-11-04, call 080-2345 6789.",
+      timeline: [{ status: "SENT", date: "2026-11-04T10:00:00Z", notes: "Naidu family told at 2026-11-04T09:30:00Z" }],
+    });
+    const scrub = workflow.scrubIdentifiers(referral);
+    const record = workflow.handoffRecord(referral);
+    const sent = JSON.stringify(record);
+    for (const word of ["Shalini", "SHALINI", "Naidu", "Karthik", "Reddy", "2345"]) {
+      assert.equal(sent.includes(word), false, `${word} was sent`);
+    }
+    // Dates and clinical words stay; "Baby" is not a name.
+    assert.match(record.reasonForReferral, /Seen 2026-11-04, call \[number\]/);
+    assert.match(record.reasonForReferral, /the baby is drowsy/);
+    assert.match(record.timeline[0].notes, /2026-11-04T09:30:00Z/);
+    // Part of a longer word is left alone.
+    assert.equal(scrub("Naiduville clinic"), "Naiduville clinic");
   });
 });

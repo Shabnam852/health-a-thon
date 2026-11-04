@@ -186,7 +186,8 @@ const ReferralDraftCard = ({ options, onDraft, highlight = null, className = "" 
       {showMarked && highlight.source === "voice" && (
         <Marked title="From the recording" text={heard} quote={highlight.quote} />
       )}
-      {showMarked && highlight.source === "photo" && (
+      {/* Once the photo is removed, nothing on screen still claims to be read from it. */}
+      {showMarked && highlight.source === "photo" && photo && (
         <p className="rounded-control border border-line bg-muted p-3 text-sm text-ink">
           <span className="block text-xs font-semibold text-ink-muted">Read from the photo</span>"{highlight.quote}"
         </p>

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Button, Icon, Page } from "../components/ui/index.js";
 import { getRoleDefinition } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";

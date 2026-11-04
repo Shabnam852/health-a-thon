@@ -13,7 +13,7 @@ const assistantApi = (env) => ({
         server.ssrLoadModule("/server/providers.js"),
         server.ssrLoadModule("/server/http.js"),
       ]);
-      return sendAssistant(req, res, (body) => runRoute(route, body, () => createProviders(env)));
+      return sendAssistant(req, res, (body) => runRoute(route, body, () => createProviders(env)), route);
     };
     // Keep in step with ROUTE_PATHS in server/routes.js (a test checks it).
     const routes = {

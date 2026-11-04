@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { useReferrals } from "../../context/ReferralContext.jsx";
 import { Role } from "../../domain/enums.js";
 import { Icon } from "../ui/index.js";

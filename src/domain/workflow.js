@@ -97,6 +97,8 @@ export const rejectReferral = (
         rejectionReason: reason,
         declinedBy: [...(referral.declinedBy || []), referral.toFacility],
         patientChoice: null,
+        // The handoff summary was for the hospital that declined. The next one drafts its own.
+        handoff: null,
       },
       {
         timeline: [
@@ -137,6 +139,8 @@ export const redirectReferral = (
         ...referral,
         toFacility,
         status: ReferralStatus.SENT, // Resubmitted to new destination
+        // A handoff summary checked by the old hospital is not one the new hospital checked.
+        handoff: null,
         redirectHistory: [
           ...(referral.redirectHistory || []),
           { divertedFrom: referral.toFacility, divertedTo: toFacility, date: now, reason, actor },
@@ -264,6 +268,7 @@ export const confirmArrival = (referral, arrivalPayload = {}, now = nowIso()) =>
         status: ReferralStatus.ARRIVAL_CONFIRMED,
         toFacility: hospital,
         arrival,
+        handoff: wentElsewhere ? null : referral.handoff,
         transit: closeTransitOnArrival(referral.transit, now),
         redirectHistory: wentElsewhere
           ? [
@@ -468,6 +473,21 @@ export const hasArrivedAtFacility = (referral) =>
   [ReferralStatus.ARRIVAL_CONFIRMED, ReferralStatus.CLINICAL_ASSESSMENT_RECORDED, ReferralStatus.COMPLETED].includes(
     referral.status,
   );
+
+/**
+ * Reception looks up a patient by case ID: one who walked in at a hospital they weren't
+ * sent to, or a floating patient who came here without choosing first.
+ */
+export const findCaseAtReception = (referrals, caseId) => {
+  const wanted = String(caseId || "").trim();
+  if (!wanted) return fail("Enter the case ID.");
+  const found = referrals.find((r) => r.id.toLowerCase() === wanted.toLowerCase());
+  if (!found) return fail(`No case with ID ${wanted}.`);
+  if (hasArrivedAtFacility(found)) return fail(`${found.patientName} has already arrived at ${found.toFacility}.`);
+  const check = validateReferralTransition(found.status, ReferralStatus.ARRIVAL_CONFIRMED);
+  if (!check.valid) return fail(`${found.patientName}'s referral hasn't been sent yet, so arrival can't be confirmed.`);
+  return { success: true, referral: found };
+};
 
 // No vehicle is needed once the patient is at the hospital, or if the referral was declined.
 const isTransportClosed = (referral) => hasArrivedAtFacility(referral) || referral.status === ReferralStatus.REJECTED;
@@ -838,7 +858,10 @@ export const saveHandoff = (referral, summary, now = nowIso()) => {
   return {
     success: true,
     referral: withEvents(
-      { ...referral, handoff: { ...summary, draftedAt: now, confirmedBy: null, confirmedAt: null } },
+      {
+        ...referral,
+        handoff: { ...summary, forFacility: referral.toFacility, draftedAt: now, confirmedBy: null, confirmedAt: null },
+      },
       {
         audit: [
           createAuditEvent({
@@ -854,11 +877,17 @@ export const saveHandoff = (referral, summary, now = nowIso()) => {
   };
 };
 
-/** A named clinician confirms they checked the drafted handoff against the record. */
-export const confirmHandoff = (referral, { confirmedBy } = {}, now = nowIso()) => {
+/**
+ * A named clinician at the receiving hospital confirms they checked the drafted handoff
+ * against the record. The sending hospital, or one the case has moved away from, can't.
+ */
+export const confirmHandoff = (referral, { confirmedBy, facility } = {}, now = nowIso()) => {
   const name = String(confirmedBy || "").trim();
   if (!referral.handoff) return fail("There is no handoff summary to confirm.");
   if (!name) return fail("Enter who checked the summary.");
+  if (facility !== referral.toFacility) return fail(`Only ${referral.toFacility} can check this summary.`);
+  if (referral.handoff.forFacility && referral.handoff.forFacility !== referral.toFacility)
+    return fail(`This summary was written for ${referral.handoff.forFacility}. Draft it again.`);
   if (referral.handoff.confirmedAt) return fail("This summary is already confirmed.");
   return {
     success: true,
@@ -882,19 +911,69 @@ export const confirmHandoff = (referral, { confirmedBy } = {}, now = nowIso()) =
   };
 };
 
+// Words in a name that say who someone is to the patient, not who they are.
+const NOT_NAME_WORDS = new Set([
+  "baby",
+  "of",
+  "the",
+  "mother",
+  "father",
+  "spouse",
+  "husband",
+  "wife",
+  "son",
+  "daughter",
+]);
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Phone numbers: 8 or more digits, with spaces or dashes between. Dates and times are kept.
+const PHONE = /\+?\d[\d\s-]{6,}\d/g;
+const DATE_TIME = /\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z?)?/g;
+const HELD = "";
+
+/**
+ * Notes can name the patient or caregiver and give their numbers. Returns a function that
+ * replaces those words before anything leaves the app: the whole name, any one part of it
+ * ("Ananya" alone), in any case, and a caregiver written as "Shalini Naidu (Mother)".
+ */
+export const scrubIdentifiers = (referral) => {
+  const people = [
+    [referral.patientName, "the patient"],
+    [referral.caregiverName, "the caregiver"],
+    // "Tariq Ahmed (Spouse) - +91 90000 29014": the name is the part before the note or number.
+    [String(referral.caregiverContact || "").split(/\s+-\s+|\d/)[0], "the caregiver"],
+  ];
+  const swaps = [];
+  for (const [raw, stand] of people) {
+    const name = String(raw || "")
+      .replace(/\(.*?\)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (name.length < 2) continue;
+    swaps.push([name, stand]);
+    for (const part of name.split(" ")) {
+      if (part.length > 2 && !NOT_NAME_WORDS.has(part.toLowerCase())) swaps.push([part, stand]);
+    }
+  }
+  // Longest first, so a whole name is replaced before its parts.
+  const patterns = swaps
+    .sort((a, b) => b[0].length - a[0].length)
+    .map(([name, stand]) => [new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}])`, "giu"), stand]);
+  return (text) => {
+    const held = [];
+    const out = patterns
+      .reduce((acc, [pattern, stand]) => acc.replace(pattern, stand), String(text || ""))
+      .replace(DATE_TIME, (d) => `${HELD}${held.push(d) - 1}${HELD}`)
+      .replace(PHONE, "[number]");
+    return out.replace(new RegExp(`${HELD}(\\d+)${HELD}`, "g"), (_, i) => held[Number(i)]);
+  };
+};
+
 /**
  * The parts of a referral the handoff summary may see: clinical facts only. No name,
  * phone, address, record number or caregiver, so no identifying details leave the app.
  */
 export const handoffRecord = (referral) => {
-  // Notes can name the patient or caregiver; those words are replaced before anything is sent.
-  const names = [referral.patientName, referral.caregiverName]
-    .map((n) => String(n || "").trim())
-    .filter((n) => n.length > 1);
-  const scrub = (text) =>
-    names
-      .reduce((out, name) => out.split(name).join("the patient"), String(text || ""))
-      .replace(/\+?\d[\d\s-]{6,}\d/g, "[number]");
+  const scrub = scrubIdentifiers(referral);
   return {
     patientType: referral.referralType,
     age: referral.age,

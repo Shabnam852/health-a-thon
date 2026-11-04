@@ -3,7 +3,8 @@ import { describe, test } from "node:test";
 import { addReason, formatBp, mergeDraft } from "./referralEntry.js";
 
 test("formatBp turns common separators into a slash", () => {
-  for (const typed of ["128 82", "128-82", "128,82", " 128 / 82 ", "128\\82"]) {
+  // "128.82" is what an iPhone's number pad can type: it has a dot, but no slash.
+  for (const typed of ["128 82", "128-82", "128,82", " 128 / 82 ", "128\\82", "128.82"]) {
     assert.equal(formatBp(typed), "128/82");
   }
 });
@@ -57,5 +58,30 @@ describe("mergeDraft", () => {
     });
     assert.equal("patientName" in values, false);
     assert.deepEqual(original, { patientName: "Sunita Devi", age: "24 yrs" });
+  });
+
+  test("lists a kept AI value that no source gave this time, so it can be checked", () => {
+    // Fill 1 read the age from a photo. The photo was removed, and fill 2 has no age.
+    const { values, stale } = mergeDraft({
+      current: { patientName: "Sunita Devi", age: "24 yrs", phone: "" },
+      draft: { patientName: "Sunita Devi" },
+      userKeys: new Set(["phone"]),
+      aiOriginal: { patientName: "Sunita Devi", age: "24 yrs", phone: "+91 90000 33333" },
+      sampleKeys,
+    });
+    assert.equal("age" in values, false);
+    assert.deepEqual(stale, ["age"]);
+  });
+
+  test("a field marked as the clinician's is never written, only suggested", () => {
+    // The form marks the hospital as the clinician's on every fill: the AI never chooses it.
+    const { values, suggestions } = mergeDraft({
+      current: { receivingFacility: "Karuna" },
+      draft: { receivingFacility: "Vidyaranya" },
+      userKeys: new Set(["receivingFacility"]),
+      sampleKeys,
+    });
+    assert.equal("receivingFacility" in values, false);
+    assert.deepEqual(suggestions, { receivingFacility: "Vidyaranya" });
   });
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
-import { cleanReport, handleAsk, handleSpeak, parseAskRequest } from "./assistant.js";
+import { capAnswer, cleanReport, handleAsk, handleSpeak, parseAskRequest } from "./assistant.js";
 import { ProviderError } from "./providers.js";
 import { ROUTE_PATHS, runRoute } from "./routes.js";
 
@@ -281,5 +281,32 @@ describe("history", () => {
       value.history.map((m) => m.content),
       ["a", "b", "d", "e"],
     );
+  });
+});
+
+describe("capAnswer", () => {
+  it("leaves a short answer alone", () => {
+    assert.equal(capAnswer("Call 108 now."), "Call 108 now.");
+  });
+
+  it("cuts a long answer after a whole sentence, never mid-word", () => {
+    const text = `Call 108 now. ${"Keep her lying on her left side. ".repeat(40)}`;
+    const capped = capAnswer(text, 200);
+    assert.ok(capped.length <= 200);
+    assert.ok(capped.startsWith("Call 108 now."));
+    assert.ok(capped.endsWith("side."), capped);
+  });
+
+  it("knows the Hindi and Urdu full stops", () => {
+    const hindi = `अभी 108 पर फ़ोन करें। ${"उन्हें बाईं करवट लिटाएँ। ".repeat(40)}`;
+    assert.ok(capAnswer(hindi, 200).endsWith("।"));
+    const urdu = `ابھی 108 پر فون کریں۔ ${"انہیں بائیں کروٹ لٹائیں۔ ".repeat(40)}`;
+    assert.ok(capAnswer(urdu, 200).endsWith("۔"));
+  });
+
+  it("marks the cut when there is no sentence end to stop at", () => {
+    const capped = capAnswer("word ".repeat(400), 200);
+    assert.ok(capped.endsWith("word…"), capped);
+    assert.ok(capped.length <= 201);
   });
 });

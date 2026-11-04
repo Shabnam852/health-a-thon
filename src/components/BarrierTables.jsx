@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { BARRIER_CATEGORY_LABELS, BarrierCategory, BarrierStatus } from "../domain/enums.js";
+import { BARRIER_CATEGORY_LABELS, BarrierCategory, BarrierStatus, ReferralStatus } from "../domain/enums.js";
 import { canDispatchTransport, findOpenBarrier, getDestination, isRideMoving } from "../domain/workflow.js";
 import { FormDialog } from "./Dialog.jsx";
 import { actionsColumn, caseIdColumn, patientColumn, priorityColumn, serialColumn } from "./referralColumns.jsx";
@@ -96,7 +96,9 @@ const OPEN_COLUMNS = [
 ];
 const RESOLVED_COLUMNS = barrierColumns(lastBarrier);
 
-export const getBlocked = (referrals) => referrals.filter(findOpenBarrier);
+// A finished case is no longer blocked, even if its barrier was never closed (as on the Coordinator page).
+export const getBlocked = (referrals) =>
+  referrals.filter((r) => r.status !== ReferralStatus.COMPLETED && findOpenBarrier(r));
 export const getSolved = (referrals) => referrals.filter((r) => !findOpenBarrier(r) && (r.barriers || []).length > 0);
 
 /** Open barriers (with Send van and Close barrier), or barriers already solved. */

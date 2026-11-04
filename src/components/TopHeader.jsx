@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { isRouteAllowedForRole } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { Button, Icon } from "./ui/index.js";

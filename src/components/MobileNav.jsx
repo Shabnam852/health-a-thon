@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { getActiveNavItem, getNavigationForRole } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { Icon } from "./ui/index.js";

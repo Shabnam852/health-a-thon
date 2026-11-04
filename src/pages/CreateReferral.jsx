@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import ReferralDraftCard from "../components/ReferralDraftCard.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
 import { Button, Card, Field, Icon, Input, PageHeader, Select, Textarea } from "../components/ui/index.js";
@@ -11,7 +11,8 @@ import { createAuditEvent } from "../domain/models.js";
 import { addReason, formatBp, mergeDraft } from "../domain/referralEntry.js";
 
 const MATERNAL_VITALS = [
-  { key: "bp", label: "Blood pressure", placeholder: "e.g. 128/82", inputMode: "numeric", format: "bp" },
+  // "decimal", not "numeric": an iPhone's numeric pad has no separator, so 128/82 couldn't be typed.
+  { key: "bp", label: "Blood pressure", placeholder: "e.g. 128/82", inputMode: "decimal", format: "bp" },
   { key: "fhr", label: "Fetal heart rate", placeholder: "e.g. 142 bpm", inputMode: "numeric" },
   { key: "urine", label: "Urine protein", placeholder: "e.g. +1", suggestions: ["Nil", "Trace", "+1", "+2", "+3"] },
   {
@@ -27,6 +28,7 @@ const NEONATAL_VITALS = [
   { key: "temp", label: "Temperature", placeholder: "e.g. 36.8 °C", inputMode: "decimal" },
   { key: "hr", label: "Heart rate", placeholder: "e.g. 138 bpm", inputMode: "numeric" },
 ];
+const ALL_VITALS = [...MATERNAL_VITALS, ...NEONATAL_VITALS];
 
 // One tap adds a common reason to the note. The clinician still writes the detail.
 const REASONS = {
@@ -82,7 +84,7 @@ const FIELD_NAMES = {
   receivingFacility: "hospital",
   interpreterNeeded: "interpreter",
   hasTransport: "transport",
-  ...Object.fromEntries([...MATERNAL_VITALS, ...NEONATAL_VITALS].map(({ key, label }) => [key, label.toLowerCase()])),
+  ...Object.fromEntries(ALL_VITALS.map(({ key, label }) => [key, label.toLowerCase()])),
 };
 
 const TYPES = [PatientType.MATERNAL, PatientType.CHILD, PatientType.DYAD].map((t) => [t, PATIENT_TYPE_LABELS[t]]);
@@ -141,9 +143,21 @@ const AI_TAGS = {
 };
 
 const SOURCE_NAMES = { note: "typed note", voice: "recording", photo: "photo" };
+// When the referral is sent. Only ever called from the Send handler.
+const sentAt = () => new Date().toISOString();
 
 // Fields holding made-up demo values. The AI clears these when it has nothing for them.
-const SAMPLE_KEYS = [...Object.keys(MATERNAL_SAMPLE), "phone", "emergencyContact", "address", "vital:bp", "vital:fhr"];
+const SAMPLE_KEYS = [
+  ...Object.keys(MATERNAL_SAMPLE),
+  "phone",
+  "emergencyContact",
+  "address",
+  "language",
+  "vital:bp",
+  "vital:fhr",
+];
+// A demo value a checkbox can't clear: when the AI has nothing for it, it's flagged for a check.
+const CHECK_KEYS = ["interpreterNeeded"];
 
 // How a suggestion reads for the fields that aren't text boxes.
 const suggestionText = (key, value) => {
@@ -194,12 +208,20 @@ const CreateReferral = () => {
   const [aiSources, setAiSources] = useState([]);
   // AI values for fields the clinician typed or changed. Theirs stays until they take one.
   const [aiSuggestions, setAiSuggestions] = useState({});
+  // Earlier AI values that the latest fill found in no source, and demo values it didn't replace.
+  const [aiStale, setAiStale] = useState(() => new Set());
+  const [aiToCheck, setAiToCheck] = useState(() => new Set());
   // The fields the clinician has typed in or changed by hand. A fill never overwrites these.
   const userKeys = useRef(new Set());
-  const own = (key) => userKeys.current.add(key);
+  const own = (key) => {
+    userKeys.current.add(key);
+    // A demo value flagged for a check is settled once the clinician sets it.
+    setAiToCheck((prev) => (prev.has(key) ? new Set([...prev].filter((k) => k !== key)) : prev));
+  };
   // Linked evidence: the source words behind each field, and the field being checked now.
   const [aiEvidence, setAiEvidence] = useState({});
   const [aiUnsourced, setAiUnsourced] = useState(() => new Set());
+
   const [focusKey, setFocusKey] = useState(null);
   const formRef = useRef(null);
   const listId = useId();
@@ -248,9 +270,11 @@ const CreateReferral = () => {
     aiSuggestions[key] !== undefined && aiSuggestions[key] !== (current[key] ?? "") ? aiSuggestions[key] : null;
   const statusOf = (key) => {
     if (suggestionFor(key) !== null) return "differs";
+    if (aiToCheck.has(key)) return "unclear";
     if (!aiOriginal || !(key in aiOriginal)) return null;
     if ((current[key] ?? "") !== aiOriginal[key]) return "edited";
-    return aiUnclear.has(key.replace(/^vital:.*/, "vitals")) || aiUnsourced.has(key) ? "unclear" : "ai";
+    const unclear = aiUnclear.has(key.replace(/^vital:.*/, "vitals")) || aiUnsourced.has(key) || aiStale.has(key);
+    return unclear ? "unclear" : "ai";
   };
   const sourceLine = (key) => {
     const ev = aiEvidence[key];
@@ -279,11 +303,12 @@ const CreateReferral = () => {
       );
     }
     if (status === "edited") return `AI wrote: "${aiOriginal[key]}"`;
+    if (aiStale.has(key)) return "From an earlier fill. No source has it now, so check it or clear it.";
     return sourceLine(key) || "No matching words in the source. Check this by hand.";
   };
   const aiKeys = aiOriginal ? Object.keys(aiOriginal) : [];
   const editedKeys = aiKeys.filter((k) => statusOf(k) === "edited");
-  const unclearCount = aiKeys.filter((k) => statusOf(k) === "unclear").length;
+  const unclearCount = [...new Set([...aiKeys, ...aiToCheck])].filter((k) => statusOf(k) === "unclear").length;
   const differCount = Object.keys(aiSuggestions).filter((k) => suggestionFor(k) !== null).length;
   const borderFor = (key) => AI_TAGS[statusOf(key)]?.border || "";
   const label = (text, key) => (
@@ -302,8 +327,14 @@ const CreateReferral = () => {
   const text = (key, props) => (
     <Input type="text" name={key} value={form[key] ?? ""} onChange={set(key)} className={borderFor(key)} {...props} />
   );
-  const select = (key, options) => (
-    <Select name={key} value={form[key]} onChange={set(key)} className={borderFor(key)}>
+  // A cleared value shows as "Choose…", not as the first option, which would not be what's saved.
+  const select = (key, options, prompt) => (
+    <Select name={key} value={form[key] ?? ""} onChange={set(key)} className={borderFor(key)}>
+      {!options.includes(form[key]) && (
+        <option value="" disabled>
+          {prompt}
+        </option>
+      )}
       {options.map((option) => (
         <option key={option} value={option}>
           {shortOption(option)}
@@ -330,10 +361,11 @@ const CreateReferral = () => {
   // Each fill folds every source into the form: empty fields are filled, and what the clinician
   // typed is kept, with any different AI reading offered beside it.
   const applyDraft = (draft, kinds) => {
-    const { values, original, suggestions } = mergeDraft({
+    const { values, original, suggestions, stale } = mergeDraft({
       current,
       draft,
-      userKeys: userKeys.current,
+      // The AI never chooses the hospital: a hospital it read is only offered beside the one set.
+      userKeys: new Set([...userKeys.current, "receivingFacility"]),
       aiOriginal: aiOriginal || {},
       sampleKeys: SAMPLE_KEYS,
     });
@@ -343,10 +375,20 @@ const CreateReferral = () => {
     setAiOriginal(original);
     setAiSuggestions(suggestions);
     setAiUnclear(new Set(draft.unclear || []));
+    setAiStale(new Set(stale));
+    setAiToCheck(new Set(CHECK_KEYS.filter((k) => !userKeys.current.has(k) && !(k in original))));
     setAiSources(kinds);
     const evidence = draft.evidence || {};
-    setAiEvidence((prev) => ({ ...prev, ...evidence }));
-    setAiUnsourced((prev) => new Set([...[...prev].filter((k) => !evidence[k]), ...(draft.unsourced || [])]));
+    // A field this fill wrote takes this fill's words or none, and a kept value's words may be
+    // from a source since removed, so neither keeps an old quote.
+    const replaced = new Set([...Object.keys(values), ...stale]);
+    setAiEvidence((prev) => ({
+      ...Object.fromEntries(Object.entries(prev).filter(([k]) => !replaced.has(k))),
+      ...evidence,
+    }));
+    setAiUnsourced(
+      (prev) => new Set([...[...prev].filter((k) => !replaced.has(k) && !evidence[k]), ...(draft.unsourced || [])]),
+    );
     setAiChecked(false);
   };
 
@@ -363,17 +405,30 @@ const CreateReferral = () => {
     own("patientType");
     const from = SAMPLES[patientType];
     const to = SAMPLES[next];
+    // Only a field still holding the sample. One typed, picked from a list or filled by the
+    // AI can equal a sample value, and stays as it is.
+    const touched = new Set([...userKeys.current, ...Object.keys(aiOriginal || {})]);
     setForm((prev) => {
       const updated = { ...prev };
       Object.keys(from).forEach((key) => {
-        if (prev[key] === from[key]) updated[key] = to[key];
+        const untouched = !touched.has(key);
+        if (untouched && prev[key] === from[key]) updated[key] = to[key];
       });
       return updated;
     });
     setPatientType(next);
   };
 
-  const vitalFields = patientType === PatientType.CHILD ? NEONATAL_VITALS : MATERNAL_VITALS;
+  const typeVitals = patientType === PatientType.CHILD ? NEONATAL_VITALS : MATERNAL_VITALS;
+  // Also any other vital the AI read, or that was typed before the patient type changed, so a
+  // filled-in value is never hidden or dropped on save (a mother's pulse, a baby's weight).
+  const vitalFields = [
+    ...typeVitals,
+    ...ALL_VITALS.filter(
+      ({ key }) =>
+        !typeVitals.some((v) => v.key === key) && (vitals[key]?.trim() || (aiOriginal && `vital:${key}` in aiOriginal)),
+    ),
+  ];
   const reasons = patientType === PatientType.CHILD ? REASONS.child : REASONS.maternal;
 
   const handleSubmit = (e) => {
@@ -389,6 +444,8 @@ const CreateReferral = () => {
       [!name, "patientName", "patient name"],
       [!form.indication.trim(), "indication", "reason for referral"],
       [!destinations.includes(destination), "receivingFacility", "hospital"],
+      [!DEPARTMENTS.includes(form.targetDepartment), "targetDepartment", "unit"],
+      [!LANGUAGES.includes(form.language), "language", "language"],
       [form.phone.trim() && !telHref(form.phone), "phone", "phone number (at least 7 digits)"],
       [form.emergencyContact.trim() && !telHref(form.emergencyContact), "emergencyContact", "emergency contact number"],
     ].filter(([bad]) => bad);
@@ -399,7 +456,7 @@ const CreateReferral = () => {
     }
     submitting.current = true;
 
-    const now = new Date().toISOString();
+    const now = sentAt();
     // Skip any number already taken, so a new case never shares an ID with an old one.
     let number = 8820 + referrals.length + 1;
     while (referrals.some((r) => r.id === `REF-2024-${number}`)) number += 1;
@@ -675,8 +732,12 @@ const CreateReferral = () => {
 
             <Section title="Getting there">
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-3 gap-y-2">
-                <Field {...field("Send to", "receivingFacility")}>{select("receivingFacility", destinations)}</Field>
-                <Field {...field("Unit", "targetDepartment")}>{select("targetDepartment", DEPARTMENTS)}</Field>
+                <Field {...field("Send to", "receivingFacility")}>
+                  {select("receivingFacility", destinations, "Choose a hospital")}
+                </Field>
+                <Field {...field("Unit", "targetDepartment")}>
+                  {select("targetDepartment", DEPARTMENTS, "Choose a unit")}
+                </Field>
                 <label className="flex items-center gap-2 min-h-control self-end text-sm font-semibold text-ink cursor-pointer">
                   <input
                     type="checkbox"
@@ -714,7 +775,7 @@ const CreateReferral = () => {
                 <Field {...field("Emergency contact", "emergencyContact")} className="xl:col-span-2">
                   {text("emergencyContact", { autoComplete: "off" })}
                 </Field>
-                <Field {...field("Language", "language")}>{select("language", LANGUAGES)}</Field>
+                <Field {...field("Language", "language")}>{select("language", LANGUAGES, "Choose a language")}</Field>
                 <Field {...field("Address", "address")} className="sm:col-span-2 xl:col-span-3">
                   {text("address")}
                 </Field>

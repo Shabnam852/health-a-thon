@@ -2,7 +2,7 @@
 
 GitHub Actions deploys the app to a private Vercel project (`.github/workflows/vercel.yml`).
 
-| Event                               | Checks (tests, lint, diagrams, build, gitleaks) | Deploy     |
+| Event                               | Checks (tests, lint, package age, build, gitleaks) | Deploy     |
 | :---------------------------------- | :---------------------------------------------- | :--------- |
 | Push to `main`                      | Yes                                             | Production |
 | Push to another branch in this repo | Yes                                             | Preview    |

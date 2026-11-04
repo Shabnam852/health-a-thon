@@ -109,7 +109,14 @@ const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
             <span className="sr-only">Assistant: </span>
             {message.text}
           </p>
+          {message.emergency && <p className="font-semibold">This sounds urgent. Call 108 now.</p>}
           <div className="flex flex-wrap gap-2">
+            {message.emergency && (
+              <Button size="sm" variant="danger" as="a" href="tel:108">
+                <Icon name="call" size="sm" />
+                Call 108 now
+              </Button>
+            )}
             {message.retry && (
               <Button size="sm" onClick={() => onRetry(message)}>
                 <Icon name="refresh" size="sm" />
@@ -137,7 +144,7 @@ const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
             ? "rounded-br-control bg-accent text-on-fill"
             : message.emergency
               ? "rounded-bl-control bg-danger-soft text-danger-strong border border-danger"
-              : "rounded-bl-control bg-muted text-ink"
+              : "rounded-bl-control bg-muted text-ink border border-line"
         }`}
       >
         <p className="whitespace-pre-wrap break-words" lang={mine ? undefined : message.languageCode}>
@@ -165,7 +172,7 @@ const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
               </Button>
             )}
             {voice && (
-              <Button size="sm" variant="ghost" onClick={() => player.toggle(message.id, voice)}>
+              <Button size="sm" variant="secondary" onClick={() => player.toggle(message.id, voice)}>
                 <Icon name={isPlaying ? "stop_circle" : "volume_up"} size="sm" />
                 {isPlaying ? "Stop" : "Listen"}
                 <span className="sr-only"> to this answer</span>
@@ -173,7 +180,7 @@ const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
             )}
             <Button
               size="sm"
-              variant="ghost"
+              variant="secondary"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(message.text);
@@ -188,7 +195,11 @@ const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
               <span className="sr-only"> this answer</span>
             </Button>
             {CAN_SHARE && (
-              <Button size="sm" variant="ghost" onClick={() => navigator.share({ text: message.text }).catch(() => {})}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => navigator.share({ text: message.text }).catch(() => {})}
+              >
                 <Icon name="share" size="sm" />
                 Share
                 <span className="sr-only"> this answer</span>
@@ -214,6 +225,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
   const [choosingLanguage, setChoosingLanguage] = useState(false);
   const [notice, setNotice] = useState("");
   const [confirmingClear, setConfirmingClear] = useState(false);
+  // A plain update, not a problem: shown in grey, not red.
+  const [info, setInfo] = useState("");
   const keepRef = useRef(null);
   const listRef = useRef(null);
   const ownInputRef = useRef(null);
@@ -269,6 +282,7 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
     const question = text.trim();
     if (!question || busy || outOfUses || !online) return;
     setNotice("");
+    setInfo("");
     setDraft("");
     chat.send({ text: question });
   };
@@ -389,7 +403,7 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
       {header}
       {clearBar}
 
-      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 bg-canvas">
+      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 bg-surface">
         {chat.messages.length === 0 && (
           <div className="space-y-5">
             <div className="space-y-1">
@@ -455,7 +469,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
               onClick={() => {
                 const words = chat.cancel();
                 if (words) setDraft(words);
-                setNotice("Question cancelled. It didn't count.");
+                setNotice("");
+                setInfo("Question cancelled. It didn't count.");
                 textRef.current?.focus();
               }}
             >
@@ -470,6 +485,11 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
         {shownNotice && (
           <p role="alert" className="text-xs text-danger-strong">
             {shownNotice}
+          </p>
+        )}
+        {!shownNotice && info && (
+          <p role="status" className="text-xs text-ink-muted">
+            {info}
           </p>
         )}
 
@@ -535,6 +555,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
                 variant={draft.trim() ? "secondary" : "primary"}
                 onClick={() => {
                   setNotice("");
+                  // An old "Question cancelled" would read as if this voice question was cancelled.
+                  setInfo("");
                   player.stop();
                   recorder.start();
                 }}

@@ -197,8 +197,9 @@ export const ReferralProvider = ({ children }) => {
 
   const saveHandoff = (referralId, summary) => applyToReferral(referralId, (r) => workflow.saveHandoff(r, summary));
 
+  // Checked at the hospital in use: only the receiving hospital can check a summary.
   const confirmHandoff = (referralId, confirmedBy) =>
-    applyToReferral(referralId, (r) => workflow.confirmHandoff(r, { confirmedBy }));
+    applyToReferral(referralId, (r) => workflow.confirmHandoff(r, { confirmedBy, facility: activeFacility?.name }));
 
   const identifyBarrier = (referralId, barrierPayload) =>
     applyToReferral(referralId, (r) => workflow.identifyBarrier(r, barrierPayload));

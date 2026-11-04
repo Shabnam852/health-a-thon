@@ -42,7 +42,11 @@ const HandoffCard = ({ referral, className = "" }) => {
   const [copiedVersion, setCopiedVersion] = useState(null);
   const inFlight = useRef(false);
   const handoff = referral.handoff;
-  const canConfirm = role === Role.FACILITY;
+  // Only staff at the hospital receiving the patient check the summary, not the one that sent it.
+  const atReceiving = role === Role.FACILITY && activeFacility?.name === referral.toFacility;
+  // A summary written for a hospital the case has since left is drafted again for the new one.
+  const stale = Boolean(handoff?.forFacility && handoff.forFacility !== referral.toFacility);
+  const canConfirm = atReceiving && !stale;
   // Demo: no sign-in yet, so the person signed in is the active hospital's contact, without the job note.
   const checker = (activeFacility?.directContact || "Hospital staff").replace(/\s*\(.*\)\s*$/, "");
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
@@ -154,6 +158,11 @@ const HandoffCard = ({ referral, className = "" }) => {
             </div>
           )}
 
+          {stale && (
+            <p className="text-sm font-semibold text-ink">
+              Written for {handoff.forFacility}. Draft it again for {referral.toFacility}.
+            </p>
+          )}
           {!handoff.confirmedAt && canConfirm && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <Button variant="primary" size="sm" onClick={confirm}>
@@ -162,6 +171,9 @@ const HandoffCard = ({ referral, className = "" }) => {
               </Button>
               <span className="text-xs text-ink-muted">as {checker}</span>
             </div>
+          )}
+          {!handoff.confirmedAt && !atReceiving && !stale && (
+            <p className="text-xs text-ink-muted">Staff at {referral.toFacility} check this summary.</p>
           )}
         </>
       )}
@@ -187,7 +199,7 @@ const HandoffCard = ({ referral, className = "" }) => {
             )}
           </>
         )}
-        {!handoff?.confirmedAt && (
+        {(!handoff?.confirmedAt || stale) && (
           <Button
             size={handoff ? "sm" : undefined}
             onClick={draft}

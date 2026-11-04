@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router";
 import Dialog from "../components/Dialog.jsx";
 import HandoffCard from "../components/HandoffCard.jsx";
 import { Badge, Button, Card, Icon, Page, PageHeader, Pictogram } from "../components/ui/index.js";
@@ -135,7 +135,7 @@ const ReferralDetails = () => {
               {referral.fromFacility} → <span className="font-semibold text-accent">{getDestination(referral)}</span>
             </span>
           </p>
-          <p className="text-sm text-ink-muted truncate">
+          <p className="text-sm text-ink-muted break-words">
             {plan && (
               <>
                 <span className="font-semibold text-ink">42-day follow-up:</span> {plan.tasks.length} visits, led by{" "}

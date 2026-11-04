@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { actionsColumn } from "../components/referralColumns.jsx";
 import { Badge, Button, DataTable, FilterSelect, Icon, Page, PageHeader } from "../components/ui/index.js";
 import { isRouteAllowedForRole } from "../config/navigationConfig.js";

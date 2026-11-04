@@ -1,12 +1,24 @@
 import {
+  columnFacetingFeature,
+  columnFilteringFeature,
+  columnVisibilityFeature,
+  createExpandedRowModel,
+  createFacetedUniqueValues,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  filterFn_includesString,
   flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
+  globalFilteringFeature,
+  rowExpandingFeature,
+  rowPaginationFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_basic,
+  sortFn_datetime,
+  sortFn_text,
+  tableFeatures,
+  useTable,
 } from "@tanstack/react-table";
 import { Fragment, useMemo, useState } from "react";
 import Button from "./Button.jsx";
@@ -22,6 +34,25 @@ const equalsOrIncludes = (row, columnId, value) => {
 };
 
 const SORT_ICONS = { asc: "arrow_upward", desc: "arrow_downward" };
+
+// Everything the table uses, registered once. TanStack 9 only gives a table the features, row
+// models and named functions listed here. The sort functions are the ones "auto" picks from.
+const FEATURES = tableFeatures({
+  columnFilteringFeature,
+  globalFilteringFeature,
+  columnFacetingFeature,
+  rowSortingFeature,
+  rowExpandingFeature,
+  rowPaginationFeature,
+  columnVisibilityFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  facetedUniqueValues: createFacetedUniqueValues(),
+  expandedRowModel: createExpandedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  filterFns: { includesString: filterFn_includesString, equalsOrIncludes },
+  sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text, datetime: sortFn_datetime, basic: sortFn_basic },
+});
 
 /**
  * The one table. Columns are TanStack column defs, plus:
@@ -70,7 +101,8 @@ const DataTable = ({
   );
 
   // oxlint-disable-next-line react/incompatible-library -- no React Compiler in this app; TanStack's functions are read fresh each render.
-  const table = useReactTable({
+  const table = useTable({
+    features: FEATURES,
     data,
     columns: tableColumns,
     meta: context,
@@ -92,14 +124,7 @@ const DataTable = ({
     onExpandedChange: setExpanded,
     getRowId,
     getRowCanExpand: () => Boolean(renderDetail),
-    filterFns: { equalsOrIncludes },
     globalFilterFn: "includesString",
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       pagination: { pageSize },
       // A column def may carry only an accessorKey, whose id TanStack derives from it.
@@ -116,7 +141,7 @@ const DataTable = ({
   const isFiltered = Boolean(globalFilter) || columnFilters.length > 0;
   const rows = table.getRowModel().rows;
   // The row's place in the list as sorted and filtered now, counted once rather than per cell.
-  const { pageIndex, pageSize: size } = table.getState().pagination;
+  const { pageIndex, pageSize: size } = table.state.pagination;
   const rowNumbers = new Map(rows.map((r, i) => [r.id, pageIndex * size + i + 1]));
   const total = table.getFilteredRowModel().rows.length;
   const colCount = table.getVisibleLeafColumns().length + (renderDetail ? 1 : 0);
@@ -293,7 +318,7 @@ const DataTable = ({
               Previous
             </Button>
             <span className="tabular-nums">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              Page {pageIndex + 1} of {table.getPageCount()}
             </span>
             <Button size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
               Next

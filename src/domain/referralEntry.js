@@ -1,8 +1,9 @@
 // Small helpers that make the new-referral form quicker to fill.
 
-// "128 82", "128-82" or "128,82" becomes "128/82". Anything else is left as typed.
+// "128 82", "128-82", "128,82" or "128.82" becomes "128/82". Anything else is left as typed.
+// The dot is what a phone's number pad offers: an iPhone's has no slash, space or dash.
 export const formatBp = (value) => {
-  const match = value.trim().match(/^(\d{2,3})\s*[\s,\-/\\]\s*(\d{2,3})$/);
+  const match = value.trim().match(/^(\d{2,3})\s*[\s,.\-/\\]\s*(\d{2,3})$/);
   return match ? `${match[1]}/${match[2]}` : value;
 };
 
@@ -35,15 +36,20 @@ export const flattenDraft = (draft) => {
  * - a field the AI filled before keeps that value if this draft has nothing for it
  * - a sample value the AI has nothing for is cleared, so no made-up patient is left behind
  *
+ * Every fill sends all the sources there are, so an earlier AI value that this draft has nothing
+ * for may have come from a source since removed. It is kept, and listed in `stale` for a check.
+ *
  * Returns { values: the keys to change, original: what the AI wrote in each field it now
- * owns, suggestions: AI values for fields the clinician owns }.
+ * owns, suggestions: AI values for fields the clinician owns, stale: kept AI values that no
+ * source gave this time }.
  */
 export const mergeDraft = ({ current, draft, userKeys, aiOriginal = {}, sampleKeys = [] }) => {
   const incoming = flattenDraft(draft);
   const values = {};
   const original = { ...aiOriginal };
   const suggestions = {};
-  const keys = new Set([...Object.keys(incoming), ...sampleKeys]);
+  const stale = [];
+  const keys = new Set([...Object.keys(incoming), ...sampleKeys, ...Object.keys(aiOriginal)]);
   for (const key of keys) {
     const next = incoming[key];
     if (userKeys.has(key)) {
@@ -51,9 +57,11 @@ export const mergeDraft = ({ current, draft, userKeys, aiOriginal = {}, sampleKe
     } else if (next) {
       values[key] = next;
       original[key] = next;
-    } else if (!(key in aiOriginal) && sampleKeys.includes(key)) {
+    } else if (key in aiOriginal) {
+      stale.push(key);
+    } else if (sampleKeys.includes(key)) {
       values[key] = "";
     }
   }
-  return { values, original, suggestions };
+  return { values, original, suggestions, stale };
 };

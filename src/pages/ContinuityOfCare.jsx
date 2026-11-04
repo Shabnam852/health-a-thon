@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { FormDialog } from "../components/Dialog.jsx";
 import { actionsColumn, serialColumn } from "../components/referralColumns.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
@@ -257,7 +257,7 @@ const VISIT_COLUMNS = [
     id: "state",
     header: "State",
     accessorFn: (v) => STATE_LABELS[v.state],
-    sortingFn: (a, b) => STATE_ORDER.indexOf(a.original.state) - STATE_ORDER.indexOf(b.original.state),
+    sortFn: (a, b) => STATE_ORDER.indexOf(a.original.state) - STATE_ORDER.indexOf(b.original.state),
     meta: { filter: true },
     cell: ({ row: { original: v } }) => <Badge tone={STATE_TONES[v.state] || "neutral"}>{STATE_LABELS[v.state]}</Badge>,
   },

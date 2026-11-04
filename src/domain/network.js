@@ -72,12 +72,16 @@ export const getOccupancy = (hospital, referrals = []) => {
 /** Minutes from a referral being sent to the hospital accepting it. */
 const replyMinutes = (referral) => {
   const timeline = referral.timeline || [];
-  // The last acceptance is the current hospital's: an earlier one may have been withdrawn.
-  const acceptedAt = timeline.findLastIndex((t) => t.status === ReferralStatus.ACKNOWLEDGED);
-  if (acceptedAt < 0) return null;
-  const sent = timeline.slice(0, acceptedAt).findLast((t) => t.status === ReferralStatus.SENT);
-  if (!sent) return null;
-  return Math.round((toTime(timeline[acceptedAt].date) - toTime(sent.date)) / MS_PER_MINUTE);
+  // Only the current hospital's reply counts: an acceptance after the last send, which went to it.
+  // An earlier acceptance belongs to a hospital that later declined, or that the case moved away from.
+  const sentAt = timeline.findLastIndex((t) => t.status === ReferralStatus.SENT);
+  if (sentAt < 0) return null;
+  const accepted = timeline.slice(sentAt + 1).find((t) => t.status === ReferralStatus.ACKNOWLEDGED);
+  if (!accepted) return null;
+  // A patient who arrived at another hospital moved the case after this acceptance.
+  const movedAt = (referral.redirectHistory || []).at(-1)?.date;
+  if (movedAt && toTime(movedAt) > toTime(accepted.date)) return null;
+  return Math.round((toTime(accepted.date) - toTime(timeline[sentAt].date)) / MS_PER_MINUTE);
 };
 
 /** The hospital's median time to accept, or null when it has accepted nobody yet. */

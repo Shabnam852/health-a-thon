@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { demoStorySteps, STORY_REFERRAL_ID } from "../config/demoStory.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
 

@@ -99,7 +99,9 @@ export const createClaude = ({ apiKey }) => {
 
     /** Returns { answer, languageCode, emergency, report } or { refused: true }. */
     async answer({ system, messages }) {
-      const parsed = await structured({ system, messages, schema: ANSWER_SCHEMA });
+      // The cap bounds what one question can cost. Indian scripts take several tokens a letter, so
+      // a 900-letter Malayalam answer plus its report needs room: a cut-off reply is unreadable JSON.
+      const parsed = await structured({ system, messages, schema: ANSWER_SCHEMA, maxTokens: 3000 });
       if (parsed.refused) return parsed;
       if (typeof parsed.answer !== "string") throw new ProviderError("Claude gave no usable answer");
       return {

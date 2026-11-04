@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 
 import AppShell from "./components/AppShell.jsx";
 import { ASSISTANT_PATH } from "./components/assistant/AssistantLauncher.jsx";
@@ -36,7 +36,7 @@ const useScreenChange = () => {
 
   // Runs after every render: the heading can change with no change of URL, as on a role switch.
   useEffect(() => {
-    // biome-ignore lint/performance/useDomNodeTextContent: innerText leaves out text hidden from the reader.
+    // innerText, not textContent: it leaves out text hidden from the reader.
     const heading = document.querySelector("h1")?.innerText;
     document.title = heading ? `${heading} | Navexa Health` : "Navexa Health";
   });

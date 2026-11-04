@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { FormDialog } from "../components/Dialog.jsx";
 import {
   actionsColumn,
@@ -65,7 +65,7 @@ const RIDE_COLUMNS = [
     id: "stage",
     header: "Stage",
     accessorKey: "stage",
-    sortingFn: (a, b) => STAGES.indexOf(a.original.stage) - STAGES.indexOf(b.original.stage),
+    sortFn: (a, b) => STAGES.indexOf(a.original.stage) - STAGES.indexOf(b.original.stage),
     meta: { filter: true, className: "whitespace-nowrap" },
     cell: ({ getValue }) => <Badge tone={getValue() === STAGES[0] ? "danger" : "neutral"}>{getValue()}</Badge>,
   },

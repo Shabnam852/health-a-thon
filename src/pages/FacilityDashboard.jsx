@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { FormDialog } from "../components/Dialog.jsx";
 import {
   actionsColumn,
@@ -28,7 +28,8 @@ import {
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { formatMinutes, getResponseClock } from "../domain/alarms.js";
 import { PatientType, ReferralStatus } from "../domain/enums.js";
-import { isFloating } from "../domain/workflow.js";
+import { getOccupancy } from "../domain/network.js";
+import { findCaseAtReception, isFloating } from "../domain/workflow.js";
 
 const TABS = [
   {
@@ -165,7 +166,8 @@ const FacilityDashboard = () => {
 
   const [modal, setModal] = useState(null); // { type: 'reject' | 'arrival' | 'outcome', referral }
   const [form, setForm] = useState(BLANK_FORM);
-  const { toast, report } = useToast();
+  const [caseIdQuery, setCaseIdQuery] = useState("");
+  const { toast, showToast, report } = useToast();
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   // A link can name a hospital. Otherwise this is the hospital chosen last.
@@ -178,6 +180,8 @@ const FacilityDashboard = () => {
 
   // An exact match, as on the hospitals board: a partial name must not pull in another hospital's cases.
   const inbound = referrals.filter((r) => r.toFacility === currentFacility.name);
+  // The same count as the hospitals board: a bed is held from acceptance until discharge.
+  const freeBeds = getOccupancy(currentFacility, referrals).freeAfterArrivals;
   const queues = Object.fromEntries(TABS.map((t) => [t.id, inbound.filter((r) => t.statuses.includes(r.status))]));
 
   // No tab in the URL: open the first queue that needs attention.
@@ -234,7 +238,16 @@ const FacilityDashboard = () => {
     );
   };
 
-  // A patient can walk in anywhere, so reception finds them by the case ID they were given.
+  // A patient can walk in anywhere, including one who hasn't chosen a hospital yet, so
+  // reception finds them by the case ID they were given and confirms they are here.
+  const handleFindCase = (e) => {
+    e.preventDefault();
+    const res = findCaseAtReception(referrals, caseIdQuery);
+    if (!res.success) return showToast(res.reason, "error");
+    setCaseIdQuery("");
+    ask("arrival", res.referral);
+  };
+
   const handleConfirmOutcome = () => {
     const ref = modal.referral;
     const res = recordClinicalOutcome(ref.id, {
@@ -268,7 +281,7 @@ const FacilityDashboard = () => {
       <div className="space-y-3">
         <PageHeader
           title="Intake"
-          subtitle={`${currentFacility.bedsAvailable} of ${currentFacility.totalBeds} beds free`}
+          subtitle={`${freeBeds} of ${currentFacility.totalBeds} beds free after patients on the way`}
           actions={
             <Select
               aria-label="Hospital"
@@ -297,6 +310,24 @@ const FacilityDashboard = () => {
           </div>
         </Disclosure>
       </div>
+
+      <form onSubmit={handleFindCase} className="flex flex-col sm:flex-row sm:items-end gap-2">
+        <Field
+          label="Patient at reception who isn't on these lists? Enter their case ID"
+          className="flex-1 sm:max-w-md"
+        >
+          <Input
+            name="caseId"
+            value={caseIdQuery}
+            placeholder="e.g. NX-9051"
+            autoComplete="off"
+            onChange={(e) => setCaseIdQuery(e.target.value)}
+          />
+        </Field>
+        <Button type="submit" disabled={!caseIdQuery.trim()}>
+          Find case
+        </Button>
+      </form>
 
       <FilterTabs
         label="Queues"

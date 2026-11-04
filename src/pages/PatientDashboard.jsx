@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { ASSISTANT_PATH } from "../components/assistant/AssistantLauncher.jsx";
 import ListenButton from "../components/assistant/ListenButton.jsx";
 import { usePatientCase } from "../components/assistant/usePatientCase.js";
@@ -302,11 +302,11 @@ const PatientDashboard = () => {
           ) : (
             <Card title="Progress">
               <StepList
-                steps={RIDE_STAGES.map((label, index) => ({
-                  label,
-                  done: index < rideStage,
-                  isNow: index === rideStage - 1 && !isRideFailed ? "Now" : "",
-                }))}
+                steps={RIDE_STAGES.map((label, index) => {
+                  // The stage reached last is still happening, until the patient has arrived.
+                  const isNow = index === rideStage - 1 && !isRideFailed && rideStage < RIDE_STAGES.length;
+                  return { label, done: index < rideStage && !isNow, isNow: isNow ? "Now" : "" };
+                })}
               />
             </Card>
           )}

@@ -55,7 +55,7 @@ npm run dev             # http://localhost:5173
 | `npm run lint`     | oxlint and Biome; fails on any warning      |
 | `npm run fix`      | Fixes what the linters can fix on their own |
 | `npm run build`    | Builds the site into `dist/`                |
-| `npm run diagrams` | Redraws the diagrams in `docs/diagrams/`    |
+| `npm run deps:age` | Checks every package is at least 14 days old |
 
 ## How it is built
 
@@ -76,4 +76,3 @@ Pushes to `main` deploy to production on Vercel, and other branches get a previe
 - [Data model](docs/DATA_MODEL.md)
 - [Security and clinical safety](docs/SECURITY_AND_CLINICAL_SAFETY_AUDIT.md)
 - [Accessibility](docs/ACCESSIBILITY.md)
-- [Diagrams](docs/diagrams/README.md)

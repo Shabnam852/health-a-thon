@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { acuityRank, PATIENT_TYPE_LABELS, ReferralStatus, UrgencyLevel } from "../domain/enums.js";
 import { getDestination } from "../domain/workflow.js";
 import { Badge } from "./ui/index.js";
@@ -49,7 +49,7 @@ export const priorityColumn = () => ({
   id: "priority",
   header: "Priority",
   accessorKey: "priority",
-  sortingFn: (a, b) => acuityRank(a.original.priority) - acuityRank(b.original.priority),
+  sortFn: (a, b) => acuityRank(a.original.priority) - acuityRank(b.original.priority),
   meta: { filter: true },
   cell: ({ getValue }) => (
     <Badge tone={PRIORITY_TONES[getValue()] || "neutral"} className="uppercase">

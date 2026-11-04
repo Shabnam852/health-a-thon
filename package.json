@@ -8,34 +8,31 @@
     "build": "vite build",
     "test": "node --test src/**/*.test.js server/*.test.js",
     "lint": "oxlint --deny-warnings && biome check --error-on-warnings .",
-    "diagrams": "node scripts/render-diagrams.mjs",
-    "diagrams:check": "node scripts/check-diagrams.mjs",
-    "diagrams:web": "zombie-mermaid web",
     "preview": "vite preview",
     "format": "biome format --write .",
-    "fix": "oxlint --fix && biome check --write ."
+    "fix": "oxlint --fix && biome check --write .",
+    "deps:age": "node scripts/check-release-age.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.135.0",
+    "@anthropic-ai/sdk": "0.137.0",
     "@fontsource/inter": "^5.3.0",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table": "^9.3.1",
     "healthicons": "2.0.0",
-    "material-symbols": "^0.48.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.24.1",
+    "material-symbols": "^0.48.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router": "^7.18.4",
     "sarvamai": "1.1.12"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.4",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.6.2",
-    "oxlint": "1.90.0",
-    "postcss": "^8.5.32",
+    "@biomejs/biome": "2.5.15",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "autoprefixer": "^10.6.1",
+    "oxlint": "1.89.0",
+    "postcss": "^8.5.31",
     "tailwindcss": "^3.4.19",
-    "vite": "^5.3.4",
-    "zombie-mermaid": "^5.14.1"
+    "vite": "^8.3.5"
   }
 }

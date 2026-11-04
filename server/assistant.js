@@ -24,7 +24,26 @@ const MAX_AUDIO_BASE64 = 1_400_000;
 const MAX_BRIEF_CHARS = 6000;
 const MAX_SPEAK_CHARS = 1000;
 const MAX_HISTORY_CHARS = 1200;
+// One to three short sentences is the rule; this is far past it, in any script.
+const MAX_ANSWER_CHARS = 900;
 const AUDIO_TYPES = /^audio\/(webm|ogg|mp4|mpeg|wav|x-m4a|aac)(;.*)?$/;
+// Where a sentence ends: . ! ? and the Indian full stops (। ॥ in Devanagari and others, ۔ in Urdu).
+const SENTENCE_END = /[.!?।॥۔](?=\s|$)/g;
+
+/**
+ * Keeps a long answer to whole sentences, so it never stops mid-word when read aloud. The
+ * rules put any "call 108" first, so cutting from the end keeps it. With no sentence end in
+ * reach, it cuts at a space and marks the cut.
+ */
+export const capAnswer = (text, max = MAX_ANSWER_CHARS) => {
+  if (text.length <= max) return text;
+  const head = text.slice(0, max);
+  let end = -1;
+  for (const match of head.matchAll(SENTENCE_END)) end = match.index + 1;
+  if (end > max / 3) return head.slice(0, end).trim();
+  const space = head.lastIndexOf(" ");
+  return `${(space > max / 3 ? head.slice(0, space) : head).trim()}…`;
+};
 
 export const SYSTEM_RULES = `You help a pregnant woman, a new mother, or her family in India while she is being referred to a hospital. They may be scared or in a hurry, and many do not read well. Your answer will be read aloud to them.
 
@@ -193,7 +212,10 @@ export const handleAsk = async (body, providers) => {
     const safeLanguage = fixed || resolveReplyLanguage({ profileLanguage: req.profileLanguage });
     // An empty answer would be a blank bubble and a failed voice call: treat it as a failure.
     if (!reply.refused && !reply.answer) throw new ProviderError("Claude gave an empty answer");
-    const answer = reply.refused ? "I can't help with that here. Please call your care navigator." : reply.answer;
+    // Capped before it is shown or spoken: a runaway answer can't run up the voice bill.
+    const answer = reply.refused
+      ? "I can't help with that here. Please call your care navigator."
+      : capAnswer(reply.answer);
     const languageCode = reply.refused
       ? "en-IN"
       : fixed || (isSpokenLanguage(reply.languageCode) ? reply.languageCode : safeLanguage);

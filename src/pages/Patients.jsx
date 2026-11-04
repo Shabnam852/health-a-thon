@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import BarrierTables, { getBlocked, getSolved } from "../components/BarrierTables.jsx";
 import { FormDialog } from "../components/Dialog.jsx";
 import RecordChoiceDialog from "../components/RecordChoiceDialog.jsx";

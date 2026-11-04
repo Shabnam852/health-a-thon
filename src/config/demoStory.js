@@ -6,6 +6,8 @@
 import { RoleId } from "./navigationConfig.js";
 
 export const STORY_REFERRAL_ID = "NX-9042";
+// The hospital the story's newborn is heading to. The intake step opens it, whichever hospital was used last.
+export const STORY_FACILITY_ID = "FAC-SANJEEVANI";
 
 export const demoStorySteps = [
   {
@@ -22,7 +24,7 @@ export const demoStorySteps = [
   },
   {
     role: RoleId.FACILITY,
-    path: "/facility?tab=intransit",
+    path: `/facility?tab=intransit&facility=${STORY_FACILITY_ID}`,
     title: "Hospital confirms arrival",
     text: "The hospital confirms arrival. Only this moves the referral forward.",
   },

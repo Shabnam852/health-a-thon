@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router";
 import RecordChoiceDialog from "../components/RecordChoiceDialog.jsx";
 import {
   actionsColumn,

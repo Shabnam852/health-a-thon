@@ -26,7 +26,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run lint
-      - run: npm run diagrams:check
+      # Every package in the lockfile must be at least 14 days old (see .npmrc).
+      - run: npm run deps:age
       - run: npm run build
 
   gitleaks:

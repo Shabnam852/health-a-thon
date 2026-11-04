@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import { BrandMark, Button, Card, Icon, Pictogram, Tile } from "../components/ui/index.js";
 import { useDemoStory } from "../components/useDemoStory.js";

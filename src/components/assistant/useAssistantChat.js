@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
-import { AUTO_LANGUAGE, buildCaseBrief, profileLanguageCode } from "../../domain/assistant.js";
+import { AUTO_LANGUAGE, buildCaseBrief, looksLikeEmergency, profileLanguageCode } from "../../domain/assistant.js";
 import { AssistantRequestError, askAssistant, blobToBase64 } from "../../services/assistantApi.js";
 import { assistantStore } from "../../services/assistantStore.js";
 import { saveVoice } from "../../services/voiceCache.js";
@@ -144,6 +144,9 @@ export const useAssistantChat = (referral, facilities, onReport) => {
           role: "assistant",
           text: error.message || "Something went wrong. Please try again.",
           status: "error",
+          // No answer came, for any reason (busy, offline, over the limit): a typed question
+          // that sounds urgent still gets "call 108" at once.
+          emergency: !input.blob && looksLikeEmergency(input.text || ""),
           questionId: question.id,
           retry: input.blob ? null : input.text,
           at: new Date().toISOString(),

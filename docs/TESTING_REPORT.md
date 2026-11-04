@@ -1,7 +1,7 @@
 # Navexa Health — Comprehensive Verification & Testing Report
 
 **Document:** `docs/TESTING_REPORT.md`  
-**Version:** 3.1.0  
+**Version:** 3.2.0  
 **Updated:** November 04, 2026  
 **Auditor/Architect:** QA and Test Automation Engineer, Application Security Engineer
 
@@ -11,28 +11,29 @@
 
 Automated tests run with Node's built-in test runner (`npm test`). They cover the pure domain, workflow, navigation, storage and server AI code. They do not render React, so page behaviour and the wiring in `ReferralContext.jsx` are checked by hand in the browser.
 
-Last run on November 04, 2026: 211 tests in 44 suites, all passing.
+Last run on November 04, 2026, after the code review fixes (section 4 of `docs/SECURITY_AND_CLINICAL_SAFETY_AUDIT.md`): 284 tests in 53 suites, all passing.
 
 | Test file                             | Tests   |
 | :------------------------------------ | :------ |
-| `server/assistant.test.js`            | 26      |
-| `server/staffAi.test.js`              | 15      |
-| `src/config/demoStory.test.js`        | 4       |
+| `server/assistant.test.js`            | 30      |
+| `server/http.test.js`                 | 11      |
+| `server/staffAi.test.js`              | 37      |
+| `src/config/demoStory.test.js`        | 5       |
 | `src/config/navigationConfig.test.js` | 14      |
 | `src/config/theme.test.js`            | 3       |
 | `src/data/seedData.test.js`           | 2       |
 | `src/domain/alarms.test.js`           | 10      |
-| `src/domain/assistant.test.js`        | 14      |
+| `src/domain/assistant.test.js`        | 42      |
 | `src/domain/contact.test.js`          | 3       |
 | `src/domain/domain.test.js`           | 21      |
 | `src/domain/hospitalChoice.test.js`   | 11      |
 | `src/domain/hospitalMap.test.js`      | 5       |
 | `src/domain/landing.test.js`          | 14      |
-| `src/domain/network.test.js`          | 9       |
-| `src/domain/referralEntry.test.js`    | 6       |
-| `src/domain/workflow.test.js`         | 43      |
+| `src/domain/network.test.js`          | 10      |
+| `src/domain/referralEntry.test.js`    | 8       |
+| `src/domain/workflow.test.js`         | 47      |
 | `src/services/storageAdapter.test.js` | 11      |
-| **Total**                             | **211** |
+| **Total**                             | **284** |
 
 `npm run lint` and `npm run build` are covered in sections 4 and 5.
 
@@ -52,9 +53,13 @@ Last run on November 04, 2026: 211 tests in 44 suites, all passing.
 6. **Declined referrals:** a declined referral floats with no hospital until the family chooses one. A hospital that declined cannot be chosen again.
 7. **Arrival:** physical arrival is allowed from `SENT`, `ACKNOWLEDGED` or `REJECTED`. It still cannot go straight to `COMPLETED`.
 8. **Family reports:** a danger sign or a barrier from the family's assistant is raised from the newest question only, and only one open barrier is raised per category.
-9. **Handoff:** the record sent to the AI has no names, phone numbers or caregiver details. A confirmed handoff cannot be confirmed again.
+9. **Handoff:** the record sent to the AI has no names, phone numbers or caregiver details, including a first name alone, any case, and a caregiver written as "Name (Mother)". Dates are kept. A confirmed handoff cannot be confirmed again. Only the receiving hospital can confirm it, and it is dropped when the case moves to another hospital.
+10. **Reception:** a patient can be found by case ID at any hospital, unless they have already arrived or the referral wasn't sent.
+11. **Reply times:** only the current hospital's acceptance counts towards its time to accept.
+12. **Fill with AI:** the hospital is only ever suggested, never written. A kept AI value that no source gave on the latest fill is listed for a check. Blood pressure typed as "128.82" becomes "128/82".
+13. **AI routes:** cross-site requests are refused, each route has its own limit, and requests that never reached an AI don't count. Long answers are cut at a sentence end.
 
-**AI features.** The server tests (`server/assistant.test.js`, `server/staffAi.test.js`) use fake AI and speech providers. They check input limits, the 503 reply when a key is missing, whether a use is refunded, that the AI sets no priority, and the quote checks. No live AI reply has been tested. ANTHROPIC_API_KEY and SARVAM_API_KEY are not set up yet.
+**AI features.** The server tests (`server/assistant.test.js`, `server/staffAi.test.js`) use fake AI and speech providers. They check input limits, the 503 reply when a key is missing, whether a use is refunded, that the AI sets no priority, and the quote checks. Live replies have been checked by hand from a local `.env` only; the tests never call a real provider.
 
 ---
 

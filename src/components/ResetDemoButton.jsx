@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { FormDialog } from "./Dialog.jsx";
 import { Button, Icon } from "./ui/index.js";
