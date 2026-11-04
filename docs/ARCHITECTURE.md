@@ -14,7 +14,7 @@ Navexa Health is engineered as a **modular, domain-driven maternal and neonatal 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           PRESENTATION LAYER                            │
-│  React 18 + React Router v6 + design tokens and UI kit (docs/design.md) │
+│ React 19 + React Router 7 + Tailwind 4 + design tokens (docs/design.md) │
 ├────────────────────┬────────────────────┬───────────────────────────────┤
 │ Operational Hubs   │ Clinical Intake    │ Patient & Community           │
 │ - Coordinator      │ - Intake (hospital)│ - Patient & Family Journey    │

@@ -80,7 +80,7 @@ const ReferralDetails = () => {
         <PageHeader title="Referral not found" />
         <p className="text-ink-muted text-sm">
           There is no referral with ID{" "}
-          <code className="px-1.5 py-0.5 rounded bg-subtle text-ink font-mono text-xs">{id || "unknown"}</code>.
+          <code className="px-1.5 py-0.5 rounded-sm bg-subtle text-ink font-mono text-xs">{id || "unknown"}</code>.
         </p>
         <Button as={Link} to={getRoleDefinition(role).homePath} variant="primary">
           Back to my workspace
@@ -113,11 +113,7 @@ const ReferralDetails = () => {
         </div>
       )}
       <div className="flex items-start gap-4">
-        <Pictogram
-          name={PATIENT_PICTOGRAM[referral.referralType] || "pregnant"}
-          size="lg"
-          className="hidden sm:inline-flex"
-        />
+        <Pictogram name={PATIENT_PICTOGRAM[referral.referralType] || "pregnant"} size="lg" className="max-sm:hidden" />
         <div className="min-w-0 flex-1 space-y-1">
           <PageHeader
             title={referral.patientName}

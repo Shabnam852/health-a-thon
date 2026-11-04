@@ -59,7 +59,7 @@ npm run dev             # http://localhost:5173
 
 ## How it is built
 
-- **Front end:** React 18, Vite, Tailwind, React Router. Saved in the browser (`localStorage`), so each browser has its own demo data. **Reset demo** in the sidebar starts it again.
+- **Front end:** React 19, Vite 8, Tailwind 4, React Router 7. Saved in the browser (`localStorage`), so each browser has its own demo data. **Reset demo** in the sidebar starts it again.
 - **Rules:** referral steps, alarms, follow-up plans and hospital choice are plain functions in `src/domain/`, with tests beside them.
 - **AI server:** small request handlers in `server/`, served by Vercel functions in `api/` and by Vite in development.
 - **Design:** calm, plain screens in the style of public health services, with colour tokens and 7:1 contrast. Rules are in `.claude/skills/navexa-ui/SKILL.md`.

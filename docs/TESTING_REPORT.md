@@ -88,7 +88,7 @@ Result on November 04, 2026: oxlint and Biome both pass, with no warnings.
 ## 5. Production Build Verification
 
 Command: `npm run build`
-Engine: Vite v5 with Tailwind CSS v3 through PostCSS.
+Engine: Vite 8 with Tailwind CSS 4 through `@tailwindcss/vite`.
 
 The build passes on November 04, 2026 (`npm run build`).
 

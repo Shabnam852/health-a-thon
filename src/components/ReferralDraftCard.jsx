@@ -44,7 +44,7 @@ const Marked = ({ title, text, quote }) => {
     <div className="rounded-control border border-line bg-muted p-3 text-sm text-ink whitespace-pre-wrap break-words">
       <p className="mb-1 text-xs font-semibold text-ink-muted">{title}</p>
       {flat.slice(0, at)}
-      <mark className="rounded bg-highlight px-0.5 text-on-highlight font-semibold">{flat.slice(at, end)}</mark>
+      <mark className="rounded-sm bg-highlight px-0.5 text-on-highlight font-semibold">{flat.slice(at, end)}</mark>
       {flat.slice(end)}
     </div>
   );

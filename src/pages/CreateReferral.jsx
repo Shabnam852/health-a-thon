@@ -122,7 +122,7 @@ const Choice = ({ options, value, onChange, label, grid = false }) => {
               className="sr-only peer"
             />
             {/* The radio is visually hidden, so its focus ring is drawn on this label. */}
-            <span className="block min-h-control px-4 py-1.5 rounded-control border text-sm font-semibold bg-surface text-ink border-line-strong hover:border-accent peer-checked:bg-brand peer-checked:text-on-fill peer-checked:border-brand peer-focus-visible:outline peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus">
+            <span className="block min-h-control px-4 py-1.5 rounded-control border text-sm font-semibold bg-surface text-ink border-line-strong hover:border-accent peer-checked:bg-brand peer-checked:text-on-fill peer-checked:border-brand peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus">
               {text}
               {hint && <span className="block text-xs font-normal">{hint}</span>}
             </span>

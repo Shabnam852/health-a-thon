@@ -115,7 +115,7 @@ const StoryBar = () => {
               <span aria-hidden="true">·</span>
               <span>Viewing as {role.shortTitle}</span>
             </p>
-            <p className="font-display text-sm sm:text-base font-bold leading-snug">{step.title}</p>
+            <p className="font-display text-sm sm:text-base font-bold leading-snug sm:leading-6">{step.title}</p>
             <p className="text-sm text-on-fill-muted leading-snug">{step.text}</p>
           </div>
           {/* On a phone the controls row is full, so Exit sits in the corner. */}

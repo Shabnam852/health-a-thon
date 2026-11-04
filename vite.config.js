@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 
@@ -37,5 +38,5 @@ const assistantApi = (env) => ({
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   // "" loads every variable in .env, not only VITE_ ones. Only the dev server sees them.
-  plugins: [react(), assistantApi(loadEnv(mode, process.cwd(), ""))],
+  plugins: [react(), tailwindcss(), assistantApi(loadEnv(mode, process.cwd(), ""))],
 }));

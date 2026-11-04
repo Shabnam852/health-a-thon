@@ -73,7 +73,7 @@ const AssistantLauncher = () => {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => (open ? close() : setOpen(true))}
-        className={`hidden lg:inline-flex ${fab} ${lift}`}
+        className={`max-lg:hidden ${fab} ${lift}`}
       >
         <Icon name={open ? "close" : "support_agent"} />
         {open ? "Close" : "Ask about your visit"}

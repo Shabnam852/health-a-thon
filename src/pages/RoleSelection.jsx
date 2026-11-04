@@ -112,7 +112,7 @@ const RoleSelection = () => {
 
         <header className="space-y-4">
           <p className="text-sm text-ink-muted">Demo with made-up patients</p>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-tight">
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-tight sm:leading-10">
             A referral sent is not care received.
           </h1>
           <p className="text-base sm:text-lg text-ink-muted">

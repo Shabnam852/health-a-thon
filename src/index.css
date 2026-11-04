@@ -1,7 +1,52 @@
 /* Global styles. Values come from styles/tokens.css; reusable pieces are in components/ui. */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+/* Tailwind 4 puts its CSS in cascade layers, and CSS outside any layer beats every layer.
+   Utilities are left outside a layer on purpose: they beat base and component styles, and
+   the plain rules further down (touch sizes, phone font size, focus ring) beat utilities by
+   order and specificity, exactly as in Tailwind 3. Putting utilities in a layer would let
+   those plain rules override every utility instead. */
+@layer theme, base, components;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+@config "../tailwind.config.js";
+
+/* Tailwind 3 defaults that Tailwind 4 changed, kept so nothing shifts. */
+@layer base {
+  /* A border with no colour class takes the line colour (Tailwind 4 would use the text colour). */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: rgb(var(--color-line));
+  }
+
+  /* Buttons show a pointer (Tailwind 4 leaves the default arrow). */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+
+  /* Tailwind 4 clears every element's padding. Tailwind 3 left the browser's padding on
+     table cells and dropdown options, so give it back; padding classes still win. */
+  th,
+  td,
+  option {
+    padding: revert;
+  }
+
+  /* Placeholders use the muted ink colour, which keeps 7:1 contrast in both themes. */
+  input::placeholder,
+  textarea::placeholder {
+    opacity: 1;
+    color: rgb(var(--color-ink-muted));
+  }
+}
 
 @layer base {
   html,
@@ -72,19 +117,33 @@
   }
 }
 
+/* Stacked spacing works as in Tailwind 3: every visible child after the first gets the gap
+   as a top margin, and that gap wins over the child's own top and bottom margin. Tailwind 4
+   instead puts a weaker bottom margin on every child but the last, which moves headings with
+   their own margin, fieldset legends and inline buttons. Setting the reverse variable to a
+   non-number makes Tailwind 4's own rule compute to nothing, so only this one applies. */
+@utility space-y-* {
+  & > * {
+    --tw-space-y-reverse: none;
+  }
+
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * --value(number));
+    margin-bottom: 0;
+  }
+}
+
 /* Device-safe positions: clear of the notch bar and the bottom tabs. */
-@layer utilities {
-  .scrollbar-none {
-    scrollbar-width: none;
-  }
+@utility scrollbar-none {
+  scrollbar-width: none;
+}
 
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
 
-  .bottom-above-tabs {
-    bottom: calc(var(--size-tabbar) + env(safe-area-inset-bottom));
-  }
+@utility bottom-above-tabs {
+  bottom: calc(var(--size-tabbar) + env(safe-area-inset-bottom));
 }
 
 ::-webkit-scrollbar {

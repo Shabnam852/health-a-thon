@@ -176,7 +176,7 @@ const PatientDashboard = () => {
               type="checkbox"
               checked={item.checked}
               onChange={() => toggleChecklistItem(item.id)}
-              className="w-5 h-5 rounded accent-control shrink-0"
+              className="w-5 h-5 rounded-sm accent-control shrink-0"
             />
             <Pictogram name={item.pictogram} tone={item.checked ? "neutral" : "ink"} size="sm" bare />
             <span className={item.checked ? "line-through text-ink-muted" : ""}>{item.text}</span>
