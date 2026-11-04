@@ -4,7 +4,8 @@
  * share it and it can be tested without either.
  */
 
-import { BarrierStatus, FollowUpStatus, PatientType } from "./enums.js";
+import { BarrierStatus, FollowUpStatus, PatientType, UrgencyLevel } from "./enums.js";
+import { getHospitalOptions } from "./hospitalChoice.js";
 import { getPatientJourney } from "./patientJourney.js";
 
 // Every request that reaches Sarvam counts: a question or a Listen press.
@@ -1045,18 +1046,45 @@ export const SUGGESTED_QUESTIONS = [
   "Something is stopping me from going",
 ];
 
-/** Text the Listen button reads for a patient screen. */
+// The warning every patient screen shows, read aloud on every screen too.
+export const EMERGENCY_LINE = `Severe bleeding, vision changes, intense constant pain, or reduced baby movement? Do not wait. Call ${EMERGENCY_NUMBER} now.`;
+
+// Most hospitals a Listen reads out by name: enough to choose from, short enough to follow.
+const SPOKEN_OPTIONS = 3;
+
+/** What a family who must choose a hospital hears: who can take them, how far, and who chooses. */
+const hospitalChoiceLine = (referral, facilities) => {
+  const options = getHospitalOptions(referral, facilities).slice(0, SPOKEN_OPTIONS);
+  if (options.length === 0)
+    return "The hospital could not take you. You choose where to go next. Call your care navigator to hear your options.";
+  const named = options
+    .map((h) => (typeof h.distanceKm === "number" ? `${h.name}, ${h.distanceKm} kilometres away` : h.name))
+    .join("; ");
+  return `The first hospital could not take you. You choose where to go next. Hospitals with a bed for you: ${named}. Tap Choose this hospital under the one you want.`;
+};
+
+/** Text the Listen button reads for a patient screen. Always ends with what to do in an emergency. */
 export const getScreenSummary = (view, referral, facilities = []) => {
   const j = getPatientJourney(referral, facilities);
   const eta = j.showEta ? ` It arrives in ${j.tr.eta}.` : "";
+  const emergency =
+    j.floating && referral.priority === UrgencyLevel.STAT
+      ? `This is an emergency. Call ${EMERGENCY_NUMBER} now, and choose a hospital after.`
+      : EMERGENCY_LINE;
+  const choice = j.floating ? ` ${hospitalChoiceLine(referral, facilities)}` : "";
+  let body;
   switch (view) {
     case "transit":
-      return `${j.rideSummary}.${eta} Going to ${j.hospital || "a hospital you have not chosen yet"}.${j.tr ? " This ride is free." : ""}`;
+      body = `${j.rideSummary}.${eta} Going to ${j.hospital || "a hospital you have not chosen yet"}.${j.tr ? " This ride is free." : ""}${choice}`;
+      break;
     case "checklist":
-      return `Please bring: ${BRING_LIST.join(". ")}. At the hospital, give case ID ${referral.id} at the reception desk.`;
+      body = `Please bring: ${BRING_LIST.join(". ")}. At the hospital, give case ID ${referral.id} at the reception desk.`;
+      break;
     case "support":
-      return `${j.nav ? `Your care navigator is ${j.nav.name.split(",")[0]}. They help with rides, childcare and language.` : ""} Your hospital is ${j.hospital || "not chosen yet"}. In an emergency, call 108.`;
+      body = `${j.nav ? `Your care navigator is ${j.nav.name.split(",")[0]}. They help with rides, childcare and language.` : ""} Your hospital is ${j.hospital || "not chosen yet"}.${choice}`;
+      break;
     default:
-      return `${j.floating ? "Please choose a hospital to go to." : `${j.rideSummary}.${eta}`} Next: ${j.nextStep.next}`;
+      body = `${j.floating ? hospitalChoiceLine(referral, facilities) : `${j.rideSummary}.${eta}`} Next: ${j.nextStep.next}`;
   }
+  return `${emergency} ${body.trim()}`;
 };

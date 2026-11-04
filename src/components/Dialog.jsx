@@ -72,7 +72,10 @@ export const useModalFocus = (panelRef, onClose) => {
   }, [panelRef]);
 };
 
-const Dialog = ({ title, onClose, danger, children }) => {
+// The panel fits the visible viewport (100dvh shrinks with the on-screen keyboard and browser bars) and
+// clears the phone's home indicator. Only the body scrolls, so the title and the footer actions stay in reach.
+// `wide` is for content that needs the room, such as a photo to read.
+const Dialog = ({ title, onClose, danger, footer, wide, children }) => {
   const panelRef = useRef(null);
   const titleId = useId();
   useModalFocus(panelRef, onClose);
@@ -86,30 +89,57 @@ const Dialog = ({ title, onClose, danger, children }) => {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="bg-surface rounded-t-card sm:rounded-card p-5 sm:p-6 max-w-md w-full max-h-screen overflow-y-auto shadow-overlay border border-line space-y-4"
+        className={`bg-surface rounded-t-card sm:rounded-card ${wide ? "max-w-5xl" : "max-w-md"} w-full max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)] flex flex-col shadow-overlay border border-line pb-[env(safe-area-inset-bottom)] sm:pb-0`}
       >
         <h2
           id={titleId}
-          className={`text-lg font-display font-semibold break-words ${danger ? "text-danger" : "text-ink"}`}
+          className={`shrink-0 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 text-lg font-display font-semibold break-words ${danger ? "text-danger" : "text-ink"}`}
         >
           {title}
         </h2>
-        {children}
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 space-y-4 ${footer ? "pb-4" : "pb-5 sm:pb-6"}`}
+        >
+          {children}
+        </div>
+        {footer && (
+          <div className="shrink-0 border-t border-line px-5 sm:px-6 pt-4 pb-5 sm:pb-6 flex flex-wrap justify-end gap-2">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-// A dialog that ends with Cancel and one action.
-export const FormDialog = ({ title, danger, onCancel, onSave, saveLabel, saveDisabled, children }) => (
-  <Dialog title={title} danger={danger} onClose={onCancel}>
+// A failed save, shown inside the dialog so what was typed stays on screen.
+export const DialogError = ({ children }) =>
+  children ? (
+    <p
+      role="alert"
+      className="text-sm font-semibold text-danger-strong bg-danger-soft border-l-4 border-danger rounded-control px-3 py-2"
+    >
+      {children}
+    </p>
+  ) : null;
+
+// A dialog that ends with Cancel and one action. `error` is a failed save: the dialog stays open with it.
+export const FormDialog = ({ title, danger, onCancel, onSave, saveLabel, saveDisabled, error, children }) => (
+  <Dialog
+    title={title}
+    danger={danger}
+    onClose={onCancel}
+    footer={
+      <>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button variant={danger ? "danger" : "primary"} disabled={saveDisabled} onClick={onSave}>
+          {saveLabel}
+        </Button>
+      </>
+    }
+  >
     {children}
-    <div className="flex justify-end gap-2">
-      <Button onClick={onCancel}>Cancel</Button>
-      <Button variant={danger ? "danger" : "primary"} disabled={saveDisabled} onClick={onSave}>
-        {saveLabel}
-      </Button>
-    </div>
+    <DialogError>{error}</DialogError>
   </Dialog>
 );
 

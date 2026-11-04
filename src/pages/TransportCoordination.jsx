@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import AmbulanceCall from "../components/AmbulanceCall.jsx";
 import { FormDialog } from "../components/Dialog.jsx";
 import {
   actionsColumn,
@@ -22,6 +23,7 @@ import {
   Textarea,
 } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { telHref } from "../domain/contact.js";
 import { TransportStatus } from "../domain/enums.js";
 import { getVanStatuses } from "../domain/fleet.js";
 import {
@@ -34,25 +36,50 @@ import {
 
 const isArrived = (r) => r.transit?.status === TransportStatus.ARRIVED || hasArrivedAtFacility(r);
 
-const TransportDetail = ({ r }) => (
-  <>
-    <DetailRow label="Pickup">{r.patientAddress || "Residence on file"}</DetailRow>
-    <DetailRow label="Destination">{getDestination(r)}</DetailRow>
-    <DetailRow label="Family phone">{r.caregiverContact || r.patientPhone}</DetailRow>
-    {r.transit?.driver && (
-      <DetailRow label="Driver">
-        {r.transit.driver}
-        {r.transit.driverPhone && `, ${r.transit.driverPhone}`}
+// A number staff can tap to call; plain text when the field holds no number.
+const PhoneLink = ({ contact, label }) => {
+  const href = telHref(contact);
+  if (!href) return contact || null;
+  return (
+    <a
+      href={href}
+      aria-label={`${label}, ${contact}`}
+      className="inline-flex min-h-control-sm items-center font-semibold text-accent underline"
+    >
+      {contact}
+    </a>
+  );
+};
+
+const TransportDetail = ({ r }) => {
+  const family = r.caregiverContact || r.patientPhone;
+  return (
+    <>
+      <DetailRow label="Pickup">{r.patientAddress || "Residence on file"}</DetailRow>
+      <DetailRow label="Destination">{getDestination(r)}</DetailRow>
+      <DetailRow label="Family phone">
+        <PhoneLink contact={family} label={`Call family of ${r.patientName}`} />
       </DetailRow>
-    )}
-    <DetailRow label="Case">
-      {r.id}, {r.referralType}
-    </DetailRow>
-    <Button as={Link} to={`/referral/${r.id}`} variant="link" size="flush">
-      Open case
-    </Button>
-  </>
-);
+      {r.transit?.driver && (
+        <DetailRow label="Driver">
+          {r.transit.driver}
+          {r.transit.driverPhone && (
+            <>
+              {", "}
+              <PhoneLink contact={r.transit.driverPhone} label={`Call driver ${r.transit.driver}`} />
+            </>
+          )}
+        </DetailRow>
+      )}
+      <DetailRow label="Case">
+        {r.id}, {r.referralType}
+      </DetailRow>
+      <Button as={Link} to={`/referral/${r.id}`} variant="link" size="flush">
+        Open case
+      </Button>
+    </>
+  );
+};
 
 const STAGES = ["Needs a van", "On the way", "Waiting for the patient to choose", "Arrived"];
 
@@ -97,7 +124,7 @@ const RIDE_COLUMNS = [
     const dispatched = status === TransportStatus.DISPATCHED;
     const moving = dispatched || status === TransportStatus.PICKED_UP;
     return (
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-start md:justify-end gap-2">
         {canDispatchTransport(r) && (
           <Button
             aria-label={`Send a van for ${r.patientName}`}
@@ -181,6 +208,8 @@ const TransportCoordination = () => {
     <Page width="full">
       <Toast toast={toast} />
       <PageHeader title="Transport" />
+
+      <AmbulanceCall />
 
       <FilterTabs
         label="Transport view"

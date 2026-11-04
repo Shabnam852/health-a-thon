@@ -41,10 +41,20 @@ const HospitalChoice = ({
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button variant="primary" onClick={() => onChoose(hospital.name)}>
+                <Button
+                  variant="primary"
+                  aria-label={`Choose this hospital: ${hospital.name}`}
+                  onClick={() => onChoose(hospital.name)}
+                >
                   Choose this hospital
                 </Button>
-                <Button as="a" href={hospital.directionsUrl} target="_blank" rel="noopener noreferrer">
+                <Button
+                  as="a"
+                  href={hospital.directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Directions to ${hospital.name} (opens in a new tab)`}
+                >
                   <Icon name="directions" />
                   Directions
                   <span className="sr-only"> (opens in a new tab)</span>

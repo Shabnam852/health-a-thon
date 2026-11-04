@@ -88,7 +88,7 @@ const TONES = {
   warning: "text-warning bg-warning-soft",
   neutral: "text-ink-muted bg-subtle",
   // On the dark brand panels.
-  "on-fill": "text-highlight bg-on-fill/10",
+  "on-fill": "text-on-fill bg-on-fill/10",
 };
 
 const SIZES = {

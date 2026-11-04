@@ -105,14 +105,14 @@ const RoleSelection = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <BrandMark size="sm" />
-            <span className="font-bold text-ink">Navexa Health</span>
+            <span className="font-semibold text-ink">Navexa Health</span>
           </div>
           <ThemeToggle iconOnly />
         </div>
 
         <header className="space-y-4">
           <p className="text-sm text-ink-muted">Demo with made-up patients</p>
-          <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-tight sm:leading-10">
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold text-ink leading-tight">
             A referral sent is not care received.
           </h1>
           <p className="text-base sm:text-lg text-ink-muted">

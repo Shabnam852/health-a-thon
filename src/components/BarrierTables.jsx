@@ -107,17 +107,22 @@ const BarrierTables = ({ view, onResult }) => {
   const [sendingVanFor, setSendingVanFor] = useState(null);
   const [closing, setClosing] = useState(null);
   const [closingNote, setClosingNote] = useState("");
+  const [closeError, setCloseError] = useState("");
 
   const closeDialog = () => {
     setClosing(null);
     setClosingNote("");
+    setCloseError("");
   };
 
+  // A failed save keeps the dialog open with the note, so nothing has to be typed again.
   const handleCloseBarrier = () => {
-    onResult(
-      resolveBarrier(closing.id, findOpenBarrier(closing).id, closingNote.trim()),
-      `Barrier closed for ${closing.patientName}.`,
-    );
+    const res = resolveBarrier(closing.id, findOpenBarrier(closing).id, closingNote.trim());
+    if (!res.success) {
+      setCloseError(`Could not close the barrier: ${res.reason}`);
+      return;
+    }
+    onResult(res, `Barrier closed for ${closing.patientName}.`);
     closeDialog();
   };
 
@@ -158,6 +163,7 @@ const BarrierTables = ({ view, onResult }) => {
           onSave={handleCloseBarrier}
           saveLabel="Close barrier"
           saveDisabled={!closingNote.trim()}
+          error={closeError}
         >
           <Field label="How was it solved?">
             <Textarea value={closingNote} onChange={(e) => setClosingNote(e.target.value)} />

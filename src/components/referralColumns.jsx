@@ -29,6 +29,21 @@ const PRIORITY_TONES = {
   [UrgencyLevel.ROUTINE]: "neutral",
 };
 
+// Stored values are upper-case enums; people read sentence case. Real acronyms stay upper case.
+const ACRONYMS = new Set(["STAT", "NICU", "SNCU", "PICU", "ICU", "OPD", "ASHA", "ANM", "PHC", "CHC", "ID"]);
+export const enumLabel = (value) => {
+  if (value == null || value === "") return "";
+  const words = String(value).replace(/_/g, " ").split(/\s+/).filter(Boolean);
+  return words
+    .map((w, i) => {
+      if (ACRONYMS.has(w.toUpperCase())) return w.toUpperCase();
+      const lower = w.toLowerCase();
+      return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(" ");
+};
+export const priorityLabel = enumLabel;
+
 // The row's place in the list as it is sorted and filtered now.
 export const serialColumn = () => ({
   id: "serial",
@@ -50,12 +65,8 @@ export const priorityColumn = () => ({
   header: "Priority",
   accessorKey: "priority",
   sortFn: (a, b) => acuityRank(a.original.priority) - acuityRank(b.original.priority),
-  meta: { filter: true },
-  cell: ({ getValue }) => (
-    <Badge tone={PRIORITY_TONES[getValue()] || "neutral"} className="uppercase">
-      {getValue()}
-    </Badge>
-  ),
+  meta: { filter: true, label: priorityLabel },
+  cell: ({ getValue }) => <Badge tone={PRIORITY_TONES[getValue()] || "neutral"}>{priorityLabel(getValue())}</Badge>,
 });
 
 export const typeColumn = () => ({
@@ -103,8 +114,7 @@ const STATUS_LABELS = {
   [ReferralStatus.ARRIVAL_CONFIRMED]: "Arrived",
   [ReferralStatus.REJECTED]: "Floating: patient choosing",
 };
-export const statusLabel = (status) =>
-  STATUS_LABELS[status] || status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, " ");
+export const statusLabel = (status) => STATUS_LABELS[status] || enumLabel(status);
 
 export const statusColumn = () => ({
   id: "status",

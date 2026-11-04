@@ -135,6 +135,7 @@ const Patients = () => {
   const [dialog, setDialog] = useState(null); // { type: "contact" | "barrier", referral }
   const [choosingFor, setChoosingFor] = useState(null);
   const [form, setForm] = useState(blankForm);
+  const [saveError, setSaveError] = useState("");
   const { toast, showToast, report } = useToast();
 
   const shown = searchParams.get("show");
@@ -157,11 +158,15 @@ const Patients = () => {
   ];
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
-  const openDialog = (type, referral) => setDialog({ type, referral });
+  const openDialog = (type, referral) => {
+    setSaveError("");
+    setDialog({ type, referral });
+  };
   // Clears the form, so nothing typed for one patient carries over to the next.
   const closeDialog = () => {
     setDialog(null);
     setForm(blankForm);
+    setSaveError("");
   };
 
   const handleSaveContact = () => {
@@ -171,6 +176,12 @@ const Patients = () => {
       outcome: form.outcome,
       notes: form.notes,
     });
+    // Nothing was saved: keep the dialog open with the notes. Once the contact is logged the dialog
+    // closes even if the barrier fails, so a second Save cannot log the same contact twice.
+    if (!res.success) {
+      setSaveError(`Not saved: ${res.reason}`);
+      return;
+    }
     const needsTransit = res.success && form.outcome === "Transit Barrier Identified";
     const barrierRes = needsTransit
       ? identifyBarrier(referral.id, {
@@ -201,11 +212,11 @@ const Patients = () => {
       description: form.desc,
       status: BarrierStatus.IDENTIFIED,
     });
-    if (res.success) {
-      showToast(`Barrier raised for ${referral.patientName}.`);
-    } else {
-      showToast(`Action failed: ${res.reason}`, "error");
+    if (!res.success) {
+      setSaveError(`Not saved: ${res.reason}`);
+      return;
     }
+    showToast(`Barrier raised for ${referral.patientName}.`);
     closeDialog();
   };
 
@@ -242,6 +253,7 @@ const Patients = () => {
           onCancel={closeDialog}
           onSave={handleSaveContact}
           saveLabel="Save"
+          error={saveError}
         >
           <Field label="How">
             <Select value={form.method} onChange={set("method")}>
@@ -272,6 +284,7 @@ const Patients = () => {
           onSave={handleSaveBarrier}
           saveLabel="Save"
           saveDisabled={!form.title.trim()}
+          error={saveError}
         >
           <Field label="Type">
             <Select value={form.category} onChange={set("category")}>

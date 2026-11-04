@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { buildDispatch, getFreeVans } from "../domain/fleet.js";
+import AmbulanceCall from "./AmbulanceCall.jsx";
 import Dialog from "./Dialog.jsx";
 import { Button, Field, Input, Select } from "./ui/index.js";
 
@@ -22,7 +23,7 @@ const SendVanDialog = ({ referral, onClose, onResult }) => {
   return (
     <Dialog title={`Send a van: ${referral.patientName}`} onClose={onClose}>
       {vans.length === 0 ? (
-        <p className="text-sm text-ink">All vans are out. Call 108 if the patient can't wait.</p>
+        <AmbulanceCall>All vans are out.</AmbulanceCall>
       ) : (
         <>
           <Field label="Van">
@@ -39,11 +40,11 @@ const SendVanDialog = ({ referral, onClose, onResult }) => {
           </Field>
         </>
       )}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
         <Button onClick={onClose}>Cancel</Button>
         {van && (
           <Button variant="primary" disabled={!eta.trim()} onClick={send}>
-            Send {van.name}
+            Send van
           </Button>
         )}
       </div>

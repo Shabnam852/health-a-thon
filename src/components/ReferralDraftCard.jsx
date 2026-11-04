@@ -3,6 +3,7 @@ import { AssistantRequestError, blobToBase64, draftReferral } from "../services/
 import { assistantStore } from "../services/assistantStore.js";
 import MicMeter from "./assistant/MicMeter.jsx";
 import { canRecord, useRecorder } from "./assistant/useRecorder.js";
+import Dialog from "./Dialog.jsx";
 import { Button, Card, Field, Icon, Textarea } from "./ui/index.js";
 
 // Photos are shrunk in the browser: big enough to read handwriting, small enough to send.
@@ -55,6 +56,7 @@ const ReferralDraftCard = ({ options, onDraft, highlight = null, className = "" 
   // Every recording so far, as heard. The clinician can fix wrong words before filling again.
   const [heard, setHeard] = useState("");
   const [photo, setPhoto] = useState(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
@@ -214,13 +216,38 @@ const ReferralDraftCard = ({ options, onDraft, highlight = null, className = "" 
         </div>
       )}
 
+      {photo && photoOpen && (
+        <Dialog
+          title="The referral photo"
+          wide
+          onClose={() => setPhotoOpen(false)}
+          footer={<Button onClick={() => setPhotoOpen(false)}>Close</Button>}
+        >
+          {/* Natural size up to the dialog's width. The body scrolls, and pinch-zoom works on phones. */}
+          <div className="overflow-auto">
+            <img src={photo.url} alt="The referral slip the AI read, full size" className="block max-w-full h-auto" />
+          </div>
+        </Dialog>
+      )}
+
       {photo && (
         <figure className="space-y-1">
-          <img
-            src={photo.url}
-            alt="The referral slip the AI read"
-            className="w-full max-h-32 object-contain rounded-control border border-line bg-muted"
-          />
+          {/* The thumbnail is too small to read handwriting, so it opens the photo full size. */}
+          <button
+            type="button"
+            onClick={() => setPhotoOpen(true)}
+            className="block w-full min-h-control rounded-control border border-line bg-surface text-left hover:border-accent"
+          >
+            <img
+              src={photo.url}
+              alt="The referral slip the AI read"
+              className="w-full max-h-32 object-contain rounded-t-control bg-muted"
+            />
+            <span className="flex items-center gap-1 px-3 py-2 text-sm font-semibold text-accent">
+              <Icon name="zoom_in" size="sm" />
+              View photo full size
+            </span>
+          </button>
           <figcaption className="flex items-center justify-between gap-2 text-xs text-ink-muted">
             The photo the AI read.
             <Button variant="link" size="flush" onClick={() => setPhoto(null)} disabled={busy}>

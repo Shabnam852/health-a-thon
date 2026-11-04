@@ -1,30 +1,21 @@
 import { Fragment, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useReferrals } from "../../context/ReferralContext.jsx";
-import {
-  ASSISTANT_LIMIT,
-  AUTO_LANGUAGE,
-  getLanguage,
-  MAX_QUESTION_CHARS,
-  SUGGESTED_QUESTIONS,
-} from "../../domain/assistant.js";
+import { ASSISTANT_LIMIT, AUTO_LANGUAGE, getLanguage, MAX_QUESTION_CHARS } from "../../domain/assistant.js";
 import { telHref } from "../../domain/contact.js";
 import { useVoice } from "../../services/voiceCache.js";
 import { Button, Icon } from "../ui/index.js";
+import { chatStrings, chatStringsLang } from "./chatStrings.js";
 import LanguagePicker from "./LanguagePicker.jsx";
 import MicMeter from "./MicMeter.jsx";
-import { player, usePlayingKey } from "./player.js";
+import { player, useFailedKey, usePlayingKey } from "./player.js";
 import { useAssistantChat } from "./useAssistantChat.js";
 import { canRecord, useRecorder } from "./useRecorder.js";
 
-// Matches SUGGESTED_QUESTIONS: next step, ride, what to bring, who to call.
+// Matches the suggestions in chatStrings: next step, ride, what to bring, who to call, a problem.
 const SUGGESTION_ICONS = ["signpost", "airport_shuttle", "luggage", "call", "report"];
 
-// What the assistant can do, said plainly on the first screen.
-const CAN_DO = [
-  ["help", "Answer questions about your ride, your hospital and what happens next"],
-  ["volume_up", "Read every answer aloud in your language"],
-  ["forward_to_inbox", "Tell your care navigator if something is stopping you from going, so they can call you"],
-];
+// Matches canDo in chatStrings: what the assistant can do, said plainly on the first screen.
+const CAN_DO_ICONS = ["help", "volume_up", "forward_to_inbox"];
 
 const languageLabel = (code) => (code === AUTO_LANGUAGE ? "your language" : getLanguage(code)?.name || "English");
 
@@ -76,9 +67,10 @@ const Stamp = ({ message, mine }) => {
   );
 };
 
-const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
+const Bubble = ({ message, playingKey, failedKey, navigatorPhone, onRetry, t, lang }) => {
   const mine = message.role === "user";
   const isPlaying = playingKey === message.id;
+  const playFailed = failedKey === message.id;
   // The answer's voice, from this visit or saved from an earlier one.
   const voice = useVoice(mine ? null : message.id);
   const [shareState, setShareState] = useState("");
@@ -105,28 +97,38 @@ const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
     return (
       <li className="flex flex-col items-start">
         <div className="max-w-[85%] rounded-card rounded-bl-control px-3 py-2 bg-danger-soft text-danger-strong text-sm space-y-2">
-          <p>
+          {/* The reason comes from the server in English; the family also gets it in their language. */}
+          {lang !== "en-IN" && (
+            <p lang={lang} className="font-semibold">
+              {t.failed}
+            </p>
+          )}
+          <p lang={lang !== "en-IN" ? "en" : undefined} className={lang !== "en-IN" ? "text-xs" : undefined}>
             <span className="sr-only">Assistant: </span>
             {message.text}
           </p>
-          {message.emergency && <p className="font-semibold">This sounds urgent. Call 108 now.</p>}
-          <div className="flex flex-wrap gap-2">
+          {message.emergency && (
+            <p lang={lang} className="font-semibold">
+              {t.urgent}
+            </p>
+          )}
+          <div lang={lang} className="flex flex-wrap gap-2">
             {message.emergency && (
-              <Button size="sm" variant="danger" as="a" href="tel:108">
+              <Button size="sm" variant="danger" as="a" href="tel:108" wrap>
                 <Icon name="call" size="sm" />
-                Call 108 now
+                {t.call108Now}
               </Button>
             )}
             {message.retry && (
-              <Button size="sm" onClick={() => onRetry(message)}>
+              <Button size="sm" wrap onClick={() => onRetry(message)}>
                 <Icon name="refresh" size="sm" />
-                Try again
+                {t.tryAgain}
               </Button>
             )}
             {navigatorPhone && (
-              <Button size="sm" as="a" href={telHref(navigatorPhone)}>
+              <Button size="sm" wrap as="a" href={telHref(navigatorPhone)}>
                 <Icon name="call" size="sm" />
-                Call navigator
+                {t.callNavigator}
               </Button>
             )}
           </div>
@@ -163,18 +165,30 @@ const Bubble = ({ message, playingKey, navigatorPhone, onRetry }) => {
             Sent to your care navigator
           </p>
         )}
+        {/* Shown here; announced once by the panel's status line. */}
+        {!mine && playFailed && (
+          <p lang={lang} className="text-xs font-semibold">
+            {t.playFailed}
+          </p>
+        )}
         {!mine && (
           <div className="flex flex-wrap gap-2">
             {message.emergency && (
-              <Button size="sm" variant="danger" as="a" href="tel:108">
+              <Button size="sm" variant="danger" as="a" href="tel:108" wrap lang={lang}>
                 <Icon name="call" size="sm" />
-                Call 108 now
+                {t.call108Now}
               </Button>
             )}
-            {voice && (
+            {voice && playFailed && (
+              <Button size="sm" variant="secondary" onClick={() => player.play(message.id, voice)} lang={lang}>
+                <Icon name="refresh" size="sm" />
+                {t.tryAgain}
+              </Button>
+            )}
+            {voice && !playFailed && (
               <Button size="sm" variant="secondary" onClick={() => player.toggle(message.id, voice)}>
                 <Icon name={isPlaying ? "stop_circle" : "volume_up"} size="sm" />
-                {isPlaying ? "Stop" : "Listen"}
+                <span lang={lang}>{isPlaying ? t.stop : t.listen}</span>
                 <span className="sr-only"> to this answer</span>
               </Button>
             )}
@@ -221,6 +235,11 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
   const { reportFromFamily } = useReferrals();
   const chat = useAssistantChat(referral, facilities, (report) => reportFromFamily(referral.id, report));
   const playingKey = usePlayingKey();
+  const failedKey = useFailedKey();
+  // The chat's own words follow the chosen language (or, before one is chosen or on "auto",
+  // the language on the patient's record).
+  const t = chatStrings(chat.language, chat.suggestedLanguage);
+  const lang = chatStringsLang(chat.language, chat.suggestedLanguage);
   const [draft, setDraft] = useState("");
   const [choosingLanguage, setChoosingLanguage] = useState(false);
   const [notice, setNotice] = useState("");
@@ -237,7 +256,7 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
 
   const recorder = useRecorder({
     onClip: ({ blob, mimeType }) => chat.send({ blob, mimeType }),
-    onNoSpeech: () => setNotice("I didn't hear anything. Tap the microphone and speak, or type your question."),
+    onNoSpeech: () => setNotice("noSpeech"),
   });
   const recording = recorder.state === "recording" || recorder.state === "starting";
   const wasRecording = useRef(false);
@@ -263,20 +282,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
     if (list && scrollKey) list.scrollTo({ top: list.scrollHeight });
   }, [scrollKey]);
 
-  const micNotice =
-    recorder.state === "denied"
-      ? "The microphone is blocked. Allow it in your browser settings, or type your question."
-      : recorder.state === "missing"
-        ? "No microphone found. Check that one is connected and allowed, or type your question."
-        : recorder.state === "busy"
-          ? "Another app is using the microphone. Close it, or type your question."
-          : recorder.state === "error"
-            ? "The microphone isn't working. Please type your question."
-            : "";
-  const shownNotice =
-    (!online && "You're offline. Questions will work again when you're connected. Emergency: call 108.") ||
-    micNotice ||
-    notice;
+  const MIC_NOTICES = { denied: t.micDenied, missing: t.micMissing, busy: t.micBusy, error: t.micError };
+  const shownNotice = (!online && t.offline) || MIC_NOTICES[recorder.state] || (notice && t[notice]) || "";
 
   const submit = (text) => {
     const question = text.trim();
@@ -296,8 +303,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
         <Icon name="support_agent" />
       </span>
       <div className="min-w-0 flex-1">
-        <Heading id={titleId} className="font-display text-base font-bold text-ink leading-tight">
-          Ask about your visit
+        <Heading id={titleId} lang={lang} className="font-display text-base font-semibold text-ink leading-tight">
+          {t.title}
         </Heading>
         <p className="text-xs text-ink-muted truncate">
           {chat.language ? `Answers in ${languageLabel(chat.language)}` : "Choose a language to start"}
@@ -340,26 +347,40 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
     </div>
   );
 
+  // 108 is one tap away in every state of the assistant, not only after an emergency answer.
+  const emergencyBar = (
+    <div className="flex items-center px-4 py-2 border-b border-line bg-surface">
+      <Button size="sm" variant="danger" as="a" href="tel:108" wrap lang={lang}>
+        <Icon name="call" size="sm" />
+        {t.call108}
+      </Button>
+    </div>
+  );
+
+  const keepConversation = () => {
+    setConfirmingClear(false);
+    textRef.current?.focus();
+  };
+
+  const keepOnEscape = (e) => {
+    if (e.key === "Escape") keepConversation();
+  };
+
+  // An ordinary inline question, not a dialog: the rest of the chat stays usable, and Escape keeps.
   const clearBar = confirmingClear && (
     <div
-      role="alertdialog"
+      role="group"
       aria-label="Clear conversation"
       className="flex flex-wrap items-center gap-2 border-b border-line bg-caution-soft px-4 py-2"
     >
       <p className="flex-1 min-w-[10rem] text-sm text-ink">Clear this conversation? It can't be brought back.</p>
-      <Button
-        ref={keepRef}
-        size="sm"
-        onClick={() => {
-          setConfirmingClear(false);
-          textRef.current?.focus();
-        }}
-      >
+      <Button ref={keepRef} size="sm" onClick={keepConversation} onKeyDown={keepOnEscape}>
         Keep
       </Button>
       <Button
         size="sm"
         variant="danger"
+        onKeyDown={keepOnEscape}
         onClick={() => {
           chat.clear();
           setConfirmingClear(false);
@@ -376,7 +397,10 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
     return (
       <>
         {header}
+        {emergencyBar}
         <LanguagePicker
+          strings={t}
+          lang={lang}
           current={chat.language}
           suggested={chat.suggestedLanguage}
           onChoose={(code) => {
@@ -401,30 +425,31 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
   return (
     <>
       {header}
+      {emergencyBar}
       {clearBar}
 
       <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 bg-surface">
         {chat.messages.length === 0 && (
-          <div className="space-y-5">
+          <div lang={lang} className="space-y-5">
             <div className="space-y-1">
-              <p className="text-base font-semibold text-ink">Hello. How can I help with your visit?</p>
-              <p className="text-sm text-ink-muted">Type your question, or tap the microphone and just speak.</p>
+              <p className="text-base font-semibold text-ink">{t.welcome}</p>
+              <p className="text-sm text-ink-muted">{t.welcomeHint}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-ink">I can</p>
+              <p className="text-sm font-semibold text-ink">{t.canTitle}</p>
               <ul className="space-y-2">
-                {CAN_DO.map(([icon, text]) => (
-                  <li key={icon} className="flex items-start gap-2 text-sm text-ink">
-                    <Icon name={icon} className="text-accent shrink-0" />
+                {t.canDo.map((text, i) => (
+                  <li key={CAN_DO_ICONS[i] || text} className="flex items-start gap-2 text-sm text-ink">
+                    <Icon name={CAN_DO_ICONS[i] || "check"} className="text-accent shrink-0" />
                     <span>{text}</span>
                   </li>
                 ))}
               </ul>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-ink">Try asking</p>
-              <ul aria-label="Suggested questions" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {SUGGESTED_QUESTIONS.map((q, i) => (
+              <p className="text-sm font-semibold text-ink">{t.tryAsking}</p>
+              <ul aria-label={t.tryAsking} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {t.suggestions.map((q, i) => (
                   <li key={q}>
                     <Button size="sm" fullWidth wrap onClick={() => submit(q)} disabled={busy || outOfUses}>
                       <Icon name={SUGGESTION_ICONS[i] || "help"} size="sm" />
@@ -447,7 +472,15 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
               return (
                 <Fragment key={m.id}>
                   {newDay && <li className="text-center text-xs font-semibold text-ink-muted">{dayLabel(date)}</li>}
-                  <Bubble message={m} playingKey={playingKey} navigatorPhone={navigatorPhone} onRetry={chat.retry} />
+                  <Bubble
+                    message={m}
+                    playingKey={playingKey}
+                    failedKey={failedKey}
+                    navigatorPhone={navigatorPhone}
+                    onRetry={chat.retry}
+                    t={t}
+                    lang={lang}
+                  />
                 </Fragment>
               );
             })}
@@ -455,6 +488,11 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
         </div>
 
         <div role="status" className="text-sm text-ink-muted">
+          {failedKey && chat.messages.some((m) => m.id === failedKey) && (
+            <span lang={lang} className="sr-only">
+              {t.playFailed}
+            </span>
+          )}
           {chat.pending && (
             <span className="inline-flex items-center gap-2 rounded-card bg-muted px-3 py-2">
               <Icon name={chat.pending === "hearing" ? "hearing" : "hourglass_top"} size="sm" />
@@ -483,7 +521,7 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
 
       <div className="border-t border-line bg-surface p-3 space-y-2">
         {shownNotice && (
-          <p role="alert" className="text-xs text-danger-strong">
+          <p role="alert" lang={lang} className="text-xs text-danger-strong">
             {shownNotice}
           </p>
         )}
@@ -499,26 +537,23 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
               You've used all {ASSISTANT_LIMIT} questions. Your care navigator can help.
             </p>
             {navigatorPhone && (
-              <Button as="a" href={telHref(navigatorPhone)} variant="primary" fullWidth>
+              <Button as="a" href={telHref(navigatorPhone)} variant="primary" fullWidth lang={lang}>
                 <Icon name="call" />
-                Call your care navigator
+                {t.callNavigator}
               </Button>
             )}
           </div>
         ) : recording ? (
           <div className="space-y-2">
-            <MicMeter levelRef={recorder.levelRef} seconds={recorder.seconds} />
-            <div className="flex items-center gap-3">
-              <p className="flex-1 text-sm text-ink" role="status">
-                <span className="sr-only">Listening. </span>
-                <span className="text-xs text-ink-muted">Stops by itself when you finish speaking.</span>
-              </p>
+            <MicMeter levelRef={recorder.levelRef} seconds={recorder.seconds} strings={t} lang={lang} />
+            <div lang={lang} className="flex items-center gap-3">
+              <p className="flex-1 text-xs text-ink-muted">{t.stopsByItself}</p>
               <Button variant="ghost" onClick={recorder.cancel}>
-                Cancel
+                {t.cancel}
               </Button>
               <Button ref={sendRef} variant="primary" onClick={recorder.stop}>
                 <Icon name="send" />
-                Send
+                {t.send}
               </Button>
             </div>
           </div>
@@ -530,15 +565,15 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
               submit(draft);
             }}
           >
-            <label className="flex-1 min-w-0">
-              <span className="sr-only">Type your question</span>
+            <label className="flex-1 min-w-0" lang={lang}>
+              <span className="sr-only">{t.inputLabel}</span>
               <textarea
                 ref={textRef}
                 rows={1}
                 value={draft}
                 maxLength={MAX_QUESTION_CHARS}
                 aria-describedby={hintId}
-                placeholder="Type your question…"
+                placeholder={t.placeholder}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -561,8 +596,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
                   recorder.start();
                 }}
                 disabled={busy || !online}
-                aria-label="Ask by voice"
-                title="Ask by voice"
+                aria-label={t.askByVoice}
+                title={t.askByVoice}
               >
                 <Icon name="mic" />
               </Button>
@@ -572,8 +607,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
               size="icon"
               variant={draft.trim() ? "primary" : "secondary"}
               disabled={busy || !online || !draft.trim()}
-              aria-label="Send question"
-              title="Send"
+              aria-label={t.send}
+              title={t.send}
             >
               <Icon name="send" />
             </Button>
@@ -582,9 +617,8 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
         {MAX_QUESTION_CHARS - draft.length <= COUNTER_FROM && !recording && !outOfUses && (
           <p className="text-xs text-ink-muted tabular-nums">{MAX_QUESTION_CHARS - draft.length} characters left</p>
         )}
-        <p id={hintId} className="text-xs text-ink-muted">
-          {voiceSupported ? "Enter to send. Tap the microphone to speak." : "Enter to send."} No medical advice.
-          Emergency: call 108.
+        <p id={hintId} lang={lang} className="text-xs text-ink-muted">
+          {voiceSupported ? t.hint : t.hintNoVoice} {t.footer}
         </p>
       </div>
     </>

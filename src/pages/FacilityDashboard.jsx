@@ -167,6 +167,7 @@ const FacilityDashboard = () => {
   const [modal, setModal] = useState(null); // { type: 'reject' | 'arrival' | 'outcome', referral }
   const [form, setForm] = useState(BLANK_FORM);
   const [caseIdQuery, setCaseIdQuery] = useState("");
+  const [saveError, setSaveError] = useState("");
   const { toast, showToast, report } = useToast();
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -202,9 +203,15 @@ const FacilityDashboard = () => {
   const closeModal = () => {
     setModal(null);
     setForm(BLANK_FORM);
+    setSaveError("");
   };
 
+  // A failed save keeps the dialog open with what was typed and says why inside it.
   const finish = (res, okMessage) => {
+    if (!res.success && modal) {
+      setSaveError(`Not saved: ${res.reason}`);
+      return;
+    }
     report(res, okMessage);
     closeModal();
   };
@@ -263,7 +270,10 @@ const FacilityDashboard = () => {
     finish(res, `Outcome recorded for ${ref.patientName}. Follow-ups started.`);
   };
 
-  const ask = (type, referral) => setModal({ type, referral });
+  const ask = (type, referral) => {
+    setSaveError("");
+    setModal({ type, referral });
+  };
   const select = (key, options) => (
     <Select value={form[key]} onChange={(e) => set(key, e.target.value)}>
       {options.map(([v, label]) => (
@@ -373,6 +383,7 @@ const FacilityDashboard = () => {
           onSave={handleConfirmArrivalAction}
           saveLabel="Confirm arrival"
           saveDisabled={!form.arrivalBed.trim() || !form.arrivalStaff.trim()}
+          error={saveError}
         >
           <p className="text-sm text-ink-muted">
             {modal.referral.patientName} has reached {currentFacility.name}.
@@ -434,6 +445,7 @@ const FacilityDashboard = () => {
           onSave={handleConfirmReject}
           saveLabel="Decline"
           saveDisabled={!form.rejectReason.trim()}
+          error={saveError}
         >
           <p className="text-sm text-ink-muted">
             {modal.referral.patientName} will be shown other hospitals to choose from.
@@ -451,6 +463,7 @@ const FacilityDashboard = () => {
           onSave={handleConfirmOutcome}
           saveLabel="Save outcome"
           saveDisabled={!form.clinicianName.trim()}
+          error={saveError}
         >
           <p className="text-sm text-ink-muted">
             {modal.referral.patientName} ({modal.referral.referralType}). Saving starts the 42-day follow-ups.
@@ -462,17 +475,17 @@ const FacilityDashboard = () => {
             <>
               <Field label="Mother's status">
                 {select("maternalStatus", [
-                  ["STABLE", "Stable / Treated"],
-                  ["ADMITTED_L_D", "Admitted to Labor & Delivery"],
-                  ["CESAREAN_DELIVERY", "Emergency Cesarean Performed"],
-                  ["ICU_MONITORING", "Maternal ICU Step-up"],
+                  ["STABLE", "Stable or treated"],
+                  ["ADMITTED_L_D", "Admitted to labour and delivery"],
+                  ["CESAREAN_DELIVERY", "Emergency caesarean done"],
+                  ["ICU_MONITORING", "Moved to maternal ICU"],
                 ])}
               </Field>
               <Field label="Delivery">
                 {select("deliveryType", [
-                  ["SPONTANEOUS_VAGINAL", "Spontaneous Vaginal Delivery"],
-                  ["CESAREAN", "Cesarean Section Delivery"],
-                  ["NOT_APPLICABLE", "Antepartum Observation (Pregnancy Continues)"],
+                  ["SPONTANEOUS_VAGINAL", "Vaginal delivery"],
+                  ["CESAREAN", "Caesarean delivery"],
+                  ["NOT_APPLICABLE", "Observed, pregnancy continues"],
                 ])}
               </Field>
             </>
@@ -480,19 +493,19 @@ const FacilityDashboard = () => {
           {modal.referral.referralType !== PatientType.MATERNAL && (
             <Field label="Baby's status">
               {select("neonatalStatus", [
-                ["STABLE", "Stable / Treated"],
-                ["PHOTOTHERAPY_INITIATED", "Phototherapy Initiated (TSB Responding)"],
-                ["NICU_ADMITTED", "NICU Level III Bed Admitted"],
-                ["REHYDRATED_STABLE", "Rehydrated & Electrolytes Normalized"],
-                ["STABLE_OUTPATIENT", "Discharged to Pediatric Outpatient"],
+                ["STABLE", "Stable or treated"],
+                ["PHOTOTHERAPY_INITIATED", "Phototherapy started (TSB responding)"],
+                ["NICU_ADMITTED", "Admitted to a level III NICU bed"],
+                ["REHYDRATED_STABLE", "Rehydrated, electrolytes normal"],
+                ["STABLE_OUTPATIENT", "Discharged to paediatric outpatients"],
               ])}
             </Field>
           )}
           <Field label="What happens next">
             {select("disposition", [
-              ["ADMITTED", "Admitted to Inpatient Ward"],
-              ["DISCHARGED_HOME", "Discharged Home (Initiate 42-Day Protocol)"],
-              ["TRANSFERRED_QUATERNARY", "Transferred to Level IV Quaternary Centre"],
+              ["ADMITTED", "Admitted to an inpatient ward"],
+              ["DISCHARGED_HOME", "Discharged home (starts the 42-day follow-ups)"],
+              ["TRANSFERRED_QUATERNARY", "Transferred to a level IV centre"],
             ])}
           </Field>
           <Field label="Notes">

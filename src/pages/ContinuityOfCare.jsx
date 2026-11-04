@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import ListenButton from "../components/assistant/ListenButton.jsx";
 import { FormDialog } from "../components/Dialog.jsx";
 import { actionsColumn, serialColumn } from "../components/referralColumns.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
@@ -22,6 +23,7 @@ import { useReferrals } from "../context/ReferralContext.jsx";
 import { getFollowUpState } from "../domain/alarms.js";
 import { telHref } from "../domain/contact.js";
 import { FollowUpStatus } from "../domain/enums.js";
+import { describeVisitForFamily, getCheckUpsSummary } from "../domain/familyVisits.js";
 
 // One picture per kind of visit, so a family can tell the visits apart without reading the title.
 const VISIT_PICTOGRAMS = [
@@ -41,9 +43,6 @@ const friendlyDate = (dueDate) =>
     month: "long",
   });
 
-// "Day 3 Maternal & Lactation Check" is shown as "Maternal & Lactation Check"; the day goes on its own line.
-const visitName = (title = "") => title.replace(/^Day \d+\s+/, "");
-
 const PATIENT_STATE = {
   [FollowUpStatus.COMPLETED]: { tone: "accent", label: "Done", icon: "check_circle" },
   [FollowUpStatus.DUE]: { tone: "highlight", label: "Due today", icon: "today" },
@@ -60,9 +59,21 @@ const CheckUps = ({ referral, now, role }) => {
   const done = countDone(referral);
   const next = plan.tasks.find((t) => t.status !== FollowUpStatus.COMPLETED);
   const nextState = next && getFollowUpState(next, now);
+  // This screen is only for the family: visits are named in plain words, never the clinical title.
+  const nextVisit = next && describeVisitForFamily(next);
+  const listenText = getCheckUpsSummary({
+    next,
+    nextLabel: isLate(nextState) ? "Missed check-up" : "Next check-up",
+    nextDate: next && friendlyDate(next.dueDate),
+    missed: isLate(nextState),
+    navigatorName: nav?.name?.split(",")[0],
+    total: plan.tasks.length,
+    done,
+  });
 
   return (
     <>
+      <ListenButton referral={referral} text={listenText} />
       {next ? (
         <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 space-y-3">
           <div className="flex items-start justify-between gap-4">
@@ -72,7 +83,7 @@ const CheckUps = ({ referral, now, role }) => {
                 {friendlyDate(next.dueDate)}
               </h2>
               <p className="text-sm mt-1 break-words">
-                Day {next.dayOffset}: {visitName(next.title)}
+                Day {next.dayOffset}: {nextVisit.name}
               </p>
             </div>
             <Pictogram name="calendar" tone="on-fill" size="lg" />
@@ -112,6 +123,7 @@ const CheckUps = ({ referral, now, role }) => {
             const state = getFollowUpState(task, now);
             const meta = PATIENT_STATE[state] || PATIENT_STATE[FollowUpStatus.PLANNED];
             const isDone = state === FollowUpStatus.COMPLETED;
+            const visit = describeVisitForFamily(task);
             return (
               <li
                 key={task.id}
@@ -131,7 +143,7 @@ const CheckUps = ({ referral, now, role }) => {
                       Day {task.dayOffset}
                       <Badge tone={meta.tone}>{meta.label}</Badge>
                     </p>
-                    <h3 className="font-semibold text-ink break-words">{visitName(task.title)}</h3>
+                    <h3 className="font-semibold text-ink break-words">{visit.name}</h3>
                     <p className="flex items-center gap-1.5 text-sm text-ink mt-1">
                       <Icon name="calendar_today" size="sm" className="text-ink-muted" />
                       {friendlyDate(task.dueDate)}
@@ -146,30 +158,26 @@ const CheckUps = ({ referral, now, role }) => {
                   </p>
                 )}
 
-                {(task.clinicalFocus || task.targetRole || (isDone && task.notes)) && (
-                  <Disclosure title="What happens at this visit" variant="inline">
-                    <dl className="space-y-2 break-words text-sm">
-                      {task.clinicalFocus && (
-                        <div>
-                          <dt className="text-xs text-ink-muted">They will check</dt>
-                          <dd className="text-ink">{task.clinicalFocus}</dd>
-                        </div>
-                      )}
-                      {task.targetRole && (
-                        <div>
-                          <dt className="text-xs text-ink-muted">Who you will see</dt>
-                          <dd className="text-ink">{task.targetRole}</dd>
-                        </div>
-                      )}
-                      {isDone && task.notes && (
-                        <div>
-                          <dt className="text-xs text-ink-muted">What they found</dt>
-                          <dd className="text-ink">{task.notes}</dd>
-                        </div>
-                      )}
-                    </dl>
-                  </Disclosure>
-                )}
+                <Disclosure title="What happens at this visit" variant="inline">
+                  <dl className="space-y-2 break-words text-sm">
+                    <div>
+                      <dt className="text-xs text-ink-muted">They will check</dt>
+                      <dd className="text-ink">{visit.checks}</dd>
+                    </div>
+                    {visit.who && (
+                      <div>
+                        <dt className="text-xs text-ink-muted">Who you will see</dt>
+                        <dd className="text-ink">{visit.who}</dd>
+                      </div>
+                    )}
+                    {isDone && task.notes && (
+                      <div>
+                        <dt className="text-xs text-ink-muted">What they found</dt>
+                        <dd className="text-ink">{task.notes}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </Disclosure>
               </li>
             );
           })}

@@ -1,11 +1,11 @@
 import Button from "./Button.jsx";
 
 /**
- * One row of filters. On a narrow screen the row scrolls sideways rather than wrapping.
+ * One row of filters. On a narrow screen the tabs wrap onto a second line, so none is hidden.
  * items: [{ id, label, count }]
  */
 const FilterTabs = ({ label, items, selected, onSelect }) => (
-  <div role="group" aria-label={label} className="flex gap-1 overflow-x-auto scrollbar-none border-b border-line">
+  <div role="group" aria-label={label} className="flex flex-wrap gap-x-1 border-b border-line">
     {items.map((item) => (
       <Button
         key={item.id}

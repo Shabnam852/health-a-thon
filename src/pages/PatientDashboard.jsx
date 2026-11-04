@@ -86,6 +86,16 @@ const StepList = ({ steps }) => (
   </ol>
 );
 
+// "Priya Raman, MSW" -> "PR": the first letters of the name before any title.
+const initials = (name = "") =>
+  name
+    .split(",")[0]
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+
 const DetailList = ({ rows }) => (
   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
     {rows
@@ -110,6 +120,7 @@ const PatientDashboard = () => {
   if (!referral) {
     return (
       <Page width="md">
+        <PageHeader title="Your care" />
         <EmptyState pictogram="clipboard">There is no case to show yet.</EmptyState>
       </Page>
     );
@@ -121,6 +132,20 @@ const PatientDashboard = () => {
   // A newborn's page is read by the parent, so greet the parent and not "Baby".
   const greetedName = isChild ? referral?.caregiverName : referral?.patientName;
   const patientFirstName = greetedName?.split(" ")[0] || "there";
+
+  // A number the family can tap to call; plain text if the field holds no number.
+  const hospitalTel = telHref(hospitalPhone);
+  const hospitalPhoneLink = hospitalTel ? (
+    <a
+      href={hospitalTel}
+      aria-label={`Call ${hospital || "the hospital"}, ${hospitalPhone}`}
+      className="inline-flex min-h-control-sm items-center text-accent underline"
+    >
+      {hospitalPhone}
+    </a>
+  ) : (
+    hospitalPhone
+  );
 
   const viewFromUrl = searchParams.get("view");
   const view = PATIENT_VIEWS.includes(viewFromUrl) ? viewFromUrl : "overview";
@@ -230,10 +255,10 @@ const PatientDashboard = () => {
       {view === "overview" && (
         <>
           {chooser || (
-            <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 space-y-3">
+            <section className="rounded-card bg-brand text-on-fill p-4 sm:p-6 space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-display text-xl sm:text-2xl font-bold">{rideSummary}</h2>
+                <div className="min-w-0">
+                  <h2 className="font-display text-xl sm:text-2xl font-semibold break-words">{rideSummary}</h2>
                   {showEta && <p className="text-lg font-semibold tabular-nums mt-1">Arrives in {tr.eta}</p>}
                 </div>
                 <Pictogram name={isArrivalConfirmed ? "hospital" : "van"} tone="on-fill" size="lg" className="-my-1" />
@@ -265,7 +290,7 @@ const PatientDashboard = () => {
 
       {view === "transit" && (
         <>
-          <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 flex items-start justify-between gap-4">
+          <section className="rounded-card bg-brand text-on-fill p-4 sm:p-6 flex items-start justify-between gap-4">
             <div className="min-w-0">
               {showEta ? (
                 <>
@@ -273,7 +298,7 @@ const PatientDashboard = () => {
                   <p className="font-display text-4xl font-semibold tabular-nums mt-1">{tr.eta}</p>
                 </>
               ) : (
-                <h2 className="font-display text-2xl font-bold">{rideSummary}</h2>
+                <h2 className="font-display text-2xl font-semibold">{rideSummary}</h2>
               )}
               <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || "No hospital chosen yet"}</p>
             </div>
@@ -316,12 +341,12 @@ const PatientDashboard = () => {
               <div className="flex items-center gap-3">
                 <span
                   aria-hidden="true"
-                  className="w-12 h-12 shrink-0 rounded-full bg-subtle-strong text-ink flex items-center justify-center text-lg font-bold"
+                  className="w-12 h-12 shrink-0 rounded-full bg-subtle-strong text-ink flex items-center justify-center text-lg font-semibold"
                 >
                   {tr.driver[0]}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-bold text-ink break-words">{tr.driver}</p>
+                  <p className="font-semibold text-ink break-words">{tr.driver}</p>
                   {tr.vehicle && <p className="text-xs text-ink-muted break-words">{tr.vehicle}</p>}
                 </div>
               </div>
@@ -390,13 +415,15 @@ const PatientDashboard = () => {
           {nav && (
             <Card title="Your care navigator" className="space-y-3">
               <div className="flex items-center gap-3">
-                <img
-                  className="w-12 h-12 rounded-full object-cover shrink-0"
-                  alt=""
-                  src={nav.avatar || "/images/avatar-priya-raman.svg"}
-                />
+                {/* Initials in theme colours, so they keep their contrast in both themes. */}
+                <span
+                  aria-hidden="true"
+                  className="w-12 h-12 rounded-full bg-brand text-on-fill font-semibold inline-flex items-center justify-center shrink-0"
+                >
+                  {initials(nav.name)}
+                </span>
                 <div className="min-w-0">
-                  <p className="font-bold text-ink">{nav.name}</p>
+                  <p className="font-semibold text-ink">{nav.name}</p>
                   <p className="text-xs text-ink-muted">Here for rides, childcare and language help.</p>
                 </div>
               </div>
@@ -407,7 +434,7 @@ const PatientDashboard = () => {
             <DetailList
               rows={[
                 ["Hospital", hospital || "Not chosen yet"],
-                ["Hospital phone", hospitalPhone],
+                ["Hospital phone", hospitalPhoneLink],
                 ["Your language", referral?.language],
                 ["Interpreter", referral?.interpreterNeeded ? "Requested for your visit" : "Not requested"],
               ]}

@@ -57,6 +57,11 @@ const AppShell = ({ children }) => {
   }
 
   const currentRole = role || "coordinator";
+  // Room at the bottom so the last content can scroll clear of what floats over it: the phone tabs,
+  // the family's Ask button (patients only) and the guided demo bar.
+  const asks = currentRole === "patient";
+  const bottomRoom =
+    storyStep !== null ? (asks ? "pb-72 lg:pb-44" : "pb-56 lg:pb-28") : asks ? "pb-40 lg:pb-24" : "pb-20 lg:pb-0";
   const roleDef = getRoleDefinition(currentRole);
   // Unknown paths fall through to the 404 page instead of the access-denied screen.
   const isAllowed = !isKnownRoute(location.pathname) || isRouteAllowedForRole(currentRole, location.pathname);
@@ -79,7 +84,7 @@ const AppShell = ({ children }) => {
       </a>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:flex fixed inset-y-0 left-0 w-sidebar z-30 bg-surface border-r border-line shadow-card flex-col justify-between">
+      <div className="hidden lg:flex fixed inset-y-0 left-0 w-sidebar z-30 bg-surface border-r border-line flex-col justify-between">
         <Sidebar />
       </div>
 
@@ -91,7 +96,7 @@ const AppShell = ({ children }) => {
         <main
           id="main-content"
           tabIndex={-1}
-          className={`flex-1 pt-header bg-canvas min-h-screen w-full ${storyStep !== null ? "pb-56 lg:pb-28" : "pb-20 lg:pb-0"}`}
+          className={`flex-1 pt-header bg-canvas min-h-screen w-full ${bottomRoom}`}
         >
           {!isAllowed ? (
             <div className="w-full max-w-lg mx-auto py-16 px-4 sm:px-6 text-center space-y-4">

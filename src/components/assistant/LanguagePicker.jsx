@@ -1,14 +1,16 @@
 import { useId, useState } from "react";
 import { AUTO_LANGUAGE, LANGUAGES } from "../../domain/assistant.js";
 import { Button } from "../ui/index.js";
+import { ENGLISH_STRINGS } from "./chatStrings.js";
 
 const OPTIONS = [
   { code: AUTO_LANGUAGE, native: "Match how I speak", name: "Answers in the language you use" },
   ...LANGUAGES,
 ];
 
-// Asked once per patient, then changeable from the chat header.
-const LanguagePicker = ({ current, suggested, onChoose, onCancel }) => {
+// Asked once per patient, then changeable from the chat header. Its own words are in the
+// language already chosen, or the one on the patient's record (strings and lang from ChatPanel).
+const LanguagePicker = ({ current, suggested, onChoose, onCancel, strings = ENGLISH_STRINGS, lang }) => {
   const [choice, setChoice] = useState(current || suggested);
   const name = useId();
 
@@ -21,8 +23,12 @@ const LanguagePicker = ({ current, suggested, onChoose, onCancel }) => {
       }}
     >
       <fieldset className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-        <legend className="text-base font-semibold text-ink mb-1">Which language should I answer in?</legend>
-        <p className="text-sm text-ink-muted pb-1">You can type or speak in any language. You can change this later.</p>
+        <legend lang={lang} className="text-base font-semibold text-ink mb-1">
+          {strings.pickTitle}
+        </legend>
+        <p lang={lang} className="text-sm text-ink-muted pb-1">
+          {strings.pickHint}
+        </p>
         {OPTIONS.map((option) => (
           <label
             key={option.code}
@@ -48,10 +54,10 @@ const LanguagePicker = ({ current, suggested, onChoose, onCancel }) => {
           </label>
         ))}
       </fieldset>
-      <div className="flex gap-2 justify-end p-3 border-t border-line">
-        {onCancel && <Button onClick={onCancel}>Cancel</Button>}
+      <div lang={lang} className="flex gap-2 justify-end p-3 border-t border-line">
+        {onCancel && <Button onClick={onCancel}>{strings.cancel}</Button>}
         <Button type="submit" variant="primary">
-          {current ? "Save" : "Start"}
+          {current ? strings.save : strings.start}
         </Button>
       </div>
     </form>

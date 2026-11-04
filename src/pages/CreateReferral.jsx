@@ -105,11 +105,19 @@ const DEPARTMENTS = [
 ];
 const LANGUAGES = ["Hindi", "Kannada", "Tamil", "Telugu", "Malayalam", "Urdu", "Bengali", "Bhojpuri", "English"];
 
-const Choice = ({ options, value, onChange, label, grid = false }) => {
-  const name = useId();
+// `name` lets the form find the group (to focus it on a failed send); `error` stays shown under it until fixed.
+const Choice = ({ options, value, onChange, label, grid = false, name: nameProp, error }) => {
+  const generatedName = useId();
+  const name = nameProp || generatedName;
+  const errorId = useId();
   return (
-    <fieldset className="space-y-1">
+    <fieldset className="space-y-1" aria-describedby={error ? errorId : undefined}>
       <legend className="block text-sm font-semibold text-ink mb-1">{label}</legend>
+      {error && (
+        <p id={errorId} className="text-sm font-semibold text-danger">
+          {error}
+        </p>
+      )}
       <div className={grid ? "grid grid-cols-2 gap-2" : "flex flex-wrap gap-2"}>
         {options.map(([id, text, hint]) => (
           <label key={id} className="cursor-pointer">
@@ -198,6 +206,8 @@ const CreateReferral = () => {
   const submitting = useRef(false);
   const [patientType, setPatientType] = useState(PatientType.MATERNAL);
   const [priority, setPriority] = useState(UrgencyLevel.URGENT);
+  // Set when a send is refused with no urgency chosen, and kept until one is chosen.
+  const [priorityError, setPriorityError] = useState(false);
   const [hasTransport, setHasTransport] = useState(false);
   const [interpreterNeeded, setInterpreterNeeded] = useState(true);
   const [vitals, setVitals] = useState({ bp: "128/82", fhr: "142" });
@@ -449,9 +459,12 @@ const CreateReferral = () => {
       [form.phone.trim() && !telHref(form.phone), "phone", "phone number (at least 7 digits)"],
       [form.emergencyContact.trim() && !telHref(form.emergencyContact), "emergencyContact", "emergency contact number"],
     ].filter(([bad]) => bad);
+    setPriorityError(!priority);
     if (problems.length > 0) {
       showToast(`Please enter the ${problems.map(([, , what]) => what).join(", ")} before sending.`, "error");
-      e.target.elements.namedItem(problems[0][1])?.focus?.();
+      // A radio group comes back as a list of its radios: focus the first, which is inside the group.
+      const target = e.target.elements.namedItem(problems[0][1]);
+      (target?.tagName ? target : target?.[0])?.focus?.();
       return;
     }
     submitting.current = true;
@@ -643,11 +656,14 @@ const CreateReferral = () => {
                   <Choice
                     grid
                     label="How soon? (required)"
+                    name="priority"
                     options={URGENCY}
                     value={priority}
+                    error={priorityError && !priority ? "Choose how soon the patient must be seen." : undefined}
                     onChange={(next) => {
                       own("priority");
                       setPriority(next);
+                      setPriorityError(false);
                     }}
                   />
                   {aiUsed && !priority && (

@@ -2,8 +2,12 @@ import { useEffect, useState } from "react";
 import { THEME_KEY } from "../config/theme.js";
 import { Button, Icon } from "./ui/index.js";
 
-// The browser bar matches the page canvas in each theme (tokens.css).
-const THEME_COLORS = { light: "#f7f4f0", dark: "#121110" };
+// The browser bar matches the page canvas, read from the canvas token (tokens.css) so no colour is copied here.
+// The token holds RGB channels ("247 244 240").
+const canvasColor = () => {
+  const channels = getComputedStyle(document.documentElement).getPropertyValue("--color-canvas").trim();
+  return channels ? `rgb(${channels.split(/\s+/).join(", ")})` : null;
+};
 // The desktop sidebar stays mounted behind the phone drawer, so toggles must keep each other in step.
 const THEME_CHANGED = "navexa-theme-changed";
 
@@ -31,8 +35,9 @@ const ThemeToggle = ({ fullWidth = false, iconOnly = false }) => {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[theme]);
-  }, [theme, isDark]);
+    const color = canvasColor();
+    if (color) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
+  }, [isDark]);
 
   // Follow the device until the person makes their own choice.
   useEffect(() => {

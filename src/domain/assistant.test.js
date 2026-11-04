@@ -4,6 +4,7 @@ import { initialFacilities, initialSeedReferrals } from "../data/seedData.js";
 import {
   AUTO_LANGUAGE,
   buildCaseBrief,
+  EMERGENCY_LINE,
   findEmergencySign,
   getScreenSummary,
   isSpokenLanguage,
@@ -11,6 +12,8 @@ import {
   profileLanguageCode,
   resolveReplyLanguage,
 } from "./assistant.js";
+import { ReferralStatus, UrgencyLevel } from "./enums.js";
+import { getHospitalOptions } from "./hospitalChoice.js";
 
 describe("profileLanguageCode", () => {
   it("takes the first language on the record", () => {
@@ -686,5 +689,33 @@ describe("getScreenSummary", () => {
       const text = getScreenSummary(view, referral, initialFacilities);
       assert.ok(text.length > 10 && text.length <= 1000, view);
     }
+  });
+
+  it("reads the emergency warning and 108 on every screen", () => {
+    for (const referral of initialSeedReferrals) {
+      for (const view of ["overview", "transit", "checklist", "support"]) {
+        const text = getScreenSummary(view, referral, initialFacilities);
+        assert.match(text, /Call 108 now/, `${referral.id} ${view}`);
+        assert.ok(text.length <= 1000, `${referral.id} ${view}`);
+      }
+    }
+    assert.match(EMERGENCY_LINE, /bleeding.*vision.*pain.*baby movement/);
+  });
+
+  it("tells a family who must choose a hospital which ones can take them", () => {
+    const floating = initialSeedReferrals.find((r) => r.status === ReferralStatus.REJECTED);
+    assert.ok(floating);
+    const [first] = getHospitalOptions(floating, initialFacilities);
+    for (const view of ["overview", "transit", "support"]) {
+      const text = getScreenSummary(view, floating, initialFacilities);
+      assert.match(text, /You choose where to go next/, view);
+      assert.ok(text.includes(first.name), view);
+    }
+  });
+
+  it("puts 108 first for a floating emergency case", () => {
+    const floating = initialSeedReferrals.find((r) => r.status === ReferralStatus.REJECTED);
+    const text = getScreenSummary("overview", { ...floating, priority: UrgencyLevel.STAT }, initialFacilities);
+    assert.ok(text.startsWith("This is an emergency. Call 108 now"));
   });
 });
