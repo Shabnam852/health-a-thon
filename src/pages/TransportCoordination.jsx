@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import AmbulanceCall from "../components/AmbulanceCall.jsx";
 import { FormDialog } from "../components/Dialog.jsx";
 import {
   actionsColumn,
@@ -18,6 +17,7 @@ import {
   DetailRow,
   Field,
   FilterTabs,
+  Icon,
   Page,
   PageHeader,
   Textarea,
@@ -204,37 +204,51 @@ const TransportCoordination = () => {
     closeFailure();
   };
 
+  const viewTabs = (
+    <FilterTabs
+      label="Transport view"
+      items={[
+        { id: "active", label: "Active", count: active.length },
+        { id: "arrived", label: "Arrived", count: arrived.length },
+        { id: "vehicles", label: "Vehicles", count: vans.length },
+      ]}
+      selected={view}
+      onSelect={setView}
+    />
+  );
+
   return (
     <Page width="full">
       <Toast toast={toast} />
-      <PageHeader title="Transport" />
-
-      <AmbulanceCall />
-
-      <FilterTabs
-        label="Transport view"
-        items={[
-          { id: "active", label: "Active", count: active.length },
-          { id: "arrived", label: "Arrived", count: arrived.length },
-          { id: "vehicles", label: "Vehicles", count: vans.length },
-        ]}
-        selected={view}
-        onSelect={setView}
+      {/* The 108 fallback sits in the header, so the tabs line up with every other screen. */}
+      <PageHeader
+        title="Transport"
+        subtitle="Patient can't wait for a van, or the van broke down? Call the 108 ambulance."
+        actions={
+          <Button as="a" href="tel:108" variant="danger" aria-label="Call 108 (ambulance)">
+            <Icon name="call" />
+            {/* Short on phones, so it fits beside the title. */}
+            <span className="sm:hidden">108</span>
+            <span className="max-sm:hidden">Call 108 (ambulance)</span>
+          </Button>
+        }
       />
 
       {view === "vehicles" ? (
         <DataTable
           key="vehicles"
           label="Vehicles"
+          tabs={viewTabs}
           data={vans}
           columns={VAN_COLUMNS}
-          search={false}
+          searchPlaceholder="Search van, driver or kit"
           emptyText="No vehicles."
         />
       ) : (
         <DataTable
           key={view}
           label={view === "active" ? "Active rides" : "Arrived"}
+          tabs={viewTabs}
           data={view === "active" ? active : arrived}
           columns={RIDE_COLUMNS}
           context={{ onSendVan: setSendingVanFor, onPickup: handlePickup, onReport: setFailing }}

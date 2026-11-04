@@ -112,6 +112,7 @@ const DataTable = ({
   context,
   getRowClassName,
   renderBelow,
+  tabs,
 }) => {
   const [sorting, setSorting] = useState(initialSorting);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -187,18 +188,10 @@ const DataTable = ({
     return [...values].map((v) => [v, toText(v)]).sort((a, b) => a[1].localeCompare(b[1]));
   };
 
-  // With nothing to show, keep only the page's own toolbar: its filters may be what emptied the table.
-  if (data.length === 0) {
-    return (
-      <div className="space-y-3">
-        {toolbar && <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">{toolbar}</div>}
-        <EmptyState>{emptyText}</EmptyState>
-      </div>
-    );
-  }
-
   const showToolbar = search || filterColumns.length > 0 || toolbar;
 
+  // The search row comes first on every screen, so it sits at the same height everywhere and the
+  // eye has one anchor when moving between screens. A page's tabs go under it.
   return (
     <div className="space-y-3">
       {showToolbar && (
@@ -247,198 +240,215 @@ const DataTable = ({
         </div>
       )}
 
-      {!wide && (
-        <div aria-label={label} role="region">
-          {rows.length === 0 ? (
-            <p className="bg-surface border border-line rounded-card px-4 py-6 text-center text-sm text-ink-muted">
-              {noMatchText}
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {rows.map((row) => {
-                const cells = row.getVisibleCells();
-                const render = (cell) =>
-                  flexRender(cell.column.columnDef.cell, { ...cell.getContext(), rowNumber: rowNumbers.get(row.id) });
-                const serial = cells.find((c) => c.column.id === "serial");
-                const caseId = cells.find((c) => c.column.id === "caseId");
-                const actions = cells.filter((c) => isActions(c.column));
-                const rest = cells.filter((c) => c !== serial && c !== caseId && !isActions(c.column));
-                // A person's name reads first; otherwise the first column does.
-                const title = rest.find((c) => c.column.id === "patient") || rest[0];
-                const lines = rest.filter((c) => c !== title);
-                return (
-                  <li
-                    key={row.id}
-                    className={`bg-surface border border-line rounded-card p-4 space-y-3 text-sm ${getRowClassName?.(row.original) || ""}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {serial && <span className="tabular-nums text-ink-muted pt-0.5">{render(serial)}</span>}
-                      <div className="min-w-0 flex-1 text-base">{title && render(title)}</div>
-                      {caseId && <span className="tabular-nums text-ink-muted text-sm pt-0.5">{render(caseId)}</span>}
-                    </div>
-                    {lines.length > 0 && (
-                      <dl className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
-                        {lines.map((cell) => (
-                          <Fragment key={cell.id}>
-                            <dt className="text-ink-muted">{cardLabel(cell.column)}</dt>
-                            <dd className="min-w-0 break-words text-ink">{render(cell)}</dd>
-                          </Fragment>
-                        ))}
-                      </dl>
-                    )}
-                    {renderDetail && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-expanded={row.getIsExpanded()}
-                        aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} details for ${getRowLabel(row.original)}`}
-                        onClick={row.getToggleExpandedHandler()}
-                        className="!px-0"
-                      >
-                        <Icon name={row.getIsExpanded() ? "expand_less" : "expand_more"} size="sm" />
-                        {row.getIsExpanded() ? "Hide details" : "Show details"}
-                      </Button>
-                    )}
-                    {row.getIsExpanded() && (
-                      <div className="space-y-1 break-words text-ink-muted border-t border-line pt-3">
-                        {renderDetail(row.original)}
-                      </div>
-                    )}
-                    {actions.map((cell) => (
-                      <div key={cell.id} className="border-t border-line pt-3 [&_*]:max-w-full">
-                        {render(cell)}
-                      </div>
-                    ))}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
+      {tabs}
 
-      {wide && (
-        <div className="bg-surface border border-line rounded-card overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <caption className="sr-only">{label}</caption>
-            <thead className="bg-muted text-ink-muted">
-              {table.getHeaderGroups().map((group) => (
-                <tr key={group.id} className="border-b border-line">
-                  {renderDetail && (
-                    <th scope="col" className="w-0 px-2">
-                      <span className="sr-only">Details</span>
-                    </th>
-                  )}
-                  {group.headers.map((header) => {
-                    const canSort = header.column.getCanSort();
-                    const sorted = header.column.getIsSorted();
-                    const rendered = flexRender(header.column.columnDef.header, header.getContext());
-                    const content = header.column.columnDef.meta?.srOnly ? (
-                      <span className="sr-only">{rendered}</span>
-                    ) : (
-                      rendered
-                    );
-                    return (
-                      <th
-                        key={header.id}
-                        scope="col"
-                        aria-sort={sorted ? (sorted === "asc" ? "ascending" : "descending") : undefined}
-                        className={`px-3 py-2 font-semibold whitespace-nowrap ${header.column.columnDef.meta?.sticky ? "sticky right-0 bg-muted" : ""} ${header.column.columnDef.meta?.className || ""}`}
-                      >
-                        {canSort ? (
-                          <button
-                            type="button"
-                            onClick={header.column.getToggleSortingHandler()}
-                            className="inline-flex items-center gap-1 rounded-control hover:text-ink"
-                          >
-                            {content}
-                            <Icon
-                              name={SORT_ICONS[sorted] || "unfold_more"}
-                              size="sm"
-                              className={sorted ? "text-ink" : "text-ink-muted"}
-                            />
-                          </button>
-                        ) : (
-                          content
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-line">
+      {data.length === 0 ? (
+        <EmptyState>{emptyText}</EmptyState>
+      ) : (
+        <>
+          {!wide && (
+            <div aria-label={label} role="region">
               {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={colCount} className="px-3 py-6 text-center text-ink-muted">
-                    {noMatchText}
-                  </td>
-                </tr>
+                <p className="bg-surface border border-line rounded-card px-4 py-6 text-center text-sm text-ink-muted">
+                  {noMatchText}
+                </p>
               ) : (
-                rows.map((row) => (
-                  <Fragment key={row.id}>
-                    <tr className={`align-top hover:bg-muted/60 ${getRowClassName?.(row.original) || ""}`}>
-                      {renderDetail && (
-                        <td className="px-2 py-2">
+                <ul className="space-y-3">
+                  {rows.map((row) => {
+                    const cells = row.getVisibleCells();
+                    const render = (cell) =>
+                      flexRender(cell.column.columnDef.cell, {
+                        ...cell.getContext(),
+                        rowNumber: rowNumbers.get(row.id),
+                      });
+                    const serial = cells.find((c) => c.column.id === "serial");
+                    const caseId = cells.find((c) => c.column.id === "caseId");
+                    const actions = cells.filter((c) => isActions(c.column));
+                    const rest = cells.filter((c) => c !== serial && c !== caseId && !isActions(c.column));
+                    // A person's name reads first; otherwise the first column does.
+                    const title = rest.find((c) => c.column.id === "patient") || rest[0];
+                    const lines = rest.filter((c) => c !== title);
+                    return (
+                      <li
+                        key={row.id}
+                        className={`bg-surface border border-line rounded-card p-4 space-y-3 text-sm ${getRowClassName?.(row.original) || ""}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {serial && <span className="tabular-nums text-ink-muted pt-0.5">{render(serial)}</span>}
+                          <div className="min-w-0 flex-1 text-base">{title && render(title)}</div>
+                          {caseId && (
+                            <span className="tabular-nums text-ink-muted text-sm pt-0.5">{render(caseId)}</span>
+                          )}
+                        </div>
+                        {lines.length > 0 && (
+                          <dl className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+                            {lines.map((cell) => (
+                              <Fragment key={cell.id}>
+                                <dt className="text-ink-muted">{cardLabel(cell.column)}</dt>
+                                <dd className="min-w-0 break-words text-ink">{render(cell)}</dd>
+                              </Fragment>
+                            ))}
+                          </dl>
+                        )}
+                        {renderDetail && (
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="!min-h-control-sm !min-w-[var(--size-control-sm)] px-1"
+                            size="sm"
                             aria-expanded={row.getIsExpanded()}
                             aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} details for ${getRowLabel(row.original)}`}
                             onClick={row.getToggleExpandedHandler()}
+                            className="!px-0"
                           >
-                            <Icon name="chevron_right" size="sm" className={row.getIsExpanded() ? "rotate-90" : ""} />
+                            <Icon name={row.getIsExpanded() ? "expand_less" : "expand_more"} size="sm" />
+                            {row.getIsExpanded() ? "Hide details" : "Show details"}
                           </Button>
-                        </td>
-                      )}
-                      {row.getVisibleCells().map((cell) => (
-                        <td
-                          key={cell.id}
-                          className={`px-3 py-2.5 ${cell.column.columnDef.meta?.sticky ? "sticky right-0 bg-surface border-l border-line" : ""} ${cell.column.columnDef.meta?.className || ""}`}
-                        >
-                          {flexRender(cell.column.columnDef.cell, {
-                            ...cell.getContext(),
-                            rowNumber: rowNumbers.get(row.id),
-                          })}
-                        </td>
-                      ))}
-                    </tr>
-                    {row.getIsExpanded() && (
-                      <tr className="bg-muted/40">
-                        <td colSpan={colCount} className="px-3 py-3 text-ink-muted">
-                          <div className="space-y-1 break-words max-w-prose">{renderDetail(row.original)}</div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))
+                        )}
+                        {row.getIsExpanded() && (
+                          <div className="space-y-1 break-words text-ink-muted border-t border-line pt-3">
+                            {renderDetail(row.original)}
+                          </div>
+                        )}
+                        {actions.map((cell) => (
+                          <div key={cell.id} className="border-t border-line pt-3 [&_*]:max-w-full">
+                            {render(cell)}
+                          </div>
+                        ))}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </div>
+          )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-muted">
-        <span className="tabular-nums">
-          {isFiltered ? `${total} of ${data.length}` : `${data.length}`} {data.length === 1 ? "row" : "rows"}
-        </span>
-        {table.getPageCount() > 1 && (
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-              Previous
-            </Button>
+          {wide && (
+            <div className="bg-surface border border-line rounded-card overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <caption className="sr-only">{label}</caption>
+                <thead className="bg-muted text-ink-muted">
+                  {table.getHeaderGroups().map((group) => (
+                    <tr key={group.id} className="border-b border-line">
+                      {renderDetail && (
+                        <th scope="col" className="w-0 px-2">
+                          <span className="sr-only">Details</span>
+                        </th>
+                      )}
+                      {group.headers.map((header) => {
+                        const canSort = header.column.getCanSort();
+                        const sorted = header.column.getIsSorted();
+                        const rendered = flexRender(header.column.columnDef.header, header.getContext());
+                        const content = header.column.columnDef.meta?.srOnly ? (
+                          <span className="sr-only">{rendered}</span>
+                        ) : (
+                          rendered
+                        );
+                        return (
+                          <th
+                            key={header.id}
+                            scope="col"
+                            aria-sort={sorted ? (sorted === "asc" ? "ascending" : "descending") : undefined}
+                            className={`px-3 py-2 font-semibold whitespace-nowrap ${header.column.columnDef.meta?.sticky ? "sticky right-0 bg-muted" : ""} ${header.column.columnDef.meta?.className || ""}`}
+                          >
+                            {canSort ? (
+                              <button
+                                type="button"
+                                onClick={header.column.getToggleSortingHandler()}
+                                className="inline-flex items-center gap-1 rounded-control hover:text-ink"
+                              >
+                                {content}
+                                <Icon
+                                  name={SORT_ICONS[sorted] || "unfold_more"}
+                                  size="sm"
+                                  className={sorted ? "text-ink" : "text-ink-muted"}
+                                />
+                              </button>
+                            ) : (
+                              content
+                            )}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={colCount} className="px-3 py-6 text-center text-ink-muted">
+                        {noMatchText}
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((row) => (
+                      <Fragment key={row.id}>
+                        <tr className={`align-top hover:bg-muted/60 ${getRowClassName?.(row.original) || ""}`}>
+                          {renderDetail && (
+                            <td className="px-2 py-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="!min-h-control-sm !min-w-[var(--size-control-sm)] px-1"
+                                aria-expanded={row.getIsExpanded()}
+                                aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} details for ${getRowLabel(row.original)}`}
+                                onClick={row.getToggleExpandedHandler()}
+                              >
+                                <Icon
+                                  name="chevron_right"
+                                  size="sm"
+                                  className={row.getIsExpanded() ? "rotate-90" : ""}
+                                />
+                              </Button>
+                            </td>
+                          )}
+                          {row.getVisibleCells().map((cell) => (
+                            <td
+                              key={cell.id}
+                              className={`px-3 py-2.5 ${cell.column.columnDef.meta?.sticky ? "sticky right-0 bg-surface border-l border-line" : ""} ${cell.column.columnDef.meta?.className || ""}`}
+                            >
+                              {flexRender(cell.column.columnDef.cell, {
+                                ...cell.getContext(),
+                                rowNumber: rowNumbers.get(row.id),
+                              })}
+                            </td>
+                          ))}
+                        </tr>
+                        {row.getIsExpanded() && (
+                          <tr className="bg-muted/40">
+                            <td colSpan={colCount} className="px-3 py-3 text-ink-muted">
+                              <div className="space-y-1 break-words max-w-prose">{renderDetail(row.original)}</div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-muted">
             <span className="tabular-nums">
-              Page {pageIndex + 1} of {table.getPageCount()}
+              {isFiltered ? `${total} of ${data.length}` : `${data.length}`} {data.length === 1 ? "row" : "rows"}
             </span>
-            <Button size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-              Next
-            </Button>
+            {table.getPageCount() > 1 && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+                  Previous
+                </Button>
+                <span className="tabular-nums">
+                  Page {pageIndex + 1} of {table.getPageCount()}
+                </span>
+                <Button size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+                  Next
+                </Button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {renderBelow?.(table.getFilteredRowModel().rows.map((r) => r.original))}
+          {renderBelow?.(table.getFilteredRowModel().rows.map((r) => r.original))}
+        </>
+      )}
     </div>
   );
 };

@@ -102,7 +102,7 @@ export const getBlocked = (referrals) =>
 export const getSolved = (referrals) => referrals.filter((r) => !findOpenBarrier(r) && (r.barriers || []).length > 0);
 
 /** Open barriers (with Send van and Close barrier), or barriers already solved. */
-const BarrierTables = ({ view, onResult }) => {
+const BarrierTables = ({ view, onResult, tabs }) => {
   const { referrals, resolveBarrier } = useReferrals();
   const [sendingVanFor, setSendingVanFor] = useState(null);
   const [closing, setClosing] = useState(null);
@@ -132,6 +132,7 @@ const BarrierTables = ({ view, onResult }) => {
         <DataTable
           key="blocked"
           label="Open barriers"
+          tabs={tabs}
           data={getBlocked(referrals)}
           columns={OPEN_COLUMNS}
           context={{ onSendVan: setSendingVanFor, onClose: setClosing }}
@@ -144,6 +145,7 @@ const BarrierTables = ({ view, onResult }) => {
         <DataTable
           key="solved"
           label="Barriers solved"
+          tabs={tabs}
           data={getSolved(referrals)}
           columns={RESOLVED_COLUMNS}
           searchPlaceholder="Search name, ID or barrier"

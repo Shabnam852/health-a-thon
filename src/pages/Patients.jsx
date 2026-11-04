@@ -220,19 +220,20 @@ const Patients = () => {
     closeDialog();
   };
 
+  const showTabs = <FilterTabs label="Show" items={tabs} selected={show} onSelect={select} />;
+
   return (
     <Page width="full">
       <Toast toast={toast} />
       <PageHeader title="Patients" subtitle={`${open.length} open · ${blockedCount} blocked by a barrier`} />
 
-      <FilterTabs label="Show" items={tabs} selected={show} onSelect={select} />
-
       {BARRIER_VIEWS.includes(show) ? (
-        <BarrierTables view={show} onResult={report} />
+        <BarrierTables view={show} onResult={report} tabs={showTabs} />
       ) : (
         <DataTable
           key={show}
           label="Open cases"
+          tabs={showTabs}
           data={rows}
           columns={CASE_COLUMNS}
           context={{ open: openDialog, onChoose: setChoosingFor }}

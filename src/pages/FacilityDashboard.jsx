@@ -288,67 +288,36 @@ const FacilityDashboard = () => {
     <Page width="full">
       <Toast toast={toast} />
 
-      <div className="space-y-3">
-        <PageHeader
-          title="Intake"
-          subtitle={`${freeBeds} of ${currentFacility.totalBeds} beds free after patients on the way`}
-          actions={
-            <Select
-              aria-label="Hospital"
-              value={currentFacility.id}
-              onChange={(e) => setParam("facility", e.target.value)}
-              className="sm:w-auto sm:max-w-xs"
-            >
-              {facilities.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </Select>
-          }
-        />
-        <Disclosure title="Hospital details" icon="local_hospital" variant="inline">
-          <div className="space-y-1 break-words text-sm text-ink-muted">
-            <p>
-              {currentFacility.type} · {currentFacility.location}
-            </p>
-            <p>Intake status: {currentFacility.status}</p>
-            <p>
-              Phone: {currentFacility.phone} · Direct: {currentFacility.directContact}
-            </p>
-            <p>Can treat: {currentFacility.capabilities.join(", ")}</p>
-          </div>
-        </Disclosure>
-      </div>
-
-      <form onSubmit={handleFindCase} className="flex flex-col sm:flex-row sm:items-end gap-2">
-        <Field
-          label="Patient at reception who isn't on these lists? Enter their case ID"
-          className="flex-1 sm:max-w-md"
-        >
-          <Input
-            name="caseId"
-            value={caseIdQuery}
-            placeholder="e.g. NX-9051"
-            autoComplete="off"
-            onChange={(e) => setCaseIdQuery(e.target.value)}
-          />
-        </Field>
-        <Button type="submit" disabled={!caseIdQuery.trim()}>
-          Find case
-        </Button>
-      </form>
-
-      <FilterTabs
-        label="Queues"
-        items={TABS.map((t) => ({ id: t.id, label: t.label, count: queues[t.id].length }))}
-        selected={activeTab}
-        onSelect={(id) => setParam("tab", id)}
+      <PageHeader
+        title="Intake"
+        subtitle={`${freeBeds} of ${currentFacility.totalBeds} beds free after patients on the way`}
+        actions={
+          <Select
+            aria-label="Hospital"
+            value={currentFacility.id}
+            onChange={(e) => setParam("facility", e.target.value)}
+            className="w-full sm:w-auto sm:max-w-xs"
+          >
+            {facilities.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </Select>
+        }
       />
 
       <DataTable
         key={activeTab}
         label={TABS.find((t) => t.id === activeTab).label}
+        tabs={
+          <FilterTabs
+            label="Queues"
+            items={TABS.map((t) => ({ id: t.id, label: t.label, count: queues[t.id].length }))}
+            selected={activeTab}
+            onSelect={(id) => setParam("tab", id)}
+          />
+        }
         data={list}
         columns={activeTab === "pending" ? PENDING_COLUMNS : QUEUE_COLUMNS}
         context={{ now, onAcknowledge: handleAcknowledge, ask }}
@@ -375,6 +344,39 @@ const FacilityDashboard = () => {
           </>
         )}
       />
+
+      {/* Below the queue, so the search box sits at the same height as on every other screen. */}
+      <section className="space-y-3 border-t border-line pt-5">
+        <form onSubmit={handleFindCase} className="flex flex-col sm:flex-row sm:items-end gap-2">
+          <Field
+            label="Patient at reception who isn't on these lists? Enter their case ID"
+            className="flex-1 sm:max-w-md"
+          >
+            <Input
+              name="caseId"
+              value={caseIdQuery}
+              placeholder="e.g. NX-9051"
+              autoComplete="off"
+              onChange={(e) => setCaseIdQuery(e.target.value)}
+            />
+          </Field>
+          <Button type="submit" disabled={!caseIdQuery.trim()}>
+            Find case
+          </Button>
+        </form>
+        <Disclosure title="Hospital details" icon="local_hospital" variant="inline">
+          <div className="space-y-1 break-words text-sm text-ink-muted">
+            <p>
+              {currentFacility.type} · {currentFacility.location}
+            </p>
+            <p>Intake status: {currentFacility.status}</p>
+            <p>
+              Phone: {currentFacility.phone} · Direct: {currentFacility.directContact}
+            </p>
+            <p>Can treat: {currentFacility.capabilities.join(", ")}</p>
+          </div>
+        </Disclosure>
+      </section>
 
       {modal?.type === "arrival" && (
         <FormDialog

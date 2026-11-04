@@ -237,20 +237,17 @@ const PatientDashboard = () => {
   return (
     <Page width="md" lang={lang}>
       <Toast toast={toast} />
-      <PageHeader
-        title={patientFirstName ? fill(t.hello, { name: patientFirstName }) : t.helloNoName}
-        actions={
-          <Field label={t.patient} className="w-full sm:w-auto sm:max-w-xs">
-            <Select value={referral?.id} onChange={(e) => setActiveReferralId(e.target.value)}>
-              {referrals.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.patientName}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        }
-      />
+      <PageHeader title={patientFirstName ? fill(t.hello, { name: patientFirstName }) : t.helloNoName} />
+      {/* Under the title, not beside it: a labelled field is taller than the header's one row. */}
+      <Field label={t.patient} className="w-full sm:max-w-xs">
+        <Select value={referral?.id} onChange={(e) => setActiveReferralId(e.target.value)}>
+          {referrals.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.patientName}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
       <section
         id="emergency"
