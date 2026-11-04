@@ -38,11 +38,13 @@ export const getPatientJourney = (referral, facilities = []) => {
       label: "Doctor sent the referral",
       done: status !== ReferralStatus.CREATED,
       next: "The doctor is sending your referral.",
+      nextKey: "nextSending",
     },
     {
       label: "Hospital is ready for you",
       done: status === ReferralStatus.ACKNOWLEDGED || isArrivalConfirmed,
       next: floating ? "Choose a hospital to go to." : "The hospital is checking your referral.",
+      nextKey: floating ? "nextChoose" : "nextChecking",
     },
     {
       label: "Ride to the hospital",
@@ -54,16 +56,27 @@ export const getPatientJourney = (referral, facilities = []) => {
           : hasOwnTransport
             ? "Travel with your own transport. Tell your care navigator if that changes."
             : "Your ride is being arranged.",
+      nextKey: isTransitActive
+        ? "nextBeReady"
+        : isRideFailed
+          ? "nextRideRetry"
+          : hasOwnTransport
+            ? "nextOwnTransport"
+            : "nextArranging",
+      nextVars: { name: nav?.name?.split(",")[0] || "" },
     },
     {
       label: "Check in at the hospital",
       done: isArrivalConfirmed,
       next: `At the hospital, give case ID ${referral.id} at the reception desk.`,
+      nextKey: "nextCheckIn",
+      nextVars: { id: referral.id },
     },
     {
       label: "Care and follow-up",
       done: status === ReferralStatus.COMPLETED,
       next: `The care team will look after ${who}. Follow-up visits are planned before you go home.`,
+      nextKey: isChild ? "nextCareBaby" : "nextCareYou",
     },
   ];
   const nextStep = steps.find((s) => !s.done) || steps[steps.length - 1];
@@ -75,6 +88,9 @@ export const getPatientJourney = (referral, facilities = []) => {
       : isRideFailed
         ? "Your ride had a problem"
         : RIDE_STAGES[rideStage - 1] || "Your ride is being arranged";
+  // The same summary as a key into the family strings, so the screen can show it in the family's language.
+  const rideSummaryKey =
+    !tr && !isArrivalConfirmed ? "noRideYet" : isRideFailed ? "rideProblem" : rideStage > 0 ? null : "rideArranging";
   const showEta = Boolean(tr?.eta) && !isArrivalConfirmed && !isRideFailed;
 
   return {
@@ -92,6 +108,7 @@ export const getPatientJourney = (referral, facilities = []) => {
     nextStep,
     rideStage,
     rideSummary,
+    rideSummaryKey,
     showEta,
   };
 };

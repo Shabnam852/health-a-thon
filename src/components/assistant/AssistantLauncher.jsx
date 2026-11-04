@@ -4,6 +4,7 @@ import { useReferrals } from "../../context/ReferralContext.jsx";
 import { Role } from "../../domain/enums.js";
 import { Icon } from "../ui/index.js";
 import ChatPanel from "./ChatPanel.jsx";
+import { useFamilyLanguage } from "./useFamilyLanguage.js";
 import { usePatientCase } from "./usePatientCase.js";
 
 export const ASSISTANT_PATH = "/patient/assistant";
@@ -15,6 +16,7 @@ const FOCUSABLE = "textarea, input, button:not([disabled])";
  * popup beside the page; on a phone it goes to the full chat screen.
  */
 const AssistantLauncher = () => {
+  const { t, lang } = useFamilyLanguage();
   const { role, storyStep } = useReferrals();
   const { referral, facilities } = usePatientCase();
   const { pathname } = useLocation();
@@ -63,7 +65,7 @@ const AssistantLauncher = () => {
       {/* Phone: a full screen chat is easier to use than a popup. */}
       <Link to={ASSISTANT_PATH} className={`lg:hidden ${fab} ${lift}`}>
         <Icon name="support_agent" />
-        Ask
+        <span lang={lang}>{t.askShort}</span>
       </Link>
 
       <button

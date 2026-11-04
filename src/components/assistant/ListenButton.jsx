@@ -7,10 +7,13 @@ import { saveVoice, useVoice } from "../../services/voiceCache.js";
 import { Button, Icon } from "../ui/index.js";
 import { player, useFailedKey, usePlayingKey } from "./player.js";
 import { useAssistantStore } from "./useAssistantChat.js";
+import { useFamilyLanguage } from "./useFamilyLanguage.js";
 
 /** Reads a screen aloud in the family's language, for those who can't read it. */
-const ListenButton = ({ text, referral, label = "Listen to this page" }) => {
+const ListenButton = ({ text, referral, label }) => {
   const snapshot = useAssistantStore();
+  // Its own words follow the family's language too.
+  const { t, lang } = useFamilyLanguage(referral);
   const playingKey = usePlayingKey();
   const failedKey = useFailedKey();
   const [loading, setLoading] = useState(false);
@@ -54,26 +57,26 @@ const ListenButton = ({ text, referral, label = "Listen to this page" }) => {
       if (mounted.current) player.play(key, src);
     } catch (e) {
       if (e instanceof AssistantRequestError && !e.reachedAi) assistantStore.returnUse();
-      if (mounted.current) setError(e.message || "Couldn't read this aloud.");
+      if (mounted.current) setError(e.message || t.cantReadAloud);
     } finally {
       if (mounted.current) setLoading(false);
     }
   };
 
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <span lang={lang} className="inline-flex flex-col items-start gap-1">
       <Button size="sm" onClick={listen} disabled={loading || outOfUses}>
         <Icon name={isPlaying ? "stop_circle" : loading ? "hourglass_top" : "volume_up"} size="sm" />
-        {isPlaying ? "Stop" : loading ? "Getting voice…" : label}
+        {isPlaying ? t.stop : loading ? t.gettingVoice : label || t.listenPage}
       </Button>
       {/* Said in words, not only a greyed-out button: why it can't read, and who can help instead. */}
       {outOfUses && (
         <span className="flex flex-wrap items-center gap-2 text-sm text-ink">
-          <span>No listens left. Your care navigator can read this to you.</span>
+          <span>{t.noListens}</span>
           {navHref && (
             <Button size="sm" variant="secondary" as="a" href={navHref}>
               <Icon name="call" size="sm" />
-              Call your care navigator
+              {t.callNavigator}
             </Button>
           )}
         </span>
@@ -81,10 +84,10 @@ const ListenButton = ({ text, referral, label = "Listen to this page" }) => {
       <span role="status" className="flex flex-wrap items-center gap-2 text-sm text-danger-strong">
         {playFailed && (
           <>
-            <span>The voice couldn't play. Check your sound is on, then try again.</span>
+            <span>{t.voiceFailed}</span>
             <Button size="sm" variant="secondary" onClick={listen}>
               <Icon name="refresh" size="sm" />
-              Try again
+              {t.tryAgain}
             </Button>
           </>
         )}

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import ReferralDraftCard from "../components/ReferralDraftCard.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { Button, Card, Field, Icon, Input, PageHeader, Select, Textarea } from "../components/ui/index.js";
+import { Button, Card, Field, Icon, Input, Page, PageHeader, Select, Textarea } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext";
 import { telHref } from "../domain/contact.js";
 import { AuditRole, PATIENT_TYPE_LABELS, PatientType, ReferralStatus, UrgencyLevel } from "../domain/enums.js";
@@ -541,7 +541,7 @@ const CreateReferral = () => {
   };
 
   return (
-    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-2 space-y-3">
+    <Page width="full">
       <Toast toast={toast} />
 
       <PageHeader
@@ -832,7 +832,7 @@ const CreateReferral = () => {
           </Card>
         </form>
       </div>
-    </div>
+    </Page>
   );
 };
 

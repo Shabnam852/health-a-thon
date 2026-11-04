@@ -156,10 +156,7 @@ const ReferralDetails = () => {
 
   return (
     // On a desktop the whole case fits one screen: no page scroll. Narrow or short screens still scroll.
-    <Page
-      width="full"
-      className="max-w-7xl lg:h-[calc(100dvh-var(--size-header))] lg:flex lg:flex-col lg:!space-y-4 lg:!py-5"
-    >
+    <Page width="full" className="lg:h-[calc(100dvh-var(--size-header))] lg:flex lg:flex-col">
       {sentTo && (
         <div role="status" className="flex items-start gap-3 rounded-card border-l-4 border-accent bg-accent-soft p-3">
           <Icon name="check_circle" className="text-accent mt-0.5" />
@@ -169,7 +166,12 @@ const ReferralDetails = () => {
         </div>
       )}
       <div className="flex items-start gap-4">
-        <Pictogram name={PATIENT_PICTOGRAM[referral.referralType] || "pregnant"} size="lg" className="max-sm:hidden" />
+        {/* On the right, so the title starts where every other screen's title starts. */}
+        <Pictogram
+          name={PATIENT_PICTOGRAM[referral.referralType] || "pregnant"}
+          size="lg"
+          className="max-sm:hidden order-last"
+        />
         <div className="min-w-0 flex-1 space-y-1">
           <PageHeader
             title={referral.patientName}

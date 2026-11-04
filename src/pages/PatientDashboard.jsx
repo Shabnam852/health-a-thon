@@ -2,26 +2,25 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ASSISTANT_PATH } from "../components/assistant/AssistantLauncher.jsx";
 import ListenButton from "../components/assistant/ListenButton.jsx";
+import { useFamilyLanguage } from "../components/assistant/useFamilyLanguage.js";
 import { usePatientCase } from "../components/assistant/usePatientCase.js";
+import { fill, fillParts } from "../components/familyStrings.js";
 import HospitalChoice from "../components/HospitalChoice.jsx";
 import HospitalMap from "../components/HospitalMap.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
 import { Button, Card, EmptyState, Field, Icon, Page, PageHeader, Pictogram, Select } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { BRING_LIST, getScreenSummary } from "../domain/assistant.js";
+import { getScreenSummary } from "../domain/assistant.js";
 import { telHref } from "../domain/contact.js";
 import { TransportStatus, UrgencyLevel } from "../domain/enums.js";
 import { getHospitalMap } from "../domain/hospitalMap.js";
-import { getPatientJourney, RIDE_STAGES } from "../domain/patientJourney.js";
+import { getPatientJourney } from "../domain/patientJourney.js";
 import { StorageAdapter } from "../services/storageAdapter.js";
 
 const PATIENT_VIEWS = ["transit", "checklist", "support"];
 
-// Matches BRING_LIST, item by item.
+// Matches BRING_LIST (and the family strings' bring list), item by item.
 const BRING_PICTOGRAMS = ["id", "health-card", "medicines", "phone"];
-
-// The checklist shows the same items the assistant reads out.
-const CHECKLIST_ITEMS = BRING_LIST.map((text, index) => ({ id: index + 1, text, pictogram: BRING_PICTOGRAMS[index] }));
 
 // A contact with no number in it would be a dead link, so show nothing.
 const CallLink = ({ phone, children }) => {
@@ -55,7 +54,7 @@ const StepMarker = ({ done, now }) => (
   </span>
 );
 
-const StepList = ({ steps }) => (
+const StepList = ({ steps, t }) => (
   <ol>
     {steps.map((step, index) => {
       const isLast = index === steps.length - 1;
@@ -77,7 +76,7 @@ const StepList = ({ steps }) => (
               {step.label}
             </span>
             <span className={`text-xs font-semibold ${step.isNow ? "text-accent" : "text-ink-muted"}`}>
-              {step.done ? "Done" : step.isNow || "Not yet"}
+              {step.done ? t.done : step.isNow || t.notYet}
             </span>
           </span>
         </li>
@@ -115,30 +114,37 @@ const PatientDashboard = () => {
   const { toast, report } = useToast();
   const [searchParams] = useSearchParams();
   const [savedChecklists, setSavedChecklists] = useState(() => StorageAdapter.getChecklists());
+  const { t, lang } = useFamilyLanguage();
 
   // Every hook is above, so an empty case list can bail out safely.
   if (!referral) {
     return (
-      <Page width="md">
-        <PageHeader title="Your care" />
-        <EmptyState pictogram="clipboard">There is no case to show yet.</EmptyState>
+      <Page width="md" lang={lang}>
+        <PageHeader title={t.yourCare} />
+        <EmptyState pictogram="clipboard">{t.noCase}</EmptyState>
       </Page>
     );
   }
 
   const journey = getPatientJourney(referral, facilities);
-  const { isChild, who, tr, nav, floating, hospital, hospitalPhone, isRideFailed } = journey;
-  const { steps, nextStep, rideStage, rideSummary, showEta } = journey;
+  const { isChild, tr, nav, floating, hospital, hospitalPhone, isRideFailed } = journey;
+  const { steps, nextStep, rideStage, rideSummaryKey, showEta } = journey;
+  // The journey's words come from the domain in English; the screen shows them in the family's language.
+  const rideSummary = rideSummaryKey ? t[rideSummaryKey] : t.rideStages[rideStage - 1];
+  const nextText = fill(t[nextStep.nextKey], {
+    ...nextStep.nextVars,
+    name: nextStep.nextVars?.name || t.yourCareNavigator,
+  });
   // A newborn's page is read by the parent, so greet the parent and not "Baby".
   const greetedName = isChild ? referral?.caregiverName : referral?.patientName;
-  const patientFirstName = greetedName?.split(" ")[0] || "there";
+  const patientFirstName = greetedName?.split(" ")[0];
 
   // A number the family can tap to call; plain text if the field holds no number.
   const hospitalTel = telHref(hospitalPhone);
   const hospitalPhoneLink = hospitalTel ? (
     <a
       href={hospitalTel}
-      aria-label={`Call ${hospital || "the hospital"}, ${hospitalPhone}`}
+      aria-label={fill(t.callHospitalAria, { hospital: hospital || t.theHospital, phone: hospitalPhone })}
       className="inline-flex min-h-control-sm items-center text-accent underline"
     >
       {hospitalPhone}
@@ -150,9 +156,12 @@ const PatientDashboard = () => {
   const viewFromUrl = searchParams.get("view");
   const view = PATIENT_VIEWS.includes(viewFromUrl) ? viewFromUrl : "overview";
 
-  const checklist = CHECKLIST_ITEMS.map((item) => ({
-    ...item,
-    checked: Boolean(savedChecklists[referral?.id]?.[item.id]),
+  // The checklist shows the same items the assistant reads out, in the family's language.
+  const checklist = t.bring.map((text, index) => ({
+    id: index + 1,
+    text,
+    pictogram: BRING_PICTOGRAMS[index],
+    checked: Boolean(savedChecklists[referral?.id]?.[index + 1]),
   }));
   const packedCount = checklist.filter((item) => item.checked).length;
 
@@ -170,20 +179,22 @@ const PatientDashboard = () => {
   const hospitalMap = getHospitalMap(referral, facilities);
   const listen = <ListenButton referral={referral} text={getScreenSummary(view, referral, facilities)} />;
 
-  const finishChoice = (res, message) => report(res, message, "Something went wrong");
+  const finishChoice = (res, message) => report(res, message, t.somethingWrong);
 
   const chooser = floating && (
-    <Card title="Choose a hospital" className="space-y-4">
+    <Card title={t.chooseHospital} className="space-y-4">
       <p className="text-sm text-ink">
-        {referral.toFacility} can't take {who} right now. It's your choice where to go next.
+        {fill(isChild ? t.cantTakeBaby : t.cantTakeYou, { hospital: referral.toFacility })}
       </p>
       <HospitalChoice
         referral={referral}
+        strings={t}
+        noOptionsText={t.noOptions}
         onChoose={(name) =>
-          finishChoice(recordPatientChoice(referral.id, name), `${name} has been told you're coming.`)
+          finishChoice(recordPatientChoice(referral.id, name), fill(t.toldComing, { hospital: name }))
         }
         onElsewhere={(place) =>
-          finishChoice(recordPatientGoingElsewhere(referral.id, place), `Saved. Give your case ID at ${place}.`)
+          finishChoice(recordPatientGoingElsewhere(referral.id, place), fill(t.savedElsewhere, { place }))
         }
       />
     </Card>
@@ -209,19 +220,27 @@ const PatientDashboard = () => {
         ))}
       </div>
       <p className="text-xs text-ink-muted">
-        {packedCount} of {checklist.length} packed. At {hospital || "the hospital"}, give case ID{" "}
-        <strong className="text-ink">{referral?.id}</strong> at the reception desk.
+        {fillParts(t.packed, {
+          packed: packedCount,
+          total: checklist.length,
+          hospital: hospital || t.theHospital,
+          id: (
+            <strong key="id" className="text-ink">
+              {referral?.id}
+            </strong>
+          ),
+        })}
       </p>
     </>
   );
 
   return (
-    <Page width="md">
+    <Page width="md" lang={lang}>
       <Toast toast={toast} />
       <PageHeader
-        title={`Hello, ${patientFirstName}`}
+        title={patientFirstName ? fill(t.hello, { name: patientFirstName }) : t.helloNoName}
         actions={
-          <Field label="Patient" className="w-full sm:w-auto sm:max-w-xs">
+          <Field label={t.patient} className="w-full sm:w-auto sm:max-w-xs">
             <Select value={referral?.id} onChange={(e) => setActiveReferralId(e.target.value)}>
               {referrals.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -239,16 +258,12 @@ const PatientDashboard = () => {
       >
         <p className="flex items-start gap-3 text-sm font-semibold">
           <Icon name="emergency" className="mt-0.5 shrink-0" />
-          <span>
-            {floating && referral.priority === UrgencyLevel.STAT
-              ? "This is an emergency. Call 108 now, and choose a hospital after."
-              : "Severe bleeding, vision changes, intense constant pain, or reduced baby movement? Do not wait."}
-          </span>
+          <span>{floating && referral.priority === UrgencyLevel.STAT ? t.emergencyStat : t.emergencySigns}</span>
         </p>
         {/* The label is long: let it wrap on the narrowest phones instead of overflowing. */}
         <Button as="a" href="tel:108" variant="danger" wrap className="shrink-0">
           <Icon name="call" />
-          Call 108 (emergency services)
+          {t.call108}
         </Button>
       </section>
 
@@ -259,12 +274,14 @@ const PatientDashboard = () => {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="font-display text-xl sm:text-2xl font-semibold break-words">{rideSummary}</h2>
-                  {showEta && <p className="text-lg font-semibold tabular-nums mt-1">Arrives in {tr.eta}</p>}
+                  {showEta && (
+                    <p className="text-lg font-semibold tabular-nums mt-1">{fill(t.arrivesInEta, { eta: tr.eta })}</p>
+                  )}
                 </div>
                 <Pictogram name={isArrivalConfirmed ? "hospital" : "van"} tone="on-fill" size="lg" className="-my-1" />
               </div>
               <p className="text-sm border-t border-on-fill/20 pt-3">
-                <span className="font-semibold">Next:</span> {nextStep.next}
+                <span className="font-semibold">{t.next}</span> {nextText}
               </p>
             </section>
           )}
@@ -273,15 +290,17 @@ const PatientDashboard = () => {
             {listen}
             <Button as={Link} to={ASSISTANT_PATH} size="sm" className="lg:hidden">
               <Icon name="support_agent" size="sm" />
-              Ask a question
+              {t.askQuestion}
             </Button>
           </div>
 
-          <Card title="Your journey">
+          <Card title={t.yourJourney}>
             <StepList
-              steps={steps.map((s) => ({
+              t={t}
+              steps={steps.map((s, index) => ({
                 ...s,
-                isNow: s === nextStep && !s.done ? "Next" : "",
+                label: t.steps[index] ?? s.label,
+                isNow: s === nextStep && !s.done ? t.nextLabel : "",
               }))}
             />
           </Card>
@@ -294,13 +313,13 @@ const PatientDashboard = () => {
             <div className="min-w-0">
               {showEta ? (
                 <>
-                  <p className="text-sm text-on-fill-muted">Arrives in</p>
+                  <p className="text-sm text-on-fill-muted">{t.arrivesIn}</p>
                   <p className="font-display text-4xl font-semibold tabular-nums mt-1">{tr.eta}</p>
                 </>
               ) : (
                 <h2 className="font-display text-2xl font-semibold">{rideSummary}</h2>
               )}
-              <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || "No hospital chosen yet"}</p>
+              <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || t.noHospitalYet}</p>
             </div>
             <Pictogram name="van" tone="on-fill" size="lg" />
           </section>
@@ -309,35 +328,34 @@ const PatientDashboard = () => {
 
           {isRideFailed && (
             <p role="alert" className="p-4 rounded-card bg-danger-soft text-danger-strong text-sm">
-              <strong>Your ride had a problem.</strong> {tr.failedReason} Your care navigator is arranging another one.
+              <strong>{t.rideFailed}</strong> {tr.failedReason} {t.rideFailedAfter}
             </p>
           )}
 
           {chooser ||
             (hospitalMap ? (
-              <HospitalMap map={hospitalMap} />
+              <HospitalMap map={hospitalMap} title={t.gettingThere} />
             ) : (
-              <EmptyState pictogram="route">
-                The way to the hospital will appear here once a hospital is confirmed.
-              </EmptyState>
+              <EmptyState pictogram="route">{t.mapLater}</EmptyState>
             ))}
 
           {!tr && !isArrivalConfirmed ? (
-            <EmptyState pictogram="van">If you need a free ride, your care navigator will arrange it.</EmptyState>
+            <EmptyState pictogram="van">{t.freeRideOffer}</EmptyState>
           ) : (
-            <Card title="Progress">
+            <Card title={t.progress}>
               <StepList
-                steps={RIDE_STAGES.map((label, index) => {
+                t={t}
+                steps={t.rideStages.map((label, index) => {
                   // The stage reached last is still happening, until the patient has arrived.
-                  const isNow = index === rideStage - 1 && !isRideFailed && rideStage < RIDE_STAGES.length;
-                  return { label, done: index < rideStage && !isNow, isNow: isNow ? "Now" : "" };
+                  const isNow = index === rideStage - 1 && !isRideFailed && rideStage < t.rideStages.length;
+                  return { label, done: index < rideStage && !isNow, isNow: isNow ? t.nowLabel : "" };
                 })}
               />
             </Card>
           )}
 
           {tr?.driver && DRIVER_STATUSES.includes(tr.status) && !isArrivalConfirmed && (
-            <Card title="Your driver" className="space-y-3">
+            <Card title={t.yourDriver} className="space-y-3">
               <div className="flex items-center gap-3">
                 <span
                   aria-hidden="true"
@@ -350,17 +368,17 @@ const PatientDashboard = () => {
                   {tr.vehicle && <p className="text-xs text-ink-muted break-words">{tr.vehicle}</p>}
                 </div>
               </div>
-              {tr.driverPhone && <CallLink phone={tr.driverPhone}>Call driver</CallLink>}
+              {tr.driverPhone && <CallLink phone={tr.driverPhone}>{t.callDriver}</CallLink>}
             </Card>
           )}
 
           {tr && (
-            <Card title="Trip" className="space-y-3">
+            <Card title={t.trip} className="space-y-3">
               <dl className="space-y-3 text-sm">
                 <div className="flex items-start gap-3">
                   <Icon name="home" className="text-ink-muted mt-0.5" />
                   <div className="min-w-0">
-                    <dt className="text-xs text-ink-muted">From</dt>
+                    <dt className="text-xs text-ink-muted">{t.from}</dt>
                     <dd className="font-semibold text-ink break-words">
                       {tr.pickupAddress || referral?.patientAddress}
                     </dd>
@@ -369,14 +387,14 @@ const PatientDashboard = () => {
                 <div className="flex items-start gap-3">
                   <Icon name="local_hospital" className="text-ink-muted mt-0.5" />
                   <div className="min-w-0">
-                    <dt className="text-xs text-ink-muted">To</dt>
-                    <dd className="font-semibold text-ink break-words">{hospital || "Not chosen yet"}</dd>
+                    <dt className="text-xs text-ink-muted">{t.to}</dt>
+                    <dd className="font-semibold text-ink break-words">{hospital || t.notChosen}</dd>
                   </div>
                 </div>
               </dl>
               <p className="flex items-center gap-2 text-sm font-semibold text-accent">
                 <Icon name="check_circle" />
-                This ride is free
+                {t.rideFree}
               </p>
             </Card>
           )}
@@ -384,7 +402,7 @@ const PatientDashboard = () => {
       )}
 
       {view === "checklist" && (
-        <Card title="What to bring" className="space-y-3">
+        <Card title={t.whatToBring} className="space-y-3">
           {listen}
           {bring}
         </Card>
@@ -392,28 +410,24 @@ const PatientDashboard = () => {
 
       {view === "support" && (
         <>
-          <Card title="Ask about your visit" className="space-y-3">
-            <p className="text-sm text-ink">
-              Type or speak a question in your language, and hear the answer. It knows your ride, hospital and next
-              steps. It can't give medical advice.
-            </p>
+          <Card title={t.askTitle} className="space-y-3">
+            <p className="text-sm text-ink">{t.askBody}</p>
             <p className="flex items-start gap-2 text-sm text-ink">
               <Icon name="forward_to_inbox" className="text-accent shrink-0" />
               <span>
-                <strong>Something stopping you from getting to the hospital?</strong> Tell it here, like no money for
-                the bus or no one to mind the children. Your care navigator will be told and will call you.
+                <strong>{t.stoppingTitle}</strong> {t.stoppingBody}
               </span>
             </p>
             <div className="flex flex-wrap gap-2">
               <Button as={Link} to={ASSISTANT_PATH} variant="primary">
                 <Icon name="support_agent" />
-                Ask a question
+                {t.askQuestion}
               </Button>
               {listen}
             </div>
           </Card>
           {nav && (
-            <Card title="Your care navigator" className="space-y-3">
+            <Card title={t.yourCareNavigator} className="space-y-3">
               <div className="flex items-center gap-3">
                 {/* Initials in theme colours, so they keep their contrast in both themes. */}
                 <span
@@ -424,19 +438,19 @@ const PatientDashboard = () => {
                 </span>
                 <div className="min-w-0">
                   <p className="font-semibold text-ink">{nav.name}</p>
-                  <p className="text-xs text-ink-muted">Here for rides, childcare and language help.</p>
+                  <p className="text-xs text-ink-muted">{t.navigatorRole}</p>
                 </div>
               </div>
-              {nav.phone && <CallLink phone={nav.phone}>Call {nav.phone}</CallLink>}
+              {nav.phone && <CallLink phone={nav.phone}>{fill(t.callNumber, { phone: nav.phone })}</CallLink>}
             </Card>
           )}
-          <Card title="Your hospital">
+          <Card title={t.yourHospital}>
             <DetailList
               rows={[
-                ["Hospital", hospital || "Not chosen yet"],
-                ["Hospital phone", hospitalPhoneLink],
-                ["Your language", referral?.language],
-                ["Interpreter", referral?.interpreterNeeded ? "Requested for your visit" : "Not requested"],
+                [t.hospitalLabel, hospital || t.notChosen],
+                [t.hospitalPhone, hospitalPhoneLink],
+                [t.yourLanguage, referral?.language],
+                [t.interpreter, referral?.interpreterNeeded ? t.interpreterRequested : t.interpreterNot],
               ]}
             />
           </Card>

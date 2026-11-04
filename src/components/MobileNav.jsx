@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router";
-import { getActiveNavItem, getNavigationForRole } from "../config/navigationConfig.js";
+import { getActiveNavItem, getNavigationForRole, RoleId } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { useFamilyLanguage } from "./assistant/useFamilyLanguage.js";
 import { Icon } from "./ui/index.js";
 
 const MAX_TABS = 5;
@@ -12,6 +13,10 @@ const tabClass =
 const MobileNav = ({ onOpenMenu }) => {
   const { role } = useReferrals();
   const location = useLocation();
+  // Only the patient's tabs follow the family's language; staff tabs stay English.
+  const { t, lang } = useFamilyLanguage();
+  const isPatient = role === RoleId.PATIENT;
+  const tabLabel = (item) => (isPatient && item.tabKey ? t[item.tabKey] : item.tabLabel || item.title);
 
   const items = getNavigationForRole(role);
   const activeItem = getActiveNavItem(items, location.pathname, location.search);
@@ -21,6 +26,7 @@ const MobileNav = ({ onOpenMenu }) => {
   return (
     <nav
       aria-label="Tabs"
+      lang={isPatient ? lang : undefined}
       className="lg:hidden fixed bottom-0 inset-x-0 z-30 flex bg-surface border-t border-line pb-safe"
     >
       {tabs.map((item) => {
@@ -33,7 +39,7 @@ const MobileNav = ({ onOpenMenu }) => {
             className={`${tabClass} ${isActive ? "text-accent font-bold" : "text-ink-muted font-medium"}`}
           >
             <Icon name={item.icon} filled={isActive} />
-            {item.tabLabel || item.title}
+            {tabLabel(item)}
           </Link>
         );
       })}

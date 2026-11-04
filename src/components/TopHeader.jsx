@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { isRouteAllowedForRole } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import LanguageButton from "./assistant/LanguageButton.jsx";
 import { Button, Icon } from "./ui/index.js";
 
 const TopHeader = ({ onOpenMobileMenu }) => {
@@ -49,6 +50,7 @@ const TopHeader = ({ onOpenMobileMenu }) => {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-2">
+        {currentRole === "patient" && <LanguageButton />}
         <div className="relative">
           <Button
             ref={bellRef}

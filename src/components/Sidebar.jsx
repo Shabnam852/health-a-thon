@@ -3,9 +3,11 @@ import {
   getActiveNavItem,
   getNavigationForRole,
   getRoleDefinition,
+  RoleId,
   roleDefinitions,
 } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { useFamilyLanguage } from "./assistant/useFamilyLanguage.js";
 import ResetAssistantButton from "./ResetAssistantButton.jsx";
 import ResetDemoButton from "./ResetDemoButton.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -20,6 +22,10 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
   const roleDef = getRoleDefinition(currentRole);
   const navItems = getNavigationForRole(currentRole);
   const activeItem = getActiveNavItem(navItems, location.pathname, location.search);
+  // Only the patient's menu follows the family's language; staff menus stay English.
+  const { t, lang } = useFamilyLanguage();
+  const isPatient = currentRole === RoleId.PATIENT;
+  const itemTitle = (item) => (isPatient && item.titleKey ? t[item.titleKey] : item.title);
 
   const handleRoleChange = (e) => {
     const newRole = e.target.value;
@@ -53,7 +59,11 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
           </div>
         </div>
 
-        <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+        <nav
+          aria-label="Main"
+          lang={isPatient ? lang : undefined}
+          className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+        >
           {navItems.map((item) => {
             const isActive = item === activeItem;
 
@@ -70,7 +80,7 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
                 }`}
               >
                 <Icon name={item.icon} filled={isActive} className="shrink-0" />
-                <span className="truncate flex-1">{item.title}</span>
+                <span className="truncate flex-1">{itemTitle(item)}</span>
               </Link>
             );
           })}

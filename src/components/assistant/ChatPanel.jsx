@@ -5,7 +5,7 @@ import { telHref } from "../../domain/contact.js";
 import { useVoice } from "../../services/voiceCache.js";
 import { Button, Icon } from "../ui/index.js";
 import { chatStrings, chatStringsLang } from "./chatStrings.js";
-import LanguagePicker from "./LanguagePicker.jsx";
+import LanguageButton from "./LanguageButton.jsx";
 import MicMeter from "./MicMeter.jsx";
 import { player, useFailedKey, usePlayingKey } from "./player.js";
 import { useAssistantChat } from "./useAssistantChat.js";
@@ -241,7 +241,6 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
   const t = chatStrings(chat.language, chat.suggestedLanguage);
   const lang = chatStringsLang(chat.language, chat.suggestedLanguage);
   const [draft, setDraft] = useState("");
-  const [choosingLanguage, setChoosingLanguage] = useState(false);
   const [notice, setNotice] = useState("");
   const [confirmingClear, setConfirmingClear] = useState(false);
   // A plain update, not a problem: shown in grey, not red.
@@ -260,7 +259,6 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
   });
   const recording = recorder.state === "recording" || recorder.state === "starting";
   const wasRecording = useRef(false);
-  const changeLanguageRef = useRef(null);
   const sendRef = useRef(null);
   const outOfUses = chat.remaining === 0;
   const busy = Boolean(chat.pending) || recording;
@@ -307,24 +305,14 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
           {t.title}
         </Heading>
         <p className="text-xs text-ink-muted truncate">
-          {chat.language ? `Answers in ${languageLabel(chat.language)}` : "Choose a language to start"}
+          {`Answers in ${languageLabel(chat.language || chat.suggestedLanguage)}`}
           {" · "}
           {chat.remaining} of {ASSISTANT_LIMIT} left
         </p>
       </div>
-      {chat.language && !choosingLanguage && (
-        <Button
-          size="icon"
-          variant="ghost"
-          ref={changeLanguageRef}
-          onClick={() => setChoosingLanguage(true)}
-          aria-label="Change language"
-          title="Change language"
-        >
-          <Icon name="translate" />
-        </Button>
-      )}
-      {chat.messages.length > 0 && !choosingLanguage && (
+      {/* The same language setting as the family screens' header, which this full screen covers. */}
+      <LanguageButton />
+      {chat.messages.length > 0 && (
         <Button
           size="icon"
           variant="ghost"
@@ -392,35 +380,6 @@ const ChatPanel = ({ referral, facilities, variant = "popup", titleId, onClose, 
       </Button>
     </div>
   );
-
-  if (!chat.language || choosingLanguage) {
-    return (
-      <>
-        {header}
-        {emergencyBar}
-        <LanguagePicker
-          strings={t}
-          lang={lang}
-          current={chat.language}
-          suggested={chat.suggestedLanguage}
-          onChoose={(code) => {
-            chat.setLanguage(code);
-            setChoosingLanguage(false);
-            // The picker is gone: put the family straight into the message box.
-            requestAnimationFrame(() => textRef.current?.focus());
-          }}
-          onCancel={
-            chat.language
-              ? () => {
-                  setChoosingLanguage(false);
-                  requestAnimationFrame(() => changeLanguageRef.current?.focus());
-                }
-              : null
-          }
-        />
-      </>
-    );
-  }
 
   return (
     <>

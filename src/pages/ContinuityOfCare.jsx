@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import ListenButton from "../components/assistant/ListenButton.jsx";
+import { useFamilyLanguage } from "../components/assistant/useFamilyLanguage.js";
 import { FormDialog } from "../components/Dialog.jsx";
+import { familyDateLocale, fill } from "../components/familyStrings.js";
 import { actionsColumn, serialColumn } from "../components/referralColumns.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
 import {
@@ -35,29 +37,32 @@ const VISIT_PICTOGRAMS = [
 ];
 const visitPictogram = (title = "") => VISIT_PICTOGRAMS.find(([re]) => re.test(title))?.[1] || "calendar";
 
-// "Saturday, 31 October": a date a family reads at a glance, not 2026-10-31.
-const friendlyDate = (dueDate) =>
-  new Date(`${dueDate.slice(0, 10)}T00:00:00`).toLocaleDateString("en-IN", {
+// "Saturday, 31 October": a date a family reads at a glance, not 2026-10-31. In the family's language when given.
+const friendlyDate = (dueDate, locale = "en-IN") =>
+  new Date(`${dueDate.slice(0, 10)}T00:00:00`).toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
 
+// labelKey is a key into the family strings.
 const PATIENT_STATE = {
-  [FollowUpStatus.COMPLETED]: { tone: "accent", label: "Done", icon: "check_circle" },
-  [FollowUpStatus.DUE]: { tone: "highlight", label: "Due today", icon: "today" },
-  [FollowUpStatus.MISSED]: { tone: "danger", label: "Missed", icon: "error" },
-  [FollowUpStatus.ESCALATED]: { tone: "danger", label: "Missed", icon: "error" },
-  [FollowUpStatus.PLANNED]: { tone: "neutral", label: "Coming up", icon: "event" },
+  [FollowUpStatus.COMPLETED]: { tone: "accent", labelKey: "stateDone", icon: "check_circle" },
+  [FollowUpStatus.DUE]: { tone: "highlight", labelKey: "stateDueToday", icon: "today" },
+  [FollowUpStatus.MISSED]: { tone: "danger", labelKey: "stateMissed", icon: "error" },
+  [FollowUpStatus.ESCALATED]: { tone: "danger", labelKey: "stateMissed", icon: "error" },
+  [FollowUpStatus.PLANNED]: { tone: "neutral", labelKey: "stateComingUp", icon: "event" },
 };
 const isLate = (state) => state === FollowUpStatus.MISSED || state === FollowUpStatus.ESCALATED;
 
-const CheckUps = ({ referral, now, role }) => {
+const CheckUps = ({ referral, now, role, t, lang }) => {
   const plan = referral.followUpPlan;
+  const locale = familyDateLocale(lang);
   const nav = referral.navigator;
   const navHref = telHref(nav?.phone);
+  const navFirstName = nav?.name?.split(",")[0] || t.yourCareNavigator;
   const done = countDone(referral);
-  const next = plan.tasks.find((t) => t.status !== FollowUpStatus.COMPLETED);
+  const next = plan.tasks.find((task) => task.status !== FollowUpStatus.COMPLETED);
   const nextState = next && getFollowUpState(next, now);
   // This screen is only for the family: visits are named in plain words, never the clinical title.
   const nextVisit = next && describeVisitForFamily(next);
@@ -78,20 +83,18 @@ const CheckUps = ({ referral, now, role }) => {
         <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm text-on-fill-muted">{isLate(nextState) ? "Missed check-up" : "Next check-up"}</p>
+              <p className="text-sm text-on-fill-muted">{isLate(nextState) ? t.missedCheckup : t.nextCheckup}</p>
               <h2 className="font-display text-xl sm:text-2xl font-semibold mt-1 break-words">
-                {friendlyDate(next.dueDate)}
+                {friendlyDate(next.dueDate, locale)}
               </h2>
               <p className="text-sm mt-1 break-words">
-                Day {next.dayOffset}: {nextVisit.name}
+                {fill(t.dayVisit, { day: next.dayOffset, name: nextVisit.name })}
               </p>
             </div>
             <Pictogram name="calendar" tone="on-fill" size="lg" />
           </div>
           <p className="text-sm border-t border-on-fill/20 pt-3">
-            {isLate(nextState)
-              ? `${nav?.name?.split(",")[0] || "Your care navigator"} will call you to set a new time.`
-              : "Your care team will come to you or tell you where to go."}
+            {isLate(nextState) ? fill(t.missedCall, { name: navFirstName }) : t.teamWillCome}
           </p>
         </section>
       ) : (
@@ -101,16 +104,14 @@ const CheckUps = ({ referral, now, role }) => {
         >
           <Icon name="check_circle" className="text-accent mt-0.5" />
           <p className="text-sm text-ink">
-            <strong>All check-ups are done.</strong> Well done looking after {referral.patientName.split(" ")[0]}.
+            <strong>{t.allDone}</strong> {fill(t.wellDone, { name: referral.patientName.split(" ")[0] })}
           </p>
         </section>
       )}
 
-      <Card as="section" title={`${referral.patientName}'s check-ups`} className="space-y-4">
+      <Card as="section" title={fill(t.checkupsOf, { name: referral.patientName })} className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 -mt-2">
-          <p className="text-sm text-ink-muted tabular-nums">
-            {done} of {plan.tasks.length} done
-          </p>
+          <p className="text-sm text-ink-muted tabular-nums">{fill(t.doneCount, { done, total: plan.tasks.length })}</p>
           {isRouteAllowedForRole(role, "/referral") && (
             <Button as={Link} to={`/referral/${referral.id}`} variant="link" size="sm">
               Open chart
@@ -140,13 +141,13 @@ const CheckUps = ({ referral, now, role }) => {
                   />
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted">
-                      Day {task.dayOffset}
-                      <Badge tone={meta.tone}>{meta.label}</Badge>
+                      {fill(t.day, { day: task.dayOffset })}
+                      <Badge tone={meta.tone}>{t[meta.labelKey]}</Badge>
                     </p>
                     <h3 className="font-semibold text-ink break-words">{visit.name}</h3>
                     <p className="flex items-center gap-1.5 text-sm text-ink mt-1">
                       <Icon name="calendar_today" size="sm" className="text-ink-muted" />
-                      {friendlyDate(task.dueDate)}
+                      {friendlyDate(task.dueDate, locale)}
                     </p>
                   </div>
                 </div>
@@ -154,25 +155,25 @@ const CheckUps = ({ referral, now, role }) => {
                 {isLate(state) && (
                   <p className="flex items-start gap-2 text-sm text-danger-strong">
                     <Icon name="call" size="sm" className="mt-0.5" />
-                    This visit was missed. Your care navigator will call you to set a new time.
+                    {t.visitMissed}
                   </p>
                 )}
 
-                <Disclosure title="What happens at this visit" variant="inline">
+                <Disclosure title={t.whatHappens} variant="inline">
                   <dl className="space-y-2 break-words text-sm">
                     <div>
-                      <dt className="text-xs text-ink-muted">They will check</dt>
+                      <dt className="text-xs text-ink-muted">{t.theyCheck}</dt>
                       <dd className="text-ink">{visit.checks}</dd>
                     </div>
                     {visit.who && (
                       <div>
-                        <dt className="text-xs text-ink-muted">Who you will see</dt>
+                        <dt className="text-xs text-ink-muted">{t.whoYouSee}</dt>
                         <dd className="text-ink">{visit.who}</dd>
                       </div>
                     )}
                     {isDone && task.notes && (
                       <div>
-                        <dt className="text-xs text-ink-muted">What they found</dt>
+                        <dt className="text-xs text-ink-muted">{t.whatFound}</dt>
                         <dd className="text-ink">{task.notes}</dd>
                       </div>
                     )}
@@ -185,12 +186,12 @@ const CheckUps = ({ referral, now, role }) => {
       </Card>
 
       {nav && (
-        <Card as="section" title="Questions about a check-up?" className="space-y-3">
-          <p className="text-sm text-ink">{nav.name} can change a time, arrange a ride, or help with language.</p>
+        <Card as="section" title={t.questionsTitle} className="space-y-3">
+          <p className="text-sm text-ink">{fill(t.navCan, { name: nav.name })}</p>
           {navHref && (
             <Button as="a" href={navHref} variant="primary" className="w-full sm:w-auto">
               <Icon name="call" />
-              Call {nav.phone}
+              {fill(t.callNumber, { phone: nav.phone })}
             </Button>
           )}
         </Card>
@@ -298,6 +299,8 @@ const VISIT_COLUMNS = [
 const ContinuityOfCare = () => {
   const { referrals, completeFollowUpTask, role, activeReferralId, setActiveReferralId, now } = useReferrals();
   const isPatient = role === RoleId.PATIENT;
+  // Only the family's own view is translated; staff see English.
+  const family = useFamilyLanguage();
 
   const [completeModalTask, setCompleteModalTask] = useState(null);
   const [completionNotes, setCompletionNotes] = useState("");
@@ -346,11 +349,11 @@ const ContinuityOfCare = () => {
   };
 
   return (
-    <Page width={isPatient ? "md" : "full"}>
+    <Page width={isPatient ? "md" : "full"} lang={isPatient ? family.lang : undefined}>
       <Toast toast={toast} />
 
       <PageHeader
-        title={isPatient ? "My check-ups" : "Follow-ups"}
+        title={isPatient ? family.t.myCheckups : "Follow-ups"}
         subtitle={
           isPatient
             ? undefined
@@ -379,12 +382,10 @@ const ContinuityOfCare = () => {
           pageSize={50}
         />
       ) : plan ? (
-        <CheckUps referral={activeReferral} now={now} role={role} />
+        <CheckUps referral={activeReferral} now={now} role={role} t={family.t} lang={family.lang} />
       ) : (
         <EmptyState>
-          {isPatient
-            ? "Your check-ups will appear here once hospital care is complete."
-            : "No follow-ups yet. They start when a referral is completed."}
+          {isPatient ? family.t.checkupsLater : "No follow-ups yet. They start when a referral is completed."}
         </EmptyState>
       )}
 

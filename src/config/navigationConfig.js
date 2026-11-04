@@ -120,6 +120,9 @@ export const navigationConfig = {
     {
       title: "My journey",
       tabLabel: "Journey",
+      // Keys into the family strings: the patient tabs show in the family's language.
+      titleKey: "navJourney",
+      tabKey: "tabJourney",
       icon: "family_restroom",
       path: "/patient",
       matchPrefix: "/patient",
@@ -128,6 +131,8 @@ export const navigationConfig = {
     {
       title: "My ride",
       tabLabel: "Ride",
+      titleKey: "navRide",
+      tabKey: "tabRide",
       icon: "directions_car",
       path: "/patient?view=transit",
       category: "MY HEALTH JOURNEY",
@@ -135,6 +140,8 @@ export const navigationConfig = {
     {
       title: "What to bring",
       tabLabel: "Bring",
+      titleKey: "navBring",
+      tabKey: "tabBring",
       icon: "checklist",
       path: "/patient?view=checklist",
       category: "PREPARATION",
@@ -142,6 +149,8 @@ export const navigationConfig = {
     {
       title: "42-day plan",
       tabLabel: "Plan",
+      titleKey: "navPlan",
+      tabKey: "tabPlan",
       icon: "favorite",
       path: "/continuity",
       matchPrefix: "/continuity",
@@ -150,6 +159,8 @@ export const navigationConfig = {
     {
       title: "Get help",
       tabLabel: "Help",
+      titleKey: "navHelp",
+      tabKey: "tabHelp",
       icon: "help_outline",
       path: "/patient?view=support",
       // The assistant screen sits under Get help, not under My journey.

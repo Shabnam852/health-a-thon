@@ -10,9 +10,34 @@ const OPTIONS = [
 
 // Asked once per patient, then changeable from the chat header. Its own words are in the
 // language already chosen, or the one on the patient's record (strings and lang from ChatPanel).
+// Every line here also shows in English, so someone stuck in a language they can't read can
+// always find their way back (the usual pattern for language pickers).
+const Both = ({ text, english, lang }) =>
+  text === english ? (
+    text
+  ) : (
+    <>
+      <span lang={lang}>{text}</span>
+      <span lang="en" className="block font-normal text-ink-muted">
+        {english}
+      </span>
+    </>
+  );
+
+// Button labels: both on one line, "ସେଭ କରନ୍ତୁ / Save".
+const SameLine = ({ text, english, lang }) =>
+  text === english ? (
+    text
+  ) : (
+    <span>
+      <span lang={lang}>{text}</span> / <span lang="en">{english}</span>
+    </span>
+  );
+
 const LanguagePicker = ({ current, suggested, onChoose, onCancel, strings = ENGLISH_STRINGS, lang }) => {
   const [choice, setChoice] = useState(current || suggested);
   const name = useId();
+  const en = ENGLISH_STRINGS;
 
   return (
     <form
@@ -23,11 +48,11 @@ const LanguagePicker = ({ current, suggested, onChoose, onCancel, strings = ENGL
       }}
     >
       <fieldset className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
-        <legend lang={lang} className="text-base font-semibold text-ink mb-1">
-          {strings.pickTitle}
+        <legend className="text-base font-semibold text-ink mb-1">
+          <Both text={strings.pickTitle} english={en.pickTitle} lang={lang} />
         </legend>
-        <p lang={lang} className="text-sm text-ink-muted pb-1">
-          {strings.pickHint}
+        <p className="text-sm text-ink-muted pb-1">
+          <Both text={strings.pickHint} english={en.pickHint} lang={lang} />
         </p>
         {OPTIONS.map((option) => (
           <label
@@ -54,10 +79,14 @@ const LanguagePicker = ({ current, suggested, onChoose, onCancel, strings = ENGL
           </label>
         ))}
       </fieldset>
-      <div lang={lang} className="flex gap-2 justify-end p-3 border-t border-line">
-        {onCancel && <Button onClick={onCancel}>{strings.cancel}</Button>}
-        <Button type="submit" variant="primary">
-          {current ? strings.save : strings.start}
+      <div className="flex flex-wrap gap-2 justify-end p-3 border-t border-line">
+        {onCancel && (
+          <Button onClick={onCancel} wrap>
+            <SameLine text={strings.cancel} english={en.cancel} lang={lang} />
+          </Button>
+        )}
+        <Button type="submit" variant="primary" wrap>
+          <SameLine text={current ? strings.save : strings.start} english={current ? en.save : en.start} lang={lang} />
         </Button>
       </div>
     </form>
