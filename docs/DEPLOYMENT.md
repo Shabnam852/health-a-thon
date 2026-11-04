@@ -55,5 +55,7 @@ The repo owner does this once. The order matters: a new project's first deployme
 - The app is a single page app. The rewrite in `vercel.json` sends every path except `/api/` to `index.html`, so direct links such as `/patient?view=transit` load.
 - The AI routes (`/api/assistant`, `/api/assistant/speak`, `/api/ai/handoff`, `/api/ai/referral-draft`) are Vercel functions in `api/`, which call the shared handlers in `server/`. Each function may run for up to 60 seconds (`vercel.json`).
 - For local work, copy `.env.example` to `.env` and add the two keys. `npm run dev` serves the AI routes too. `.env` is git-ignored: never commit it.
-- Workflows in a fork skip the deploy job, because it only runs in `Shabnam852/health-a-thon`. If the repo moves, update that name in the workflow.
-- The Vercel CLI version is pinned in the workflow. Update it there when upgrading.
+- The deploy job only runs in `Bougerous/health-a-thon`, the team's own fork, which holds the Vercel secrets. Workflows anywhere else, including `Shabnam852/health-a-thon`, run the checks and skip the deploy. If the repo moves, update that name in the workflow.
+- The Vercel CLI version and every action are pinned in the workflow, the actions to a commit SHA with the tag in a comment. When upgrading, pick a release at least 14 days old and update the SHA.
+- `.npmrc` sets `ignore-scripts=true`, so no package install script runs in CI or on Vercel, where the deploy token is in the environment. A new dependency that needs one has to be allowed on purpose.
+- Anyone with write access to the fork can deploy, and could change the workflow to read the secrets. Keep collaborators to the team.
