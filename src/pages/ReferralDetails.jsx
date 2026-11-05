@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
+import PastRecordsCard from "../components/abdm/PastRecordsCard.jsx";
 import Dialog from "../components/Dialog.jsx";
 import HandoffCard from "../components/HandoffCard.jsx";
 import { enumLabel, priorityLabel } from "../components/referralColumns.jsx";
@@ -356,7 +357,8 @@ const ReferralDetails = () => {
 
         {/* For staff only: the family has their own screens. */}
         {showHandoff && (
-          <div className="min-w-0 flex flex-col lg:min-h-0">
+          <div className="min-w-0 flex flex-col gap-5 lg:min-h-0">
+            <PastRecordsCard referral={referral} className="lg:max-h-[45%] lg:overflow-y-auto" />
             {/* A long draft scrolls inside its card, never the page. */}
             <HandoffCard referral={referral} className="sm:!p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto" />
           </div>

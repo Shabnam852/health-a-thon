@@ -82,6 +82,12 @@ export const conditionColumn = () => ({
   header: "Condition",
   accessorFn: (r) => r.condition || r.reason || "",
   meta: { className: "min-w-48 text-ink-muted" },
+  // Two lines at most, so every row keeps one height. The full text is in the tooltip.
+  cell: ({ getValue }) => (
+    <span className="line-clamp-2" title={getValue()}>
+      {getValue()}
+    </span>
+  ),
 });
 
 export const fromColumn = () => ({

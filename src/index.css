@@ -240,3 +240,13 @@ main:focus,
     scroll-behavior: auto !important;
   }
 }
+
+/* Table rows are opaque, so the pinned actions cell can take the row's colour (bg-inherit) without
+   the columns that scroll under it showing through. Mixed from tokens, so both themes follow. */
+@utility bg-row-alarm {
+  background-color: color-mix(in oklab, rgb(var(--color-danger-soft)) 40%, rgb(var(--color-surface)));
+}
+
+@utility bg-row-hover {
+  background-color: color-mix(in oklab, rgb(var(--color-muted)) 60%, rgb(var(--color-surface)));
+}

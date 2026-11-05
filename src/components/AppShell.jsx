@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, Navigate, useLocation } from "react-router";
 import {
   getPrimaryRoleForRoute,
   getRoleDefinition,
   isKnownRoute,
   isRouteAllowedForRole,
 } from "../config/navigationConfig.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import AssistantLauncher from "./assistant/AssistantLauncher.jsx";
 import { useModalFocus } from "./Dialog.jsx";
 import MobileNav from "./MobileNav";
+import PrivacyNotice from "./PrivacyNotice.jsx";
 import Sidebar from "./Sidebar";
 import StoryBar from "./StoryBar";
 import TopHeader from "./TopHeader";
@@ -38,7 +40,8 @@ const MobileDrawer = ({ onClose }) => {
 
 const AppShell = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { role, setRole, storyStep } = useReferrals();
+  const { role, storyStep } = useReferrals();
+  const { session, privacyAccepted, signInAsDemoRole } = useAuth();
   const location = useLocation();
 
   // The drawer is phone-only: it must not stay open, and keep the page locked, behind a new screen
@@ -68,6 +71,12 @@ const AppShell = ({ children }) => {
 
   const primaryRoleForRoute = getPrimaryRoleForRoute(location.pathname);
   const requiredRoleDef = getRoleDefinition(primaryRoleForRoute);
+  // A patient or family member reads the privacy notice once. The guided demo skips it.
+  const needsPrivacy = session?.role === "patient" && !privacyAccepted && storyStep === null;
+
+  if (!session) {
+    return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col">
@@ -102,23 +111,27 @@ const AppShell = ({ children }) => {
             <div className="w-full max-w-lg mx-auto py-16 px-4 sm:px-6 text-center space-y-4">
               <Icon name="lock" size="xl" className="text-danger" />
               <h1 className="font-display text-2xl font-semibold text-ink">For {requiredRoleDef.title}</h1>
-              <p className="text-sm text-ink-muted">You are viewing as {roleDef.title}.</p>
+              <p className="text-sm text-ink-muted">
+                You are signed in as {session.name}, {roleDef.title}.
+              </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button as={Link} to={roleDef.homePath}>
                   Back to my screens
                 </Button>
-                <Button variant="primary" onClick={() => setRole(requiredRoleDef.id)}>
-                  Switch to {requiredRoleDef.shortTitle}
+                <Button variant="primary" onClick={() => signInAsDemoRole(requiredRoleDef.id)}>
+                  Demo only: sign in as {requiredRoleDef.shortTitle}
                 </Button>
               </div>
             </div>
+          ) : needsPrivacy ? (
+            <PrivacyNotice />
           ) : (
             children
           )}
         </main>
       </div>
 
-      {isAllowed && <AssistantLauncher />}
+      {isAllowed && !needsPrivacy && <AssistantLauncher />}
       <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />
       <StoryBar />
     </div>

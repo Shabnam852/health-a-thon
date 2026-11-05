@@ -31,21 +31,27 @@ const TODO_COLUMNS = [
     id: "problem",
     header: "What's wrong",
     accessorFn: (row) => (row.alarms.length ? row.alarms.map((a) => a.title).join(" ") : statusLabel(row.status)),
-    meta: { className: "min-w-56" },
+    meta: { className: "min-w-56 max-w-80" },
     cell: ({ row: { original: row } }) =>
       row.alarms.length ? (
         <span className="space-y-1 block">
           {row.alarms.map((a) => (
             <span key={a.id} className="block">
-              <span className="block font-semibold text-danger">{a.title}</span>
-              <span className="block text-xs text-ink-muted">{a.detail}</span>
+              <span className="block truncate font-semibold text-danger" title={a.title}>
+                {a.title}
+              </span>
+              <span className="block truncate text-xs text-ink-muted">{a.detail}</span>
             </span>
           ))}
         </span>
       ) : (
         <span>
           <span className="block font-semibold text-ink">{statusLabel(row.status)}</span>
-          {row.barrier && <span className="block text-xs text-danger">{row.barrier.title}</span>}
+          {row.barrier && (
+            <span className="block truncate text-xs text-danger" title={row.barrier.title}>
+              {row.barrier.title}
+            </span>
+          )}
         </span>
       ),
   },
@@ -173,7 +179,7 @@ const CoordinatorDashboard = () => {
           data={todo}
           columns={TODO_COLUMNS}
           context={todoContext}
-          getRowClassName={(row) => (row.alarms.length ? "bg-danger-soft/40" : "")}
+          getRowClassName={(row) => (row.alarms.length ? "bg-row-alarm" : "")}
           searchPlaceholder="Search name, ID or problem"
           emptyText="Nothing needs you right now."
           noMatchText="Nothing matches."

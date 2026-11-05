@@ -1,12 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import {
-  getActiveNavItem,
-  getNavigationForRole,
-  getRoleDefinition,
-  RoleId,
-  roleDefinitions,
-} from "../config/navigationConfig.js";
+import { getActiveNavItem, getNavigationForRole, getRoleDefinition, RoleId } from "../config/navigationConfig.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { phoneAccounts, staffAccounts } from "../services/auth/demoAccounts.js";
 import { useFamilyLanguage } from "./assistant/useFamilyLanguage.js";
 import ResetAssistantButton from "./ResetAssistantButton.jsx";
 import ResetDemoButton from "./ResetDemoButton.jsx";
@@ -14,7 +10,8 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import { BrandMark, Button, Field, Icon, Select } from "./ui/index.js";
 
 const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
-  const { role, setRole } = useReferrals();
+  const { role } = useReferrals();
+  const { session, signInAsDemoAccount, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -27,15 +24,25 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
   const isPatient = currentRole === RoleId.PATIENT;
   const itemTitle = (item) => (isPatient && item.titleKey ? t[item.titleKey] : item.title);
 
-  const handleRoleChange = (e) => {
-    const newRole = e.target.value;
-    setRole(newRole);
-    const targetDef = roleDefinitions[newRole];
-    if (targetDef?.homePath) {
-      navigate(targetDef.homePath);
-      if (onNavigate) onNavigate();
-    }
+  // Demo only: jump to another made-up account without typing a password or code.
+  const handleAccountChange = (e) => {
+    const result = signInAsDemoAccount(e.target.value);
+    if (!result.ok) return;
+    navigate(getRoleDefinition(result.session.role).homePath);
+    if (onNavigate) onNavigate();
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    if (onNavigate) onNavigate();
+    navigate("/login");
+  };
+
+  const signedInAs = session
+    ? session.relation && session.relation !== "self"
+      ? `${session.relation}, family`
+      : session.jobTitle || roleDef.title
+    : "";
 
   const handleItemClick = () => {
     if (onNavigate) onNavigate();
@@ -95,18 +102,37 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
           <ResetAssistantButton />
           <ResetDemoButton />
         </div>
-        <Field label="Demo only: view as">
-          <Select value={currentRole} onChange={handleRoleChange}>
-            {Object.values(roleDefinitions).map((def) => (
-              <option key={def.id} value={def.id}>
-                {def.title}
-              </option>
-            ))}
+        {session && (
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-ink truncate">{session.name}</span>
+              <span className="block text-xs text-ink-muted truncate">{signedInAs}</span>
+            </span>
+            <Button size="sm" variant="ghost" onClick={handleSignOut}>
+              <Icon name="logout" />
+              Sign out
+            </Button>
+          </div>
+        )}
+        <Field label="Demo only: sign in as">
+          <Select value={session?.accountId ?? ""} onChange={handleAccountChange}>
+            <optgroup label="Care team">
+              {staffAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}, {a.jobTitle}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Patients and family">
+              {phoneAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.relation === "self" ? ", patient" : `, ${a.relation.toLowerCase()}`}
+                </option>
+              ))}
+            </optgroup>
           </Select>
         </Field>
-        <Button as={Link} to="/" variant="link" fullWidth onClick={handleItemClick}>
-          Back to start
-        </Button>
       </div>
     </div>
   );

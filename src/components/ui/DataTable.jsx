@@ -65,7 +65,8 @@ const FEATURES = tableFeatures({
  *   meta.sticky: true    pinned to the right edge, so buttons stay in reach while the table scrolls
  * Search runs over every column with an accessor. renderDetail(row) makes rows expandable,
  * getRowLabel(row) names a row in its buttons ("Show details for Sunita Yadav"),
- * and getRowClassName(row) styles a row (e.g. dimming rows that don't fit a filter).
+ * and getRowClassName(row) styles a row (e.g. dimming rows that don't fit a filter). A row background
+ * must be opaque (bg-row-alarm, not bg-danger-soft/40): the pinned actions cell inherits it.
  * renderBelow(rows) draws more content from the rows the filters and search leave, so a second
  * view of the same rows (a grid, a map) always agrees with the table.
  * Keep column defs outside components: flexRender mounts each cell function as a component,
@@ -381,7 +382,10 @@ const DataTable = ({
                   ) : (
                     rows.map((row) => (
                       <Fragment key={row.id}>
-                        <tr className={`align-top hover:bg-muted/60 ${getRowClassName?.(row.original) || ""}`}>
+                        {/* One height for every row, so a row with a second line doesn't stand out. */}
+                        <tr
+                          className={`h-16 align-middle ${getRowClassName?.(row.original) || "bg-surface"} hover:bg-row-hover`}
+                        >
                           {renderDetail && (
                             <td className="px-2 py-2">
                               <Button
@@ -403,7 +407,7 @@ const DataTable = ({
                           {row.getVisibleCells().map((cell) => (
                             <td
                               key={cell.id}
-                              className={`px-3 py-2.5 ${cell.column.columnDef.meta?.sticky ? "sticky right-0 bg-surface border-l border-line" : ""} ${cell.column.columnDef.meta?.className || ""}`}
+                              className={`px-3 py-2.5 ${cell.column.columnDef.meta?.sticky ? "sticky right-0 bg-inherit border-l border-line" : ""} ${cell.column.columnDef.meta?.className || ""}`}
                             >
                               {flexRender(cell.column.columnDef.cell, {
                                 ...cell.getContext(),

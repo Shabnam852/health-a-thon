@@ -157,6 +157,16 @@ export const navigationConfig = {
       category: "CONTINUING CARE",
     },
     {
+      title: "Health records",
+      tabLabel: "Records",
+      titleKey: "navRecords",
+      tabKey: "tabRecords",
+      icon: "folder_shared",
+      path: "/patient/records",
+      matchPrefix: "/patient/records",
+      category: "MY HEALTH JOURNEY",
+    },
+    {
       title: "Get help",
       tabLabel: "Help",
       titleKey: "navHelp",

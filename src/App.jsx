@@ -4,18 +4,20 @@ import { Navigate, Route, Routes, useLocation } from "react-router";
 import AppShell from "./components/AppShell.jsx";
 import { ASSISTANT_PATH } from "./components/assistant/AssistantLauncher.jsx";
 import { getRoleDefinition, RoleId } from "./config/navigationConfig.js";
+import { useAuth } from "./context/AuthContext.jsx";
 import { useReferrals } from "./context/ReferralContext.jsx";
 import AssistantScreen from "./pages/AssistantScreen.jsx";
 import ContinuityOfCare from "./pages/ContinuityOfCare.jsx";
 import CoordinatorDashboard from "./pages/CoordinatorDashboard.jsx";
 import CreateReferral from "./pages/CreateReferral.jsx";
 import FacilityDashboard from "./pages/FacilityDashboard.jsx";
+import HealthRecords from "./pages/HealthRecords.jsx";
+import Login from "./pages/Login.jsx";
 import NetworkView from "./pages/NetworkView.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import PatientDashboard from "./pages/PatientDashboard.jsx";
 import Patients from "./pages/Patients.jsx";
 import ReferralDetails from "./pages/ReferralDetails.jsx";
-import RoleSelection from "./pages/RoleSelection.jsx";
 import TransportCoordination from "./pages/TransportCoordination.jsx";
 
 // There is no standalone list page, so /referrals opens the role's own queue.
@@ -23,6 +25,12 @@ const ReferralsRedirect = () => {
   const { role } = useReferrals();
   const queues = { [RoleId.COORDINATOR]: "/patients", [RoleId.FACILITY]: "/facility?tab=pending" };
   return <Navigate to={queues[role] || getRoleDefinition(role).homePath} replace />;
+};
+
+// The sign-in screen is the way in. Someone already signed in goes straight to their home screen.
+const StartRedirect = () => {
+  const { session } = useAuth();
+  return <Navigate to={session ? getRoleDefinition(session.role).homePath : "/login"} replace />;
 };
 
 // On a new screen: name it in the tab, start at the top, and move focus to it so
@@ -55,8 +63,8 @@ function App() {
   return (
     <div className="min-h-screen bg-canvas  text-ink antialiased">
       <Routes>
-        {/* PUBLIC ROLE SELECTION */}
-        <Route path="/" element={<RoleSelection />} />
+        <Route path="/" element={<StartRedirect />} />
+        <Route path="/login" element={<Login />} />
 
         {/* WORKSPACE ROUTES (Wrapped in Stitch AppShell) */}
         <Route
@@ -123,6 +131,15 @@ function App() {
           element={
             <AppShell>
               <PatientDashboard />
+            </AppShell>
+          }
+        />
+
+        <Route
+          path="/patient/records"
+          element={
+            <AppShell>
+              <HealthRecords />
             </AppShell>
           }
         />

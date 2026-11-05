@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useAbdm } from "../context/AbdmContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { FormDialog } from "./Dialog.jsx";
 import { Button, Icon } from "./ui/index.js";
 
 const ResetDemoButton = () => {
   const { resetDemoData } = useReferrals();
+  const { resetAbdm } = useAbdm();
   const navigate = useNavigate();
   const [isConfirming, setIsConfirming] = useState(false);
 
   const confirmReset = () => {
     resetDemoData();
+    resetAbdm();
     setIsConfirming(false);
     navigate("/");
   };
