@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/react";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router";
@@ -13,6 +14,9 @@ import "./styles/icons.css";
 import "./styles/tokens.css";
 import "./index.css";
 
+// Page views only, with the query string cut off so no phone number, account or case search is sent.
+const stripQuery = (event) => ({ ...event, url: event.url.split("?")[0] });
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -24,5 +28,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         </AuthProvider>
       </ReferralProvider>
     </BrowserRouter>
+    <Analytics beforeSend={stripQuery} />
   </React.StrictMode>,
 );
