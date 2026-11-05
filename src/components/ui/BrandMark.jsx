@@ -1,0 +1,20 @@
+// Navexa's mark: a path from one point to another, for getting each patient from referral to care.
+// The glyph is Material Symbols Rounded "conversion_path" (Apache 2.0), copied as a vector so the
+// favicon (public/favicon.svg) and the app draw the same shape.
+const PATH =
+  "M766 936Q725 936 694.5 911.5Q664 887 656 852H443Q377 852 333.5 808.5Q290 765 290 699Q290 633 333.5 589.5Q377 546 443 546H520Q561 546 587.0 520.0Q613 494 613.0 453.0Q613 412 587.0 386.0Q561 360 520 360H304Q295 395 265.0 419.5Q235 444 194 444Q146 444 113.0 411.0Q80 378 80.0 330.0Q80 282 113.0 249.0Q146 216 194 216Q235 216 265.0 240.5Q295 265 304 300H520Q586 300 629.5 343.5Q673 387 673.0 453.0Q673 519 629.5 562.5Q586 606 520 606H443Q402 606 376.0 632.0Q350 658 350 699Q350 740 376.0 766.0Q402 792 443 792H656Q665 757 695.0 732.5Q725 708 766 708Q814 708 847.0 741.0Q880 774 880.0 822.0Q880 870 847.0 903.0Q814 936 766 936ZM194.0 384.0Q217 384 232.5 368.5Q248 353 248.0 330.0Q248 307 232.5 291.5Q217 276 194.0 276.0Q171 276 155.5 291.5Q140 307 140.0 330.0Q140 353 155.5 368.5Q171 384 194.0 384.0Z";
+
+const SIZES = { sm: "w-8 h-8 rounded-control", md: "w-9 h-9 rounded-control" };
+
+const BrandMark = ({ size = "md", className = "" }) => (
+  <span
+    aria-hidden="true"
+    className={`inline-flex shrink-0 items-center justify-center bg-brand text-on-fill ${SIZES[size]} ${className}`}
+  >
+    <svg viewBox="0 96 960 960" className="w-[70%] h-[70%]" fill="currentColor" focusable="false" aria-hidden="true">
+      <path d={PATH} />
+    </svg>
+  </span>
+);
+
+export default BrandMark;

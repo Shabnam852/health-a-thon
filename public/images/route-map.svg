@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 352" role="img" aria-label="Schematic route map">
+  <rect width="512" height="352" fill="#eef2f3"/>
+  <path d="M0 250 C90 225 150 300 250 275 S420 225 512 262 V352 H0Z" fill="#d7ead8"/>
+  <ellipse cx="392" cy="82" rx="58" ry="28" fill="#bfdfee"/>
+  <g fill="none" stroke="#fff" stroke-width="5">
+    <path d="M0 62 H512M0 150 H512M72 0 V352M196 0 V352M330 0 V352M446 0 V352"/>
+    <path d="M0 322 L512 22"/>
+  </g>
+  <ellipse cx="256" cy="172" rx="184" ry="124" fill="none" stroke="#f3c766" stroke-width="10"/>
+  <path d="M92 228 C150 196 170 118 256 104 S360 96 398 118" fill="none" stroke="#0f5c6e" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 12"/>
+  <circle cx="92" cy="228" r="9" fill="#0f5c6e" stroke="#fff" stroke-width="3"/>
+  <circle cx="398" cy="118" r="11" fill="#ba1a1a" stroke="#fff" stroke-width="3"/>
+  <g font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" fill="#26343a">
+    <text x="58" y="208">Kaveri Clinic</text>
+    <text x="316" y="150">Sanjeevani Centre</text>
+    <text x="196" y="42" fill="#7a5a12">Outer Ring Road</text>
+  </g>
+  <text x="498" y="20" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="11" fill="#5f6b70">Schematic, not to scale</text>
+</svg>

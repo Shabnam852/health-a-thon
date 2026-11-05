@@ -1,109 +1,379 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useReferrals } from '../context/ReferralContext';
-import ReferralTimeline from '../components/ReferralTimeline';
-import StatusBadge from '../components/StatusBadge';
+import { useState } from "react";
+import { Link, useLocation, useParams } from "react-router";
+import PastRecordsCard from "../components/abdm/PastRecordsCard.jsx";
+import Dialog from "../components/Dialog.jsx";
+import HandoffCard from "../components/HandoffCard.jsx";
+import { enumLabel, priorityLabel } from "../components/referralColumns.jsx";
+import { Badge, Button, Card, Icon, Page, PageHeader, Pictogram } from "../components/ui/index.js";
+import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
+import { useReferrals } from "../context/ReferralContext.jsx";
+import { isHighAcuity, PatientType, Role } from "../domain/enums.js";
+import { getJourneyHeadline, getReferralJourney, JourneyState } from "../domain/landing.js";
+import { getDestination, hasArrivedAtFacility, isFloating } from "../domain/workflow.js";
+
+// The vitals each patient is expected to have. Shown even when missing, so a gap reads as "Not recorded".
+const childVitals = [
+  ["Bilirubin", "tsb", "blood-test"],
+  ["Weight", "weight", "weight"],
+  ["Temperature", "temp", "temperature"],
+  ["Heart rate", "hr", "heart"],
+];
+const maternalVitals = [
+  ["Blood pressure", "bp", "blood-pressure"],
+  ["Fetal heart rate", "fhr", "heart"],
+  ["Urine protein", "urine", "urine"],
+  ["Biophysical profile", "bpp", "scan"],
+];
+// Other vitals a referral can carry. Anything recorded is shown, so nothing measured is hidden.
+const extraVitals = {
+  membranes: ["Membranes", "pregnant", "mother"],
+  infantWeight: ["Baby's weight", "weight", "baby"],
+  infantTemp: ["Baby's temperature", "temperature", "baby"],
+  infantHr: ["Baby's heart rate", "heart", "baby"],
+};
+const babyKeys = new Set(childVitals.map(([, key]) => key));
+const motherKeys = new Set(maternalVitals.map(([, key]) => key));
+
+// "infantWeight" -> "Infant weight", for a vital this screen has no name for yet.
+const keyLabel = (key) => {
+  const words = key.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+/** Every vital to show, grouped by mother and baby. Status flags (bpStatus) are not vitals. */
+const getVitalGroups = (referral) => {
+  const recorded = referral.vitals || {};
+  const type = referral.referralType;
+  const mother = type === PatientType.CHILD ? [] : [...maternalVitals];
+  const baby = type === PatientType.MATERNAL ? [] : [...childVitals];
+  const known = new Set([...mother, ...baby].map(([, key]) => key));
+  for (const [key, value] of Object.entries(recorded)) {
+    if (known.has(key) || key.endsWith("Status") || value == null || value === "") continue;
+    const extra = extraVitals[key];
+    const group =
+      extra?.[2] ??
+      (babyKeys.has(key) || /^(infant|baby|newborn)/i.test(key)
+        ? "baby"
+        : motherKeys.has(key) || type !== PatientType.CHILD
+          ? "mother"
+          : "baby");
+    const row = [extra?.[0] ?? keyLabel(key), key, extra?.[1] ?? "clipboard"];
+    (group === "baby" ? baby : mother).push(row);
+  }
+  return [
+    { id: "mother", title: "Mother", vitals: mother },
+    { id: "baby", title: "Baby", vitals: baby },
+  ].filter((g) => g.vitals.length > 0);
+};
+
+// The patient's picture, by who is being referred.
+const PATIENT_PICTOGRAM = {
+  [PatientType.MATERNAL]: "pregnant",
+  [PatientType.CHILD]: "baby",
+  [PatientType.DYAD]: "mother-baby",
+};
+
+// One picture per step of the journey, so its progress reads at a glance.
+const STEP_PICTOGRAM = {
+  sent: "referral",
+  acknowledged: "doctor",
+  transport: "van",
+  arrived: "hospital",
+  "follow-up": "calendar",
+};
+// The phone stepper's circle: filled with a tick when done, a ring for now, empty for later.
+const STEP_DOT = {
+  [JourneyState.DONE]: "bg-accent text-on-fill",
+  [JourneyState.ACTIVE]: "border-2 border-accent bg-surface",
+  [JourneyState.AT_RISK]: "border-2 border-danger bg-surface text-danger",
+  [JourneyState.UPCOMING]: "border-2 border-line-strong bg-surface",
+};
+const STEP_STATE = {
+  [JourneyState.DONE]: { text: "Done", tone: "accent" },
+  [JourneyState.ACTIVE]: { text: "Now", tone: "ink" },
+  [JourneyState.AT_RISK]: { text: "Needs help", tone: "danger" },
+  [JourneyState.UPCOMING]: { text: "Not yet", tone: "neutral" },
+};
+
+// The newest updates shown on the page; the rest open in a dialog, so the page never scrolls.
+const HISTORY_SHOWN = 3;
+
+// Long notes are cut to one line on the page; "full" shows every word (the History dialog).
+const NOTE_CLAMP = 40;
+const isClamped = (t) => (t.notes || "").length > NOTE_CLAMP;
+
+const HistoryList = ({ items, full = false }) => (
+  <ul className="space-y-2.5">
+    {items.map((t) => (
+      <li key={`${t.date}-${t.status}-${t.notes}`} className="flex items-start justify-between gap-3 text-sm">
+        <span className="min-w-0">
+          <span className="font-semibold text-ink">{enumLabel(t.status)}</span>
+          <span className={`block text-ink-muted break-words ${full ? "" : "line-clamp-1"}`}>{t.notes}</span>
+        </span>
+        <span className="text-xs text-ink-muted shrink-0 tabular-nums">
+          {new Date(t.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </span>
+      </li>
+    ))}
+  </ul>
+);
+
+const formatVital = (key, value) => (key === "fhr" && /^\d+$/.test(value || "") ? `${value} bpm` : value);
 
 const ReferralDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const { getReferralById, updateReferralStatus } = useReferrals();
-  
+  // Set by the new-referral form, so the case it opens says the referral went out.
+  const sentTo = useLocation().state?.sentTo;
+  const { getReferralById, role, setActiveReferralId } = useReferrals();
+  const [showAllHistory, setShowAllHistory] = useState(false);
+
   const referral = getReferralById(id);
-  const [newStatus, setNewStatus] = useState('');
-  const [note, setNote] = useState('');
 
   if (!referral) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-        <h2>Referral not found</h2>
-        <button onClick={() => navigate(-1)} className="btn" style={{ marginTop: '1rem' }}>Go Back</button>
-      </div>
+      <Page width="md">
+        <PageHeader title="Referral not found" />
+        <p className="text-ink-muted text-sm">
+          There is no referral with ID{" "}
+          <code className="px-1.5 py-0.5 rounded-sm bg-subtle text-ink font-mono text-xs">{id || "unknown"}</code>.
+        </p>
+        <Button as={Link} to={getRoleDefinition(role).homePath} variant="primary">
+          Back to my workspace
+        </Button>
+      </Page>
     );
   }
 
-  const handleStatusUpdate = (e) => {
-    e.preventDefault();
-    if (!newStatus) return;
-    updateReferralStatus(id, newStatus, note);
-    setNewStatus('');
-    setNote('');
-  };
+  const arrived = hasArrivedAtFacility(referral);
+  const vitalGroups = getVitalGroups(referral);
+  const journey = getReferralJourney(referral);
+  const history = (referral.timeline || []).slice().reverse();
+  const plan = referral.followUpPlan;
+  const outcome = referral.clinicalOutcome;
+  const showHandoff = role !== Role.PATIENT;
+
+  const latest = history.slice(0, HISTORY_SHOWN);
+  const canExpandHistory = history.length > HISTORY_SHOWN || latest.some(isClamped);
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <button onClick={() => navigate(-1)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>
-        &larr; Back
-      </button>
+    // On a desktop the whole case fits one screen: no page scroll. Narrow or short screens still scroll.
+    <Page width="full" className="lg:h-[calc(100dvh-var(--size-header))] lg:flex lg:flex-col">
+      {sentTo && (
+        <div role="status" className="flex items-start gap-3 rounded-card border-l-4 border-accent bg-accent-soft p-3">
+          <Icon name="check_circle" className="text-accent mt-0.5" />
+          <p className="text-sm text-ink break-words">
+            <strong>Referral sent.</strong> {sentTo} has the referral. Case ID <strong>{referral.id}</strong>.
+          </p>
+        </div>
+      )}
+      <div className="flex items-start gap-4">
+        {/* On the right, so the title starts where every other screen's title starts. */}
+        <Pictogram
+          name={PATIENT_PICTOGRAM[referral.referralType] || "pregnant"}
+          size="lg"
+          className="max-sm:hidden order-last"
+        />
+        <div className="min-w-0 flex-1 space-y-1">
+          <PageHeader
+            title={referral.patientName}
+            subtitle={[referral.age, referral.id].filter(Boolean).join(" · ")}
+            actions={
+              <Badge tone={isHighAcuity(referral.priority) ? "danger" : "neutral"}>
+                {priorityLabel(referral.priority)}
+              </Badge>
+            }
+          />
+          <p className="text-sm text-ink break-words">
+            {referral.condition || referral.reason}
+            <span className="text-ink-muted">
+              {" · "}
+              {referral.fromFacility} → <span className="font-semibold text-accent">{getDestination(referral)}</span>
+            </span>
+          </p>
+          <p className="text-sm text-ink-muted break-words">
+            {plan && (
+              <>
+                <span className="font-semibold text-ink">42-day follow-up:</span> {plan.tasks.length} visits, led by{" "}
+                {plan.leadWorker}
+                {isRouteAllowedForRole(role, "/continuity") && (
+                  <>
+                    {" "}
+                    (
+                    <Link
+                      to="/continuity"
+                      onClick={() => setActiveReferralId(referral.id)}
+                      className="font-semibold text-accent underline"
+                    >
+                      see schedule
+                    </Link>
+                    )
+                  </>
+                )}
+                {" · "}
+              </>
+            )}
+            Navigator: {referral.navigator?.name || "Priya Raman, MSW"} ·{" "}
+            {referral.navigator?.phone || "+91 90000 21049"}
+          </p>
+        </div>
+      </div>
 
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div>
-            <h1 style={{ margin: 0 }}>Referral {referral.id}</h1>
-            <p style={{ color: 'var(--text-muted)' }}>Submitted on {new Date(referral.date).toLocaleDateString()}</p>
-          </div>
-          <StatusBadge status={referral.status} />
+      <div
+        className={`grid grid-cols-1 gap-4 lg:flex-1 lg:min-h-0 ${showHandoff ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]" : ""}`}
+      >
+        <div className="flex flex-col gap-4 min-w-0">
+          <Card as="section" className="space-y-3 sm:!p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-semibold text-ink">{getJourneyHeadline(referral)}</h2>
+              {!referral.arrival && !arrived && role === Role.FACILITY && (
+                <Button as={Link} to="/facility" variant="primary" size="sm">
+                  Go to intake
+                </Button>
+              )}
+            </div>
+            {/* Phones: the standard vertical stepper, so each step's words get the full width. */}
+            <ol className="sm:hidden">
+              {journey.map((step, i) => {
+                const state = STEP_STATE[step.state] || STEP_STATE[JourneyState.UPCOMING];
+                const last = i === journey.length - 1;
+                return (
+                  <li key={step.id} className="flex gap-3">
+                    <div className="flex flex-col items-center" aria-hidden="true">
+                      <span
+                        className={`w-6 h-6 shrink-0 rounded-full inline-flex items-center justify-center ${STEP_DOT[step.state] || STEP_DOT[JourneyState.UPCOMING]}`}
+                      >
+                        {step.state === JourneyState.DONE && <Icon name="check" size="sm" />}
+                        {step.state === JourneyState.AT_RISK && <Icon name="priority_high" size="sm" />}
+                      </span>
+                      {!last && <span className="w-px flex-1 min-h-4 bg-line-strong" />}
+                    </div>
+                    <p className={`min-w-0 text-sm ${last ? "" : "pb-3"}`}>
+                      <span className="font-semibold text-ink">{step.label}</span>
+                      <span
+                        className={`block text-xs font-semibold ${step.state === JourneyState.AT_RISK ? "text-danger" : step.state === JourneyState.DONE ? "text-accent" : "text-ink-muted"}`}
+                      >
+                        {state.text}
+                      </span>
+                    </p>
+                  </li>
+                );
+              })}
+            </ol>
+            <ol className="max-sm:hidden grid grid-cols-5 gap-1.5">
+              {journey.map((step) => {
+                const state = STEP_STATE[step.state] || STEP_STATE[JourneyState.UPCOMING];
+                return (
+                  <li
+                    key={step.id}
+                    className={`flex flex-col items-center gap-1 rounded-card border px-1 py-2 text-center ${step.state === JourneyState.ACTIVE ? "border-accent" : step.state === JourneyState.AT_RISK ? "border-danger" : "border-line"}`}
+                  >
+                    <Pictogram name={STEP_PICTOGRAM[step.id] || "check"} bare size="sm" tone={state.tone} />
+                    <span className="min-w-0 w-full">
+                      <span className="block text-xs font-semibold leading-tight text-ink hyphens-auto" lang="en">
+                        {step.label}
+                      </span>
+                      <span
+                        className={`block text-xs font-semibold ${step.state === JourneyState.AT_RISK ? "text-danger" : step.state === JourneyState.DONE ? "text-accent" : "text-ink-muted"}`}
+                      >
+                        {state.text}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+
+            {referral.arrival ? (
+              <p className="text-sm text-ink-muted break-words">
+                Confirmed by {referral.arrival.verifiedBy}
+                {referral.arrival.room ? `, ${referral.arrival.room}` : ""}
+                {referral.arrival.arrivedAt ? `, ${new Date(referral.arrival.arrivedAt).toLocaleTimeString()}` : ""}.{" "}
+                {referral.arrival.notes}
+              </p>
+            ) : (
+              !arrived &&
+              role !== Role.FACILITY && (
+                <p className="text-sm text-ink-muted">
+                  {isFloating(referral)
+                    ? referral.patientChoice?.elsewhere
+                      ? `The patient plans to go to ${referral.patientChoice.elsewhere}.`
+                      : "Waiting for the patient to choose a hospital."
+                    : "Only the hospital can confirm arrival."}
+                </p>
+              )
+            )}
+          </Card>
+          <Card as="section" className="sm:!p-4">
+            <h2 className="font-display text-lg font-semibold text-ink mb-3">Vitals</h2>
+            <div className="space-y-4">
+              {vitalGroups.map((group) => (
+                <div key={group.id}>
+                  {/* Headings only when both mother and baby have vitals, so each value is clearly whose. */}
+                  {vitalGroups.length > 1 && <h3 className="text-sm font-semibold text-ink mb-2">{group.title}</h3>}
+                  <dl className="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4 gap-3">
+                    {group.vitals.map(([label, key, pictogram]) => {
+                      const value = formatVital(key, referral.vitals?.[key]);
+                      return (
+                        <div key={key} className="flex min-w-0 items-start gap-2">
+                          <Pictogram name={pictogram} bare size="sm" tone={value ? "accent" : "neutral"} />
+                          <div className="min-w-0">
+                            <dt className="text-xs text-ink-muted">{label}</dt>
+                            <dd className="font-semibold text-ink tabular-nums break-words">
+                              {value || <span className="text-xs font-medium text-ink-muted">Not recorded</span>}
+                            </dd>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {outcome && (
+            <Card as="section" className="space-y-1 sm:!p-5">
+              <h2 className="font-display text-lg font-semibold text-ink">Outcome</h2>
+              <p className="text-sm text-ink break-words">
+                {outcome.clinicianName}: <span className="font-semibold text-accent">{outcome.disposition}</span>
+              </p>
+              <p className="text-sm text-ink-muted break-words">{outcome.clinicalNotes}</p>
+            </Card>
+          )}
+
+          {/* Fills the rest of the column, so both columns end at the same line. */}
+          <Card as="section" className="sm:!p-4 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-display text-lg font-semibold text-ink">History</h2>
+              {canExpandHistory && (
+                <Button size="sm" variant="link" onClick={() => setShowAllHistory(true)}>
+                  {history.length > HISTORY_SHOWN ? `See all ${history.length}` : "See full notes"}
+                </Button>
+              )}
+            </div>
+            <HistoryList items={latest} />
+          </Card>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-          <div>
-            <h4 style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Patient Name</h4>
-            <p style={{ fontWeight: '500' }}>{referral.patientName}</p>
+        {/* For staff only: the family has their own screens. */}
+        {showHandoff && (
+          <div className="min-w-0 flex flex-col gap-5 lg:min-h-0">
+            <PastRecordsCard referral={referral} className="lg:max-h-[45%] lg:overflow-y-auto" />
+            {/* A long draft scrolls inside its card, never the page. */}
+            <HandoffCard referral={referral} className="sm:!p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto" />
           </div>
-          <div>
-            <h4 style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Patient ID</h4>
-            <p style={{ fontWeight: '500' }}>{referral.patientId}</p>
-          </div>
-          <div>
-            <h4 style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>From Facility</h4>
-            <p style={{ fontWeight: '500' }}>{referral.fromFacility}</p>
-          </div>
-          <div>
-            <h4 style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>To Facility</h4>
-            <p style={{ fontWeight: '500' }}>{referral.toFacility}</p>
-          </div>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <h4 style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Reason for Referral</h4>
-            <p style={{ padding: '1rem', backgroundColor: 'var(--bg-color)', borderRadius: '8px' }}>
-              {referral.reason}
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: '1rem' }}>Timeline</h3>
-        <ReferralTimeline timeline={referral.timeline} />
-      </div>
-
-      <div className="card" style={{ marginTop: '1.5rem' }}>
-        <h3>Update Status</h3>
-        <form onSubmit={handleStatusUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <select 
-              value={newStatus} 
-              onChange={e => setNewStatus(e.target.value)}
-              style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #ced4da' }}
-            >
-              <option value="" disabled>Select new status...</option>
-              <option value="Accepted">Accepted</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Received">Received</option>
-              <option value="Completed">Completed</option>
-              <option value="Rejected">Rejected</option>
-            </select>
-          </div>
-          <textarea 
-            placeholder="Add an optional note..." 
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            rows="2"
-            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ced4da', resize: 'vertical' }}
-          ></textarea>
-          <button type="submit" className="btn" disabled={!newStatus}>Update Referral</button>
-        </form>
-      </div>
-    </div>
+      {showAllHistory && (
+        <Dialog title="History" onClose={() => setShowAllHistory(false)}>
+          <HistoryList items={history} full />
+          <Button fullWidth onClick={() => setShowAllHistory(false)}>
+            Close
+          </Button>
+        </Dialog>
+      )}
+    </Page>
   );
 };
 
