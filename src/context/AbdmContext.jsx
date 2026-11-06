@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as abdm from "../services/abdm/abdmService.js";
+import { createDocSync, httpTransport, startPolling } from "../services/docSync.js";
 import { useReferrals } from "./ReferralContext.jsx";
 
 const AbdmContext = createContext(null);
@@ -20,6 +21,31 @@ export const AbdmProvider = ({ children }) => {
 
   const refresh = useCallback(() => setStored(abdm.getAbdmState()), []);
 
+  // Shared with the other devices through /api/state, like the referrals: a consent asked for on
+  // the hospital laptop shows on the family's phone.
+  const syncRef = useRef(null);
+  useEffect(() => {
+    const sync = createDocSync({
+      key: "abdm",
+      transport: httpTransport,
+      validate: abdm.normaliseAbdmState,
+      onRemote: (doc) => {
+        abdm.replaceAbdmState(doc);
+        setStored(doc);
+      },
+    });
+    syncRef.current = sync;
+    abdm.setAbdmSaveListener((saved) => sync.setLocal(saved));
+    sync.setLocal(abdm.getAbdmState());
+    sync.pull();
+    const stop = startPolling(sync);
+    return () => {
+      stop();
+      abdm.setAbdmSaveListener(null);
+      if (syncRef.current === sync) syncRef.current = null;
+    };
+  }, []);
+
   // Every action reloads the shared state, so the other screens see the change.
   const run = (action) => async (input) => {
     const result = await action(input);
@@ -39,6 +65,7 @@ export const AbdmProvider = ({ children }) => {
     resetAbdm: () => {
       abdm.resetAbdmData();
       refresh();
+      syncRef.current?.replace(abdm.freshAbdmState());
     },
   };
 

@@ -72,6 +72,9 @@ export const TimelineEvent = {
   TRANSIT_FAILED: "TRANSIT_FAILED",
   DANGER_SIGN_REPORTED: "DANGER_SIGN_REPORTED",
   HANDOFF_CONFIRMED: "HANDOFF_CONFIRMED",
+  // Evidence from the family. Arrival reported is not arrival: only the hospital confirms that.
+  ARRIVAL_REPORTED: "ARRIVAL_REPORTED",
+  CALL_BACK_REQUESTED: "CALL_BACK_REQUESTED",
 };
 
 export const CarePlanStatus = {

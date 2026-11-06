@@ -44,7 +44,7 @@ cp .env.example .env    # then add your keys to .env
 npm run dev             # http://localhost:5173
 ```
 
-`.env` holds two keys, `ANTHROPIC_API_KEY` and `SARVAM_API_KEY`. They are used only by the server code and never reach the browser. `.env` is git-ignored: never commit it. Restart `npm run dev` after changing it.
+`.env` holds `ANTHROPIC_API_KEY` and `SARVAM_API_KEY`, plus `DATABASE_URL` for Neon, used only once deployed. `npm run dev` keeps the shared data in memory so local work never changes the live demo; set `DEV_DATABASE_URL` to a separate Neon branch to test against a real database. They are used only by the server code and never reach the browser. `.env` is git-ignored: never commit it. Restart `npm run dev` after changing it.
 
 ## Commands
 
@@ -59,7 +59,10 @@ npm run dev             # http://localhost:5173
 
 ## How it is built
 
-- **Front end:** React 19, Vite 8, Tailwind 4, React Router 7. Saved in the browser (`localStorage`), so each browser has its own demo data. **Reset demo** in the sidebar starts it again.
+- **Front end:** React 19, Vite 8, Tailwind 4, React Router 7.
+- **Saved data:** one shared copy in Neon Postgres, through `/api/state` (`server/state.js`). Every browser loads it on start and checks for changes every 3 seconds while the tab is visible, so a hospital laptop and a family phone see the same referrals. Two saves at once are merged referral by referral. Each browser also keeps a copy in `localStorage` and carries on with it if the server can't be reached. **Reset demo** in the sidebar starts everyone again. There is no sign-in check on `/api/state`, which is fine only because all the data is made up.
+- **Phone sign-in for new referrals:** sending a referral links the patient's mobile and the emergency contact's mobile, so they can sign in with a code and see that referral (`src/domain/phoneAccounts.js`).
+- **Self-registration:** on the sign-in screen, an unknown number is offered **Create an account** (code, name, who they are, and an optional referral number from the slip). If their mobile is the one on that referral, it opens at once. If not, the care coordinator sees **Families asking to be linked** on their dashboard, calls to check, and approves or declines. Until then the account sees only a waiting screen, with no case details (`src/domain/selfRegistration.js`).
 - **Rules:** referral steps, alarms, follow-up plans and hospital choice are plain functions in `src/domain/`, with tests beside them.
 - **AI server:** small request handlers in `server/`, served by Vercel functions in `api/` and by Vite in development.
 - **Design:** calm, plain screens in the style of public health services, with colour tokens and 7:1 contrast. Rules are in `.claude/skills/navexa-ui/SKILL.md`.

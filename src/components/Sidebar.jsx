@@ -12,6 +12,7 @@ import { BrandMark, Button, Field, Icon, Select } from "./ui/index.js";
 const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
   const { role } = useReferrals();
   const { session, signInAsDemoAccount, signOut } = useAuth();
+  const isPhone = session?.kind === "phone";
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -100,7 +101,8 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
             <ThemeToggle fullWidth />
           </div>
           <ResetAssistantButton />
-          <ResetDemoButton />
+          {/* Reset clears everyone's shared data, so only the care team has it. */}
+          {!isPhone && <ResetDemoButton />}
         </div>
         {session && (
           <div className="flex items-center justify-between gap-2 px-1">
@@ -114,25 +116,28 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
             </Button>
           </div>
         )}
-        <Field label="Demo only: sign in as">
-          <Select value={session?.accountId ?? ""} onChange={handleAccountChange}>
-            <optgroup label="Care team">
-              {staffAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}, {a.jobTitle}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Patients and family">
-              {phoneAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                  {a.relation === "self" ? ", patient" : `, ${a.relation.toLowerCase()}`}
-                </option>
-              ))}
-            </optgroup>
-          </Select>
-        </Field>
+        {/* A family member can't jump to other accounts; they sign out to switch. */}
+        {!isPhone && (
+          <Field label="Demo only: sign in as">
+            <Select value={session?.accountId ?? ""} onChange={handleAccountChange}>
+              <optgroup label="Care team">
+                {staffAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}, {a.jobTitle}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Patients and family">
+                {phoneAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.relation === "self" ? ", patient" : `, ${a.relation.toLowerCase()}`}
+                  </option>
+                ))}
+              </optgroup>
+            </Select>
+          </Field>
+        )}
       </div>
     </div>
   );

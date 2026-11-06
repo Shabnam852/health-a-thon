@@ -28,6 +28,7 @@ import {
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { formatMinutes, getResponseClock } from "../domain/alarms.js";
 import { PatientType, ReferralStatus } from "../domain/enums.js";
+import { ARRIVAL_REPORTED_LABEL, isArrivalReportedOnly } from "../domain/familyRequests.js";
 import { getOccupancy } from "../domain/network.js";
 import { findCaseAtReception, isFloating } from "../domain/workflow.js";
 
@@ -122,7 +123,23 @@ const intakeActions = actionsColumn(({ row: { original: r }, table }) => {
   );
 });
 
-const baseColumns = [serialColumn(), caseIdColumn(), patientColumn(), priorityColumn()];
+// The family's own arrival report sits under the name, worded so it can't pass for a confirmed arrival.
+const sharedPatientColumn = patientColumn();
+const intakePatientColumn = {
+  ...sharedPatientColumn,
+  cell: (ctx) => (
+    <>
+      {sharedPatientColumn.cell(ctx)}
+      {isArrivalReportedOnly(ctx.row.original) && (
+        <Badge tone="neutral" className="mt-1">
+          {ARRIVAL_REPORTED_LABEL}
+        </Badge>
+      )}
+    </>
+  ),
+};
+
+const baseColumns = [serialColumn(), caseIdColumn(), intakePatientColumn, priorityColumn()];
 const tailColumns = [typeColumn(), conditionColumn(), fromColumn(), intakeActions];
 const QUEUE_COLUMNS = [...baseColumns, ...tailColumns];
 const PENDING_COLUMNS = [...baseColumns, replyColumn, ...tailColumns];
@@ -333,6 +350,13 @@ const FacilityDashboard = () => {
             <p>
               Contact: {r.caregiverContact || r.patientPhone} · Language: {r.language || "English"}
             </p>
+            {isArrivalReportedOnly(r) && (
+              <p className="font-semibold text-ink">
+                {ARRIVAL_REPORTED_LABEL}
+                {r.arrivalReport.place ? ` (said: ${r.arrivalReport.place})` : ""}. Confirm when the patient is at
+                reception.
+              </p>
+            )}
             {r.transit && (
               <p>
                 Transit: {r.transit.vehicle || "Assigned"} ({r.transit.status})

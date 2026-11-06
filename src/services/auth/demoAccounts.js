@@ -7,6 +7,7 @@
  */
 
 import { RoleId } from "../../config/navigationConfig.js";
+import { referralIdsForPhone } from "../../domain/phoneAccounts.js";
 
 /** Every staff account uses this password in the demo. Shown on the sign-in screen. */
 export const DEMO_PASSWORD = "demo1234";
@@ -92,7 +93,29 @@ export const findStaffByEmail = (email) =>
         .toLowerCase(),
   ) ?? null;
 
-export const findPhoneAccount = (phone) => phoneAccounts.find((a) => a.phone === normalisePhone(phone)) ?? null;
+// Numbers linked to referrals made in the app (src/domain/phoneAccounts.js). They live with the
+// referrals, so every device shares them; ReferralProvider hands the current list in here.
+let linkedPhoneAccounts = [];
 
+export const setLinkedPhoneAccounts = (accounts) => {
+  linkedPhoneAccounts = Array.isArray(accounts) ? accounts : [];
+};
+
+/** Linked numbers first: a number on a newer referral signs in to that one. */
+export const allPhoneAccounts = () => {
+  const linkedPhones = new Set(linkedPhoneAccounts.map((a) => a.phone));
+  return [...linkedPhoneAccounts, ...phoneAccounts.filter((a) => !linkedPhones.has(a.phone))];
+};
+
+export const findPhoneAccount = (phone) => allPhoneAccounts().find((a) => a.phone === normalisePhone(phone)) ?? null;
+
+// By id over every account, including a seeded one whose number now also follows a newer referral.
 export const findAccountById = (id) =>
-  staffAccounts.find((a) => a.id === id) ?? phoneAccounts.find((a) => a.id === id) ?? null;
+  staffAccounts.find((a) => a.id === id) ??
+  linkedPhoneAccounts.find((a) => a.id === id) ??
+  phoneAccounts.find((a) => a.id === id) ??
+  null;
+
+/** Every referral a number follows (FR-80: a mother's and her newborn's), newest first. */
+export const referralsForPhone = (phone) =>
+  referralIdsForPhone([...linkedPhoneAccounts, ...phoneAccounts], normalisePhone(phone));

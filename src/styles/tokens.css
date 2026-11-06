@@ -128,3 +128,18 @@
     --size-header: 3.5rem;
   }
 }
+
+/* Paper: always the light colours, in both themes. For what must read dark on white whatever the
+   theme: the referral slip's QR code (scanners need it) and the printed slip. Same values as :root. */
+.theme-paper {
+  color-scheme: light;
+
+  --color-surface: 255 255 255;
+  --color-line: 219 215 208;
+  --color-ink: 32 30 26;
+  --color-ink-muted: 76 73 67;
+  --color-brand: 13 53 48;
+  --color-accent: 0 85 77;
+  --color-danger: 151 26 32;
+  --color-danger-soft: 252 236 234;
+}

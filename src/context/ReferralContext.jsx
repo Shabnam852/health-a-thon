@@ -1,17 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import {
-  buildSeedReferrals,
-  initialFacilities,
-  initialFleet,
-  initialNavigators,
-  initialNotifications,
-  initialSeedReferrals,
-} from "../data/seedData.js";
+import { freshDomainState, seedShape } from "../data/freshState.js";
+import { initialFacilities, initialFleet, initialNavigators, initialNotifications } from "../data/seedData.js";
 import { getAlarms } from "../domain/alarms.js";
 import { Role } from "../domain/enums.js";
+import * as familyRequests from "../domain/familyRequests.js";
 import { createReferral } from "../domain/models.js";
+import { accountsForReferral, linkAccounts } from "../domain/phoneAccounts.js";
+import { checkRegistration, decideLink, registerAccount, requestLink } from "../domain/selfRegistration.js";
+import { addFamilyTexts } from "../domain/smsTemplates.js";
 import * as workflow from "../domain/workflow.js";
-import { StorageAdapter } from "../services/storageAdapter.js";
+import { findPhoneAccount, setLinkedPhoneAccounts } from "../services/auth/demoAccounts.js";
+import { createDocSync, httpTransport, startPolling } from "../services/docSync.js";
+import { normaliseDomain, StorageAdapter } from "../services/storageAdapter.js";
 import { clearVoices } from "../services/voiceCache.js";
 
 const ReferralContext = createContext();
@@ -29,12 +29,7 @@ export const useReferrals = () => {
 export const ReferralProvider = ({ children }) => {
   // Load combined data structure from StorageAdapter or Seed
   const [data, setData] = useState(() => {
-    return StorageAdapter.loadData({
-      referrals: initialSeedReferrals,
-      navigators: initialNavigators,
-      fleet: initialFleet,
-      notifications: initialNotifications,
-    });
+    return StorageAdapter.loadData(seedShape());
   });
 
   const referrals = data.referrals;
@@ -43,6 +38,11 @@ export const ReferralProvider = ({ children }) => {
   const navigators = data.navigators || initialNavigators;
   const fleet = data.fleet || initialFleet;
   const notifications = data.notifications || initialNotifications;
+  const accounts = data.accounts || [];
+  const linkRequests = data.linkRequests || [];
+  const messages = data.messages || [];
+  // Sign-in reads this list while this render runs, so it is handed over here, not in an effect.
+  setLinkedPhoneAccounts(accounts);
 
   // Active Role and Active Referral
   const [role, setRoleState] = useState(() => StorageAdapter.getRole());
@@ -71,7 +71,8 @@ export const ReferralProvider = ({ children }) => {
   }, []);
   const alarms = useMemo(() => getAlarms(referrals, now), [referrals, now]);
 
-  // Sync to Storage on every mutation
+  // Saved in this browser on every change, and sent to the server (Neon) so other devices see it.
+  const syncRef = useRef(null);
   useEffect(() => {
     StorageAdapter.saveData(data);
   }, [data]);
@@ -97,10 +98,32 @@ export const ReferralProvider = ({ children }) => {
   // stale render. Actions return their result synchronously for the UI to report.
   const dataRef = useRef(data);
 
-  const commit = (next) => {
+  // Hands each change to the sync engine at once, not after React renders: a server copy that lands
+  // in between must not be merged with a stale one (a change made after an await would be lost).
+  const commit = useCallback((next, { fromServer = false } = {}) => {
     dataRef.current = next;
     setData(next);
-  };
+    if (!fromServer) syncRef.current?.setLocal(next);
+  }, []);
+
+  // Shared with every other browser through /api/state: the server's copy is loaded on start and
+  // checked every few seconds; if the server can't be reached the app carries on with this copy.
+  useEffect(() => {
+    const sync = createDocSync({
+      key: "domain",
+      transport: httpTransport,
+      validate: (doc) => normaliseDomain(doc, seedShape()),
+      onRemote: (doc) => commit(doc, { fromServer: true }),
+    });
+    syncRef.current = sync;
+    sync.setLocal(dataRef.current);
+    sync.pull();
+    const stop = startPolling(sync);
+    return () => {
+      stop();
+      if (syncRef.current === sync) syncRef.current = null;
+    };
+  }, [commit]);
 
   const getReferralById = (id) => {
     return dataRef.current.referrals.find((r) => r.id === id);
@@ -114,10 +137,14 @@ export const ReferralProvider = ({ children }) => {
     const result = action(target);
     if (result.success) {
       const current = dataRef.current;
-      commit({
-        ...current,
-        referrals: current.referrals.map((r) => (r.id === id ? result.referral : r)),
-      });
+      // SIMULATED SMS: a change the family should know about also adds a text to the outbox.
+      commit(
+        addFamilyTexts(
+          { ...current, referrals: current.referrals.map((r) => (r.id === id ? result.referral : r)) },
+          target,
+          result.referral,
+        ),
+      );
     }
     return result;
   };
@@ -129,9 +156,13 @@ export const ReferralProvider = ({ children }) => {
   const addReferral = (newReferralData) => {
     const formatted = createReferral(newReferralData);
     const current = dataRef.current;
+    // SIMULATED SMS: a referral that goes out straight away texts the family.
+    const withTexts = addFamilyTexts(current, null, formatted);
     commit({
-      ...current,
+      ...withTexts,
       referrals: [formatted, ...current.referrals],
+      // The patient's and family's mobiles can now sign in and see this referral.
+      accounts: linkAccounts(current.accounts, accountsForReferral(formatted)),
       notifications: [
         {
           id: `NOTIF-${Date.now()}`,
@@ -236,6 +267,29 @@ export const ReferralProvider = ({ children }) => {
   const recordContactAttempt = (referralId, contact) =>
     applyToReferral(referralId, (r) => workflow.recordContactAttempt(r, contact));
 
+  // ==========================================
+  // SELF-REGISTRATION AND FAMILY LINKING
+  // ==========================================
+
+  /** Checks a sign-up form before the phone code is used up. */
+  const checkSelfRegistration = (input) =>
+    checkRegistration(dataRef.current, input, (phone) => Boolean(findPhoneAccount(phone)));
+
+  // Sign-in looks the new account up straight away, before React renders again, so it is handed over now.
+  const commitAccounts = (result) => {
+    if (!result.ok) return result;
+    commit(result.data);
+    setLinkedPhoneAccounts(result.data.accounts);
+    return result;
+  };
+
+  const registerSelf = (input) => commitAccounts(registerAccount(dataRef.current, input));
+
+  const askToLink = (accountId, reference) => commitAccounts(requestLink(dataRef.current, { accountId, reference }));
+
+  const decideLinkRequest = (requestId, approve, decidedBy, reason) =>
+    commitAccounts(decideLink(dataRef.current, { requestId, approve, decidedBy, reason }));
+
   // Notifications management
   const markNotificationRead = (id) => {
     const current = dataRef.current;
@@ -257,20 +311,50 @@ export const ReferralProvider = ({ children }) => {
   const resetDemoData = () => {
     StorageAdapter.clearData();
     clearVoices();
-    const freshReferrals = buildSeedReferrals();
-    const freshData = {
-      referrals: freshReferrals,
-      navigators: initialNavigators,
-      fleet: initialFleet,
-      notifications: initialNotifications,
-    };
+    const freshData = freshDomainState();
+    const freshReferrals = freshData.referrals;
     commit(freshData);
+    // Everyone's copy starts again, not just this browser's.
+    syncRef.current?.replace(freshData);
     setActiveReferralId(freshReferrals[0].id);
     setActiveFacilityIdState(null);
     setStoryStep(null);
     logout();
     return true;
   };
+
+  // ==========================================
+  // FAMILY: ARRIVAL REPORT AND CALL BACK (FR-46)
+  // ==========================================
+
+  // Same as reportFromFamily: store the referral, then tell the coordinator.
+  const applyFamilyRequest = (referralId, action) => {
+    const result = applyToReferral(referralId, action);
+    if (!result.success) return result;
+    const current = dataRef.current;
+    const stamp = Date.now();
+    commit({
+      ...current,
+      notifications: [
+        ...result.alerts.map((alert, i) => ({
+          id: `NOTIF-${stamp}-${i}`,
+          timestamp: "Just now",
+          ...alert,
+          link: `/referral/${referralId}`,
+          read: false,
+        })),
+        ...current.notifications,
+      ],
+    });
+    return result;
+  };
+
+  // Evidence only: the hospital still confirms arrival itself.
+  const reportArrivalFromFamily = (referralId, place) =>
+    applyFamilyRequest(referralId, (r) => familyRequests.reportArrival(r, { place }));
+
+  const requestCallBack = (referralId, reason) =>
+    applyFamilyRequest(referralId, (r) => familyRequests.requestCallBack(r, { reason }));
 
   return (
     <ReferralContext.Provider
@@ -282,6 +366,13 @@ export const ReferralProvider = ({ children }) => {
         navigators,
         fleet,
         notifications,
+        accounts,
+        linkRequests,
+        messages,
+        checkSelfRegistration,
+        registerSelf,
+        askToLink,
+        decideLinkRequest,
         now,
         alarms,
         activeReferralId,
@@ -314,6 +405,9 @@ export const ReferralProvider = ({ children }) => {
         markNotificationRead,
         dismissNotification,
         resetDemoData,
+        // Family: arrival report and call back (FR-46)
+        reportArrivalFromFamily,
+        requestCallBack,
       }}
     >
       {children}

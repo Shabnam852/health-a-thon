@@ -85,17 +85,25 @@ export const signInStaff = async ({ email, password }) => {
   return startSession(account);
 };
 
-export const requestPhoneCode = async ({ phone, now = Date.now() }) => {
+/**
+ * Sends a sign-in code. For a new account (forSignUp) the number must not have one yet; otherwise it
+ * must. An unknown number on sign-in says so, so the screen can offer to make an account.
+ */
+export const requestPhoneCode = async ({ phone, forSignUp = false, now = Date.now() }) => {
   const digits = normalisePhone(phone);
   if (!/^[6-9]\d{9}$/.test(digits)) return { ok: false, error: "Enter a 10-digit mobile number." };
   const account = findPhoneAccount(digits);
-  if (!account) return { ok: false, error: "This number isn't linked to a patient yet. Ask your care coordinator." };
+  if (forSignUp && account) return { ok: false, error: "This number already has an account. Sign in instead." };
+  if (!forSignUp && !account) {
+    return { ok: false, notRegistered: true, error: "This number doesn't have an account yet." };
+  }
   const code = String(Math.floor(100000 + Math.random() * 900000));
   pendingCodes.set(digits, { code, expiresAt: now + OTP_TTL_MS, attempts: 0 });
   return { ok: true, demoCode: code, expiresInSeconds: OTP_TTL_MS / 1000 };
 };
 
-export const verifyPhoneCode = async ({ phone, code, now = Date.now() }) => {
+/** Checks a code and uses it up. Returns { ok: true } or { ok: false, error }. */
+export const checkPhoneCode = async ({ phone, code, now = Date.now() }) => {
   const digits = normalisePhone(phone);
   const pending = pendingCodes.get(digits);
   if (!pending) return { ok: false, error: "Ask for a new code." };
@@ -112,7 +120,20 @@ export const verifyPhoneCode = async ({ phone, code, now = Date.now() }) => {
     return { ok: false, error: "That code is not right." };
   }
   pendingCodes.delete(digits);
-  return startSession(findPhoneAccount(digits));
+  return { ok: true };
+};
+
+export const verifyPhoneCode = async ({ phone, code, now = Date.now() }) => {
+  const checked = await checkPhoneCode({ phone, code, now });
+  if (!checked.ok) return checked;
+  const account = findPhoneAccount(phone);
+  return account ? startSession(account) : { ok: false, error: "This number doesn't have an account yet." };
+};
+
+/** Starts a session for an account that was just made (self-registration). */
+export const signInAccount = (accountId) => {
+  const account = findAccountById(accountId);
+  return account ? startSession(account) : { ok: false, error: "No such account." };
 };
 
 /** Demo only: sign straight in as a role's usual account, for the guided demo and the "sign in as" menu. */

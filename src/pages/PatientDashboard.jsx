@@ -4,7 +4,8 @@ import { ASSISTANT_PATH } from "../components/assistant/AssistantLauncher.jsx";
 import ListenButton from "../components/assistant/ListenButton.jsx";
 import { useFamilyLanguage } from "../components/assistant/useFamilyLanguage.js";
 import { usePatientCase } from "../components/assistant/usePatientCase.js";
-import { fill, fillParts } from "../components/familyStrings.js";
+import FamilyRequestsCard from "../components/FamilyRequestsCard.jsx";
+import { familyDateLocale, fill, fillParts } from "../components/familyStrings.js";
 import HospitalChoice from "../components/HospitalChoice.jsx";
 import HospitalMap from "../components/HospitalMap.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
@@ -15,6 +16,7 @@ import { telHref } from "../domain/contact.js";
 import { TransportStatus, UrgencyLevel } from "../domain/enums.js";
 import { getHospitalMap } from "../domain/hospitalMap.js";
 import { getPatientJourney } from "../domain/patientJourney.js";
+import { messagesForReferral } from "../domain/smsTemplates.js";
 import { StorageAdapter } from "../services/storageAdapter.js";
 
 const PATIENT_VIEWS = ["transit", "checklist", "support"];
@@ -109,7 +111,7 @@ const DetailList = ({ rows }) => (
 );
 
 const PatientDashboard = () => {
-  const { referrals, setActiveReferralId, recordPatientChoice, recordPatientGoingElsewhere } = useReferrals();
+  const { referrals, messages, setActiveReferralId, recordPatientChoice, recordPatientGoingElsewhere } = useReferrals();
   const { referral, facilities } = usePatientCase();
   const { toast, report } = useToast();
   const [searchParams] = useSearchParams();
@@ -180,6 +182,17 @@ const PatientDashboard = () => {
   const listen = <ListenButton referral={referral} text={getScreenSummary(view, referral, facilities)} />;
 
   const finishChoice = (res, message) => report(res, message, t.somethingWrong);
+  const familyRequests = <FamilyRequestsCard referral={referral} t={t} onResult={finishChoice} />;
+
+  // The simulated texts sent about this case, newest first.
+  const texts = messagesForReferral(messages, referral.id);
+  const textTime = (iso) =>
+    new Date(iso).toLocaleString(familyDateLocale(lang), {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   const chooser = floating && (
     <Card title={t.chooseHospital} className="space-y-4">
@@ -291,6 +304,8 @@ const PatientDashboard = () => {
             </Button>
           </div>
 
+          {familyRequests}
+
           <Card title={t.yourJourney}>
             <StepList
               t={t}
@@ -301,6 +316,20 @@ const PatientDashboard = () => {
               }))}
             />
           </Card>
+
+          {texts.length > 0 && (
+            <Card title={t.textsSent} className="space-y-3">
+              <p className="text-xs text-ink-muted">{t.textsNotReallySent}</p>
+              <ul className="divide-y divide-line">
+                {texts.map((text) => (
+                  <li key={text.id} className="py-3 first:pt-0 last:pb-0 text-sm">
+                    <p className="text-ink break-words">{text.body}</p>
+                    <p className="text-xs text-ink-muted tabular-nums mt-0.5">{textTime(text.createdAt)}</p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </>
       )}
 
@@ -423,6 +452,7 @@ const PatientDashboard = () => {
               {listen}
             </div>
           </Card>
+          {familyRequests}
           {nav && (
             <Card title={t.yourCareNavigator} className="space-y-3">
               <div className="flex items-center gap-3">

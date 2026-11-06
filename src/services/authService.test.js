@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 import { RoleId } from "../config/navigationConfig.js";
 import {
   acceptPrivacy,
+  checkPhoneCode,
   clearAuthData,
   getSession,
   hasAcceptedPrivacy,
@@ -76,6 +77,22 @@ describe("authService (demo stand-in for Mythic sign-in)", () => {
   it("refuses a number that isn't a mobile number or isn't linked", async () => {
     assert.equal((await requestPhoneCode({ phone: "12345" })).ok, false);
     assert.equal((await requestPhoneCode({ phone: "9000000000" })).ok, false);
+  });
+
+  it("says an unknown number has no account, so the screen can offer sign-up", async () => {
+    const result = await requestPhoneCode({ phone: "9000000000" });
+    assert.equal(result.notRegistered, true);
+  });
+
+  it("sends a sign-up code only to a number without an account", async () => {
+    assert.equal((await requestPhoneCode({ phone: "9000000000", forSignUp: true })).ok, true);
+    assert.match((await requestPhoneCode({ phone: SHALINI.phone, forSignUp: true })).error, /already has an account/);
+  });
+
+  it("checks a sign-up code once, without signing anyone in", async () => {
+    const asked = await requestPhoneCode({ phone: "9000000001", forSignUp: true });
+    assert.deepEqual(await checkPhoneCode({ phone: "9000000001", code: asked.demoCode }), { ok: true });
+    assert.equal((await checkPhoneCode({ phone: "9000000001", code: asked.demoCode })).ok, false);
   });
 
   it("uses a code once only", async () => {
