@@ -58,6 +58,9 @@ export const createDocSync = ({ key, transport, onRemote, validate = (doc) => do
   let base = null; // The last copy this browser and the server agreed on.
   let version = 0;
   let local = null;
+  // This browser's copy before the first successful load, so changes made while the server was
+  // still out of reach are merged in on that load instead of being replaced.
+  let firstLocal = null;
   let busy = false;
   let started = false;
   let forceNext = false;
@@ -86,6 +89,10 @@ export const createDocSync = ({ key, transport, onRemote, validate = (doc) => do
       online = true;
       if (result.ok) {
         base = sent;
+        version = result.version;
+      } else if (result.conflict && forceNext) {
+        // A Reset came in while this save was out: it wins, so nothing is merged into it.
+        base = result.doc ? validate(result.doc) : null;
         version = result.version;
       } else if (result.conflict) {
         const remote = validate(result.doc);
@@ -119,8 +126,9 @@ export const createDocSync = ({ key, transport, onRemote, validate = (doc) => do
       const remote = result.doc ? validate(result.doc) : null;
       // A pending Reset wins over whatever the server holds, so it isn't folded in.
       if (remote && !forceNext) {
-        const pending = started && local !== null && !sameJson(local, base);
-        const merged = pending ? mergeDocs(base, local, remote) : remote;
+        const agreed = started ? base : firstLocal;
+        const pending = local !== null && agreed !== null && !sameJson(local, agreed);
+        const merged = pending ? mergeDocs(agreed, local, remote) : remote;
         if (!sameJson(merged, local)) adopt(merged);
       }
       // Nothing saved on the server yet (remote null): this browser's copy becomes the first one.
@@ -134,6 +142,7 @@ export const createDocSync = ({ key, transport, onRemote, validate = (doc) => do
   return {
     /** The screens changed the document. */
     setLocal(doc) {
+      if (!started && firstLocal === null) firstLocal = doc;
       local = doc;
       return flush();
     },

@@ -6,7 +6,7 @@ import { useDemoStory } from "../components/useDemoStory.js";
 import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { allPhoneAccounts, DEMO_PASSWORD, findAccountById, staffAccounts } from "../services/auth/demoAccounts.js";
+import { DEMO_PASSWORD, findAccountById, phoneAccounts, staffAccounts } from "../services/auth/demoAccounts.js";
 
 const Tab = { STAFF: "staff", PHONE: "phone", SIGN_UP: "signup" };
 
@@ -193,7 +193,7 @@ const PhoneForm = ({ initialPhone, onSignedIn, onSignUp }) => {
       </form>
 
       <DemoAccounts title="Demo patients and family">
-        {allPhoneAccounts().map((a) => (
+        {phoneAccounts.map((a) => (
           <DemoAccountRow
             key={a.id}
             name={a.name}

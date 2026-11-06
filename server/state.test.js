@@ -15,25 +15,25 @@ describe("/api/state", () => {
 
   it("saves, then refuses a save based on an old version with the newer copy", async () => {
     const store = createMemoryStore();
-    assert.equal((await put(store, { referrals: [] }, 0)).body.version, 1);
-    assert.equal((await put(store, { referrals: [{ id: "A" }] }, 1)).body.version, 2);
-    const stale = await put(store, { referrals: [{ id: "B" }] }, 1);
+    assert.equal((await put(store, { referrals: [{ id: "S", status: "SENT" }] }, 0)).body.version, 1);
+    assert.equal((await put(store, { referrals: [{ id: "A", status: "SENT" }] }, 1)).body.version, 2);
+    const stale = await put(store, { referrals: [{ id: "B", status: "SENT" }] }, 1);
     assert.equal(stale.status, 409);
-    assert.deepEqual(stale.body, { doc: { referrals: [{ id: "A" }] }, version: 2 });
+    assert.deepEqual(stale.body, { doc: { referrals: [{ id: "A", status: "SENT" }] }, version: 2 });
   });
 
   it("says unchanged when the caller already has the latest version", async () => {
     const store = createMemoryStore();
-    await put(store, { referrals: [] }, 0);
+    await put(store, { referrals: [{ id: "S", status: "SENT" }] }, 0);
     assert.deepEqual((await get(store, { since: "1" })).body, { unchanged: true, version: 1 });
   });
 
   it("overwrites on force", async () => {
     const store = createMemoryStore();
-    await put(store, { referrals: [{ id: "A" }] }, 0);
-    const res = await put(store, { referrals: [] }, 0, { force: true });
+    await put(store, { referrals: [{ id: "A", status: "SENT" }] }, 0);
+    const res = await put(store, { referrals: [{ id: "S", status: "SENT" }] }, 0, { force: true });
     assert.equal(res.status, 200);
-    assert.deepEqual((await get(store)).body.doc, { referrals: [] });
+    assert.deepEqual((await get(store)).body.doc, { referrals: [{ id: "S", status: "SENT" }] });
   });
 
   it("refuses unknown keys and documents without referrals", async () => {

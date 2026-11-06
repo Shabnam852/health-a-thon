@@ -13,6 +13,7 @@
  * Every call stays async with the same { ok, ... } results.
  */
 
+import { cleanAbdmDoc } from "../../domain/stateShape.js";
 import { buildMockRecords } from "./mockRecords.js";
 
 const STORE_KEY = "navexa_abdm_v1";
@@ -73,8 +74,9 @@ const load = () => {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.abhaLinks === "object" && Array.isArray(parsed.consents)) return parsed;
+      // Checked item by item: a bad copy from the server must not break the app on every reload.
+      const parsed = cleanAbdmDoc(JSON.parse(raw));
+      if (parsed) return parsed;
     }
   } catch {
     // Fall through to a fresh start.
@@ -103,8 +105,7 @@ const save = (state) => {
 };
 
 /** A usable saved copy (from the server), or null. */
-export const normaliseAbdmState = (doc) =>
-  doc && typeof doc.abhaLinks === "object" && doc.abhaLinks !== null && Array.isArray(doc.consents) ? doc : null;
+export const normaliseAbdmState = (doc) => cleanAbdmDoc(doc);
 
 /** Takes the server's copy, without sending it back. */
 export const replaceAbdmState = (state) => writeLocal(state);

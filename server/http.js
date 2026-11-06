@@ -175,7 +175,9 @@ export const sendAssistant = async (req, res, handle, route = "ask") => {
 };
 
 // Saved state is read every few seconds by every open tab, so it gets its own, larger limits.
-export const STATE_LIMITS = { read: 1200, write: 600 };
+// A visible tab reads 2 documents every 3 s (400 reads per window), and a venue's Wi-Fi or a mobile
+// network can put many devices behind one address, so reads get a lot of room.
+export const STATE_LIMITS = { read: 20000, write: 3000 };
 
 const allowState = (kind, address, now = Date.now()) => {
   const mine = windowFor(`state-${kind}:${address}`, now);

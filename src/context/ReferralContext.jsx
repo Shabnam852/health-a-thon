@@ -1,12 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import {
-  buildSeedReferrals,
-  initialFacilities,
-  initialFleet,
-  initialNavigators,
-  initialNotifications,
-  initialSeedReferrals,
-} from "../data/seedData.js";
+import { freshDomainState, seedShape } from "../data/freshState.js";
+import { initialFacilities, initialFleet, initialNavigators, initialNotifications } from "../data/seedData.js";
 import { getAlarms } from "../domain/alarms.js";
 import { Role } from "../domain/enums.js";
 import * as familyRequests from "../domain/familyRequests.js";
@@ -31,18 +25,6 @@ export const useReferrals = () => {
   }
   return context;
 };
-
-// What a fresh demo holds. Hospitals never change while the app runs, so they are not saved.
-const seedShape = () => ({
-  referrals: initialSeedReferrals,
-  navigators: initialNavigators,
-  fleet: initialFleet,
-  notifications: initialNotifications,
-  accounts: [],
-  linkRequests: [],
-  // Simulated texts to families (FR-45). Never really sent.
-  messages: [],
-});
 
 export const ReferralProvider = ({ children }) => {
   // Load combined data structure from StorageAdapter or Seed
@@ -93,7 +75,6 @@ export const ReferralProvider = ({ children }) => {
   const syncRef = useRef(null);
   useEffect(() => {
     StorageAdapter.saveData(data);
-    syncRef.current?.setLocal(data);
   }, [data]);
 
   const setRole = (newRole) => {
@@ -117,9 +98,12 @@ export const ReferralProvider = ({ children }) => {
   // stale render. Actions return their result synchronously for the UI to report.
   const dataRef = useRef(data);
 
-  const commit = useCallback((next) => {
+  // Hands each change to the sync engine at once, not after React renders: a server copy that lands
+  // in between must not be merged with a stale one (a change made after an await would be lost).
+  const commit = useCallback((next, { fromServer = false } = {}) => {
     dataRef.current = next;
     setData(next);
+    if (!fromServer) syncRef.current?.setLocal(next);
   }, []);
 
   // Shared with every other browser through /api/state: the server's copy is loaded on start and
@@ -129,7 +113,7 @@ export const ReferralProvider = ({ children }) => {
       key: "domain",
       transport: httpTransport,
       validate: (doc) => normaliseDomain(doc, seedShape()),
-      onRemote: (doc) => commit(doc),
+      onRemote: (doc) => commit(doc, { fromServer: true }),
     });
     syncRef.current = sync;
     sync.setLocal(dataRef.current);
@@ -327,8 +311,8 @@ export const ReferralProvider = ({ children }) => {
   const resetDemoData = () => {
     StorageAdapter.clearData();
     clearVoices();
-    const freshReferrals = buildSeedReferrals();
-    const freshData = { ...seedShape(), referrals: freshReferrals };
+    const freshData = freshDomainState();
+    const freshReferrals = freshData.referrals;
     commit(freshData);
     // Everyone's copy starts again, not just this browser's.
     syncRef.current?.replace(freshData);

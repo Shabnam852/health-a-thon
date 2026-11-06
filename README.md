@@ -44,7 +44,7 @@ cp .env.example .env    # then add your keys to .env
 npm run dev             # http://localhost:5173
 ```
 
-`.env` holds `ANTHROPIC_API_KEY` and `SARVAM_API_KEY`, plus `DATABASE_URL` for Neon (without it, `npm run dev` keeps the shared data in memory). They are used only by the server code and never reach the browser. `.env` is git-ignored: never commit it. Restart `npm run dev` after changing it.
+`.env` holds `ANTHROPIC_API_KEY` and `SARVAM_API_KEY`, plus `DATABASE_URL` for Neon, used only once deployed. `npm run dev` keeps the shared data in memory so local work never changes the live demo; set `DEV_DATABASE_URL` to a separate Neon branch to test against a real database. They are used only by the server code and never reach the browser. `.env` is git-ignored: never commit it. Restart `npm run dev` after changing it.
 
 ## Commands
 

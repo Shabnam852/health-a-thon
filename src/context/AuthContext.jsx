@@ -25,7 +25,14 @@ export const AuthProvider = ({ children }) => {
     checkSelfRegistration,
     registerSelf,
   } = useReferrals();
-  const [session, setSession] = useState(() => auth.getSession());
+  const [storedSession, setSession] = useState(() => auth.getSession());
+  // Reset demo on any device clears the accounts made since; a phone signed in to one of them is
+  // signed out rather than left on a screen that can no longer do anything.
+  const accountGone = storedSession?.kind === "phone" && !findAccountById(storedSession.accountId);
+  const session = accountGone ? null : storedSession;
+  useEffect(() => {
+    if (accountGone) auth.signOut();
+  }, [accountGone]);
   const [privacyAccepted, setPrivacyAccepted] = useState(() =>
     session ? auth.hasAcceptedPrivacy(session.accountId) : false,
   );

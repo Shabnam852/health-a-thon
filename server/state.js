@@ -9,6 +9,7 @@
  */
 
 import { neon } from "@neondatabase/serverless";
+import { cleanAbdmDoc, cleanDomainDoc } from "../src/domain/stateShape.js";
 
 /** The documents the app keeps. Anything else is refused. */
 export const STATE_KEYS = ["domain", "abdm"];
@@ -87,6 +88,9 @@ export const createMemoryStore = () => {
 
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
+// Only items every screen can read are stored, so one bad save can't break the app for everyone.
+const CLEANERS = { domain: cleanDomainDoc, abdm: cleanAbdmDoc };
+
 /**
  * One request to /api/state, without any Node plumbing.
  * GET ?key=&since=  → { doc, version } (doc null if nothing saved), or { unchanged: true }
@@ -106,9 +110,10 @@ export const handleState = async ({ method, query, body }, store) => {
   }
 
   if (method === "PUT") {
-    const { doc, baseVersion = 0, force = false } = body ?? {};
-    if (!isPlainObject(doc)) return { status: 400, body: { error: "Send a document." } };
-    if (key === "domain" && !Array.isArray(doc.referrals)) return { status: 400, body: { error: "No referrals." } };
+    const { doc: sent, baseVersion = 0, force = false } = body ?? {};
+    if (!isPlainObject(sent)) return { status: 400, body: { error: "Send a document." } };
+    const doc = CLEANERS[key](sent);
+    if (!doc) return { status: 400, body: { error: "That document isn't usable." } };
     if (!Number.isInteger(baseVersion) || baseVersion < 0) return { status: 400, body: { error: "Bad version." } };
     if (force) return { status: 200, body: { version: await store.overwrite(key, doc) } };
     const version = await store.write(key, doc, baseVersion);

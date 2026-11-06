@@ -3,7 +3,8 @@
  * Encapsulates browser storage with versioning, fallback, validation, and safe migrations.
  */
 
-import { ReferralStatus, Role } from "../domain/enums.js";
+import { Role } from "../domain/enums.js";
+import { cleanDomainDoc } from "../domain/stateShape.js";
 
 const STORAGE_KEY = "navexa_domain_v6";
 const OLD_STORAGE_KEYS = ["navexa_domain_v3", "navexa_domain_v4", "navexa_domain_v5"];
@@ -13,8 +14,6 @@ const STORY_STEP_KEY = "navexa_story_step";
 const ACTIVE_REFERRAL_KEY = "navexa_active_referral";
 const ACTIVE_FACILITY_KEY = "navexa_active_facility";
 const DEFAULT_ROLE = Role.COORDINATOR;
-
-const isUsableReferral = (r) => Boolean(r?.id) && Object.values(ReferralStatus).includes(r.status);
 
 // Keeps saved values only where they have the expected shape, and seeds the rest.
 const mergeWithSeed = (parsed, seedData) => {
@@ -30,8 +29,8 @@ const mergeWithSeed = (parsed, seedData) => {
  * null when it holds no usable referral. One bad record must not cost the others.
  */
 export const normaliseDomain = (parsed, seedData) => {
-  const usable = Array.isArray(parsed?.referrals) ? parsed.referrals.filter(isUsableReferral) : [];
-  return usable.length > 0 ? mergeWithSeed({ ...parsed, referrals: usable }, seedData) : null;
+  const clean = cleanDomainDoc(parsed);
+  return clean ? mergeWithSeed(clean, seedData) : null;
 };
 
 export const StorageAdapter = {

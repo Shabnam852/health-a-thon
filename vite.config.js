@@ -23,8 +23,7 @@ const assistantApi = (env) => ({
       "/api/ai/handoff": "handoff",
       "/api/ai/referral-draft": "draft",
     };
-    // Saved demo state (Neon), as api/state.js serves it once deployed. Without a database URL in
-    // .env it falls back to memory, so `npm run dev` still shares state between tabs.
+    // Saved demo state, as api/state.js serves it once deployed. Tabs on this machine share it.
     let store = null;
     server.middlewares.use("/api/state", (req, res) => {
       (async () => {
@@ -32,7 +31,9 @@ const assistantApi = (env) => ({
           server.ssrLoadModule("/server/http.js"),
           server.ssrLoadModule("/server/state.js"),
         ]);
-        const url = state.databaseUrl(env);
+        // Local work never touches the live demo's data: a separate DEV_DATABASE_URL (a Neon branch)
+        // if set, otherwise an in-memory store that empties on restart.
+        const url = env.DEV_DATABASE_URL ?? "";
         store ??= url ? state.createNeonStore(url) : state.createMemoryStore();
         // Connect strips the mount path; the handler reads the query from req.url either way.
         return sendState(req, res, (input) => state.handleState(input, store));

@@ -42,7 +42,7 @@ describe("mergeDocs", () => {
 
   it("takes the remote copy when nothing changed here", () => {
     const base = { referrals: [ref("A")] };
-    const remote = { referrals: [ref("A", "ARRIVED")] };
+    const remote = { referrals: [ref("A", "ARRIVAL_CONFIRMED")] };
     assert.deepEqual(mergeDocs(base, base, remote), remote);
   });
 
@@ -124,11 +124,47 @@ describe("createDocSync", () => {
     await sync.setLocal(view.doc);
     await sync.pull();
     up = false;
-    await sync.setLocal({ referrals: [ref("A", "ARRIVED")] });
+    await sync.setLocal({ referrals: [ref("A", "ARRIVAL_CONFIRMED")] });
     assert.equal(sync.isOnline(), false);
     up = true;
     await sync.pull();
-    assert.deepEqual((await store.read("domain")).doc.referrals, [ref("A", "ARRIVED")]);
+    assert.deepEqual((await store.read("domain")).doc.referrals, [ref("A", "ARRIVAL_CONFIRMED")]);
+  });
+
+  it("keeps a change made before the first successful load", async () => {
+    const store = createMemoryStore();
+    await store.overwrite("domain", { referrals: [ref("A"), ref("B")] });
+    const real = serverTransport(store);
+    let up = false;
+    const transport = {
+      get: (...args) => (up ? real.get(...args) : null),
+      put: (...args) => (up ? real.put(...args) : null),
+    };
+    const view = { doc: { referrals: [ref("A")] } };
+    const sync = createDocSync({ key: "domain", transport, onRemote: (doc) => (view.doc = doc) });
+    await sync.setLocal(view.doc);
+    await sync.pull();
+    // Made while the server was out of reach: it must survive the first load, not be replaced.
+    await sync.setLocal({ referrals: [ref("NEW"), ref("A")] });
+    up = true;
+    await sync.pull();
+    const ids = (await store.read("domain")).doc.referrals.map((r) => r.id);
+    assert.deepEqual(ids.sort(), ["A", "B", "NEW"]);
+    assert.deepEqual(view.doc.referrals.map((r) => r.id).sort(), ["A", "B", "NEW"]);
+  });
+
+  it("a Reset during a save in flight is not merged with the old copy", async () => {
+    const store = createMemoryStore();
+    const a = browser(store, { referrals: [ref("A")] });
+    await a.sync.setLocal(a.view.doc);
+    await a.sync.pull();
+    // Someone else adds a case, so A's next normal save gets a conflict.
+    await store.write("domain", { referrals: [ref("A"), ref("OTHER")] }, 1);
+    const saving = a.sync.setLocal({ referrals: [ref("A", "ACKNOWLEDGED")] });
+    const resetting = a.sync.replace({ referrals: [ref("FRESH")] });
+    await Promise.all([saving, resetting]);
+    await a.sync.pull();
+    assert.deepEqual((await store.read("domain")).doc.referrals, [ref("FRESH")]);
   });
 
   it("replace overwrites the server whatever version it holds", async () => {
