@@ -8,6 +8,12 @@ import { Badge, Button, Card, Icon, Page, PageHeader, Pictogram } from "../compo
 import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { isHighAcuity, PatientType, Role } from "../domain/enums.js";
+import {
+  ARRIVAL_REPORTED_LABEL,
+  CALL_BACK_LABEL,
+  hasOpenCallBack,
+  isArrivalReportedOnly,
+} from "../domain/familyRequests.js";
 import { getJourneyHeadline, getReferralJourney, JourneyState } from "../domain/landing.js";
 import { getDestination, hasArrivedAtFacility, isFloating } from "../domain/workflow.js";
 
@@ -116,6 +122,16 @@ const HistoryList = ({ items, full = false }) => (
       </li>
     ))}
   </ul>
+);
+
+const clockTime = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+// What the family told the team that is still open. Kept apart from confirmed facts, and labelled as such.
+const FamilyNote = ({ icon, children }) => (
+  <p className="flex items-start gap-2 rounded-card border-l-4 border-line-strong bg-muted p-3 text-sm text-ink break-words">
+    <Icon name={icon} className="text-ink-muted mt-0.5 shrink-0" />
+    <span className="min-w-0">{children}</span>
+  </p>
 );
 
 const formatVital = (key, value) => (key === "fhr" && /^\d+$/.test(value || "") ? `${value} bpm` : value);
@@ -283,6 +299,19 @@ const ReferralDetails = () => {
               })}
             </ol>
 
+            {isArrivalReportedOnly(referral) && (
+              <FamilyNote icon="where_to_vote">
+                <strong>{ARRIVAL_REPORTED_LABEL}.</strong> Reported at {clockTime(referral.arrivalReport.reportedAt)}
+                {referral.arrivalReport.place ? `, at ${referral.arrivalReport.place}` : ""}.
+                {role === Role.FACILITY && " Confirm arrival at intake once the patient is at reception."}
+              </FamilyNote>
+            )}
+            {hasOpenCallBack(referral) && (
+              <FamilyNote icon="phone_callback">
+                <strong>{CALL_BACK_LABEL}.</strong> Asked at {clockTime(referral.callBackRequest.requestedAt)}
+                {referral.callBackRequest.reason ? `: "${referral.callBackRequest.reason}"` : "."}
+              </FamilyNote>
+            )}
             {referral.arrival ? (
               <p className="text-sm text-ink-muted break-words">
                 Confirmed by {referral.arrival.verifiedBy}

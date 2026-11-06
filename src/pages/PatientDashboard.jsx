@@ -4,6 +4,7 @@ import { ASSISTANT_PATH } from "../components/assistant/AssistantLauncher.jsx";
 import ListenButton from "../components/assistant/ListenButton.jsx";
 import { useFamilyLanguage } from "../components/assistant/useFamilyLanguage.js";
 import { usePatientCase } from "../components/assistant/usePatientCase.js";
+import FamilyRequestsCard from "../components/FamilyRequestsCard.jsx";
 import { fill, fillParts } from "../components/familyStrings.js";
 import HospitalChoice from "../components/HospitalChoice.jsx";
 import HospitalMap from "../components/HospitalMap.jsx";
@@ -180,6 +181,7 @@ const PatientDashboard = () => {
   const listen = <ListenButton referral={referral} text={getScreenSummary(view, referral, facilities)} />;
 
   const finishChoice = (res, message) => report(res, message, t.somethingWrong);
+  const familyRequests = <FamilyRequestsCard referral={referral} t={t} onResult={finishChoice} />;
 
   const chooser = floating && (
     <Card title={t.chooseHospital} className="space-y-4">
@@ -290,6 +292,8 @@ const PatientDashboard = () => {
               {t.askQuestion}
             </Button>
           </div>
+
+          {familyRequests}
 
           <Card title={t.yourJourney}>
             <StepList
@@ -423,6 +427,7 @@ const PatientDashboard = () => {
               {listen}
             </div>
           </Card>
+          {familyRequests}
           {nav && (
             <Card title={t.yourCareNavigator} className="space-y-3">
               <div className="flex items-center gap-3">

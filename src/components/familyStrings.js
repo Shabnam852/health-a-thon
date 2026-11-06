@@ -166,6 +166,18 @@ const en = {
   voiceFailed: "The voice couldn't play. Check your sound is on, then try again.",
   tryAgain: "Try again",
   cantReadAloud: "Couldn't read this aloud.",
+
+  // Telling the care team: arrival and call back (FR-46)
+  tellTeam: "Tell your care team",
+  arrivedButton: "We've arrived at the hospital",
+  arrivedSaved: "Thank you. The hospital will confirm when you check in.",
+  arrivedReported: "You told us you've arrived. Give case ID {id} at the reception desk so the hospital can confirm.",
+  callBackButton: "Ask for a call back",
+  callBackReason: "What is it about? (optional)",
+  callBackSend: "Send",
+  cancel: "Cancel",
+  callBackSent: "{name} will call you back soon.",
+  callBackOpen: "You asked for a call back. {name} will call you soon.",
 };
 
 const hi = {
@@ -310,6 +322,16 @@ const hi = {
   voiceFailed: "आवाज़ नहीं चल पाई। देखें कि आवाज़ चालू है, फिर दोबारा कोशिश करें।",
   tryAgain: "दोबारा कोशिश करें",
   cantReadAloud: "इसे पढ़कर नहीं सुना पाए।",
+  tellTeam: "अपनी केयर टीम को बताएँ",
+  arrivedButton: "हम अस्पताल पहुँच गए हैं",
+  arrivedSaved: "धन्यवाद। आपके चेक-इन करने पर अस्पताल पुष्टि करेगा।",
+  arrivedReported: "आपने बताया कि आप पहुँच गए हैं। रिसेप्शन पर केस आईडी {id} बताएँ, ताकि अस्पताल पुष्टि कर सके।",
+  callBackButton: "वापस फ़ोन करने को कहें",
+  callBackReason: "किस बारे में है? (ज़रूरी नहीं)",
+  callBackSend: "भेजें",
+  cancel: "रद्द करें",
+  callBackSent: "{name} जल्द ही आपको वापस फ़ोन करेंगे।",
+  callBackOpen: "आपने वापस फ़ोन करने को कहा है। {name} जल्द ही आपको फ़ोन करेंगे।",
 };
 
 const bn = {
@@ -447,6 +469,16 @@ const bn = {
   voiceFailed: "আওয়াজ চলেনি। সাউন্ড চালু আছে কিনা দেখুন, তারপর আবার চেষ্টা করুন।",
   tryAgain: "আবার চেষ্টা করুন",
   cantReadAloud: "এটা পড়ে শোনানো গেল না।",
+  tellTeam: "আপনার কেয়ার টিমকে জানান",
+  arrivedButton: "আমরা হাসপাতালে পৌঁছে গেছি",
+  arrivedSaved: "ধন্যবাদ। আপনি চেক-ইন করলে হাসপাতাল নিশ্চিত করবে।",
+  arrivedReported: "আপনি জানিয়েছেন যে আপনি পৌঁছে গেছেন। রিসেপশনে কেস আইডি {id} বলুন, যাতে হাসপাতাল নিশ্চিত করতে পারে।",
+  callBackButton: "ফিরে ফোন করতে বলুন",
+  callBackReason: "কী বিষয়ে? (ঐচ্ছিক)",
+  callBackSend: "পাঠান",
+  cancel: "বাতিল করুন",
+  callBackSent: "{name} শীঘ্রই আপনাকে ফিরে ফোন করবেন।",
+  callBackOpen: "আপনি ফিরে ফোন করতে বলেছেন। {name} শীঘ্রই আপনাকে ফোন করবেন।",
 };
 
 const gu = {
@@ -591,6 +623,16 @@ const gu = {
   voiceFailed: "અવાજ ચાલ્યો નહીં. અવાજ ચાલુ છે તે જુઓ, પછી ફરી પ્રયત્ન કરો.",
   tryAgain: "ફરી પ્રયત્ન કરો",
   cantReadAloud: "આ વાંચી સંભળાવી શકાયું નહીં.",
+  tellTeam: "તમારી કેર ટીમને જણાવો",
+  arrivedButton: "અમે હૉસ્પિટલ પહોંચી ગયા છીએ",
+  arrivedSaved: "આભાર. તમે ચેક-ઇન કરશો ત્યારે હૉસ્પિટલ પુષ્ટિ કરશે.",
+  arrivedReported: "તમે જણાવ્યું કે તમે પહોંચી ગયા છો. રિસેપ્શન પર કેસ આઈડી {id} આપો, જેથી હૉસ્પિટલ પુષ્ટિ કરી શકે.",
+  callBackButton: "પાછો ફોન કરવા કહો",
+  callBackReason: "શેના વિશે છે? (ફરજિયાત નથી)",
+  callBackSend: "મોકલો",
+  cancel: "રદ કરો",
+  callBackSent: "{name} તમને જલ્દી પાછો ફોન કરશે.",
+  callBackOpen: "તમે પાછો ફોન કરવા કહ્યું છે. {name} તમને જલ્દી ફોન કરશે.",
 };
 
 const kn = {
@@ -729,6 +771,16 @@ const kn = {
   voiceFailed: "ಧ್ವನಿ ಪ್ಲೇ ಆಗಲಿಲ್ಲ. ಸೌಂಡ್ ಆನ್ ಇದೆಯೇ ನೋಡಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
   tryAgain: "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
   cantReadAloud: "ಇದನ್ನು ಓದಿ ಹೇಳಲು ಆಗಲಿಲ್ಲ.",
+  tellTeam: "ನಿಮ್ಮ ಕೇರ್ ತಂಡಕ್ಕೆ ತಿಳಿಸಿ",
+  arrivedButton: "ನಾವು ಆಸ್ಪತ್ರೆಗೆ ತಲುಪಿದ್ದೇವೆ",
+  arrivedSaved: "ಧನ್ಯವಾದಗಳು. ನೀವು ಚೆಕ್-ಇನ್ ಮಾಡಿದಾಗ ಆಸ್ಪತ್ರೆ ಖಚಿತಪಡಿಸುತ್ತದೆ.",
+  arrivedReported: "ನೀವು ತಲುಪಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿದ್ದೀರಿ. ಆಸ್ಪತ್ರೆ ಖಚಿತಪಡಿಸಲು ರಿಸೆಪ್ಷನ್‌ನಲ್ಲಿ ಕೇಸ್ ಐಡಿ {id} ಕೊಡಿ.",
+  callBackButton: "ಮರಳಿ ಕರೆ ಮಾಡಲು ಕೇಳಿ",
+  callBackReason: "ಯಾವುದರ ಬಗ್ಗೆ? (ಐಚ್ಛಿಕ)",
+  callBackSend: "ಕಳುಹಿಸಿ",
+  cancel: "ರದ್ದುಮಾಡಿ",
+  callBackSent: "{name} ಶೀಘ್ರದಲ್ಲೇ ನಿಮಗೆ ಮರಳಿ ಕರೆ ಮಾಡುತ್ತಾರೆ.",
+  callBackOpen: "ನೀವು ಮರಳಿ ಕರೆ ಮಾಡಲು ಕೇಳಿದ್ದೀರಿ. {name} ಶೀಘ್ರದಲ್ಲೇ ನಿಮಗೆ ಕರೆ ಮಾಡುತ್ತಾರೆ.",
 };
 
 const ml = {
@@ -873,6 +925,16 @@ const ml = {
   voiceFailed: "ശബ്ദം പ്ലേ ആയില്ല. ശബ്ദം ഓണാണോ എന്ന് നോക്കി വീണ്ടും ശ്രമിക്കുക.",
   tryAgain: "വീണ്ടും ശ്രമിക്കുക",
   cantReadAloud: "ഇത് വായിച്ചുകേൾപ്പിക്കാൻ കഴിഞ്ഞില്ല.",
+  tellTeam: "നിങ്ങളുടെ കെയർ ടീമിനെ അറിയിക്കുക",
+  arrivedButton: "ഞങ്ങൾ ആശുപത്രിയിൽ എത്തി",
+  arrivedSaved: "നന്ദി. നിങ്ങൾ ചെക്ക്-ഇൻ ചെയ്യുമ്പോൾ ആശുപത്രി സ്ഥിരീകരിക്കും.",
+  arrivedReported: "നിങ്ങൾ എത്തിയെന്ന് അറിയിച്ചു. ആശുപത്രിക്ക് സ്ഥിരീകരിക്കാൻ റിസപ്ഷനിൽ കേസ് ഐഡി {id} നൽകുക.",
+  callBackButton: "തിരികെ വിളിക്കാൻ ആവശ്യപ്പെടുക",
+  callBackReason: "എന്തിനെക്കുറിച്ചാണ്? (നിർബന്ധമില്ല)",
+  callBackSend: "അയയ്ക്കുക",
+  cancel: "റദ്ദാക്കുക",
+  callBackSent: "{name} ഉടൻ നിങ്ങളെ തിരികെ വിളിക്കും.",
+  callBackOpen: "നിങ്ങൾ തിരികെ വിളിക്കാൻ ആവശ്യപ്പെട്ടു. {name} ഉടൻ നിങ്ങളെ വിളിക്കും.",
 };
 
 const mr = {
@@ -1017,6 +1079,16 @@ const mr = {
   voiceFailed: "आवाज वाजला नाही. आवाज चालू आहे का ते पाहा, मग पुन्हा प्रयत्न करा.",
   tryAgain: "पुन्हा प्रयत्न करा",
   cantReadAloud: "हे वाचून दाखवता आले नाही.",
+  tellTeam: "तुमच्या केअर टीमला सांगा",
+  arrivedButton: "आम्ही दवाखान्यात पोहोचलो आहोत",
+  arrivedSaved: "धन्यवाद. तुम्ही चेक-इन केल्यावर दवाखाना खात्री करेल.",
+  arrivedReported: "तुम्ही पोहोचल्याचे सांगितले आहे. दवाखान्याला खात्री करता यावी म्हणून रिसेप्शनवर केस आयडी {id} सांगा.",
+  callBackButton: "परत फोन करायला सांगा",
+  callBackReason: "कशाबद्दल आहे? (आवश्यक नाही)",
+  callBackSend: "पाठवा",
+  cancel: "रद्द करा",
+  callBackSent: "{name} लवकरच तुम्हाला परत फोन करतील.",
+  callBackOpen: "तुम्ही परत फोन करायला सांगितले आहे. {name} लवकरच तुम्हाला फोन करतील.",
 };
 
 const od = {
@@ -1154,6 +1226,16 @@ const od = {
   voiceFailed: "ସ୍ୱର ବାଜିଲା ନାହିଁ। ସାଉଣ୍ଡ ଚାଲୁ ଅଛି କି ଦେଖନ୍ତୁ, ତା'ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।",
   tryAgain: "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ",
   cantReadAloud: "ଏହା ପଢ଼ି ଶୁଣାଇ ହେଲା ନାହିଁ।",
+  tellTeam: "ଆପଣଙ୍କ କେୟାର୍ ଟିମ୍‌କୁ ଜଣାନ୍ତୁ",
+  arrivedButton: "ଆମେ ଡାକ୍ତରଖାନାରେ ପହଞ୍ଚିଗଲୁ",
+  arrivedSaved: "ଧନ୍ୟବାଦ। ଆପଣ ଚେକ୍-ଇନ୍ କଲେ ଡାକ୍ତରଖାନା ନିଶ୍ଚିତ କରିବ।",
+  arrivedReported: "ଆପଣ ପହଞ୍ଚିଗଲେ ବୋଲି ଜଣାଇଛନ୍ତି। ଡାକ୍ତରଖାନା ନିଶ୍ଚିତ କରିପାରିବା ପାଇଁ ରିସେପ୍ସନରେ କେସ୍ ଆଇଡି {id} ଦିଅନ୍ତୁ।",
+  callBackButton: "ପୁଣି ଫୋନ୍ କରିବାକୁ କୁହନ୍ତୁ",
+  callBackReason: "କେଉଁ ବିଷୟରେ? (ବାଧ୍ୟତାମୂଳକ ନୁହେଁ)",
+  callBackSend: "ପଠାନ୍ତୁ",
+  cancel: "ବାତିଲ୍ କରନ୍ତୁ",
+  callBackSent: "{name} ଶୀଘ୍ର ଆପଣଙ୍କୁ ପୁଣି ଫୋନ୍ କରିବେ।",
+  callBackOpen: "ଆପଣ ପୁଣି ଫୋନ୍ କରିବାକୁ କହିଛନ୍ତି। {name} ଶୀଘ୍ର ଆପଣଙ୍କୁ ଫୋନ୍ କରିବେ।",
 };
 
 const pa = {
@@ -1297,6 +1379,16 @@ const pa = {
   voiceFailed: "ਆਵਾਜ਼ ਨਹੀਂ ਚੱਲੀ। ਦੇਖੋ ਕਿ ਆਵਾਜ਼ ਚਾਲੂ ਹੈ, ਫਿਰ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   tryAgain: "ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
   cantReadAloud: "ਇਹ ਪੜ੍ਹ ਕੇ ਨਹੀਂ ਸੁਣਾਇਆ ਜਾ ਸਕਿਆ।",
+  tellTeam: "ਆਪਣੀ ਕੇਅਰ ਟੀਮ ਨੂੰ ਦੱਸੋ",
+  arrivedButton: "ਅਸੀਂ ਹਸਪਤਾਲ ਪਹੁੰਚ ਗਏ ਹਾਂ",
+  arrivedSaved: "ਧੰਨਵਾਦ। ਤੁਹਾਡੇ ਚੈੱਕ-ਇਨ ਕਰਨ 'ਤੇ ਹਸਪਤਾਲ ਪੁਸ਼ਟੀ ਕਰੇਗਾ।",
+  arrivedReported: "ਤੁਸੀਂ ਦੱਸਿਆ ਹੈ ਕਿ ਤੁਸੀਂ ਪਹੁੰਚ ਗਏ ਹੋ। ਰਿਸੈਪਸ਼ਨ 'ਤੇ ਕੇਸ ਆਈਡੀ {id} ਦੱਸੋ, ਤਾਂ ਜੋ ਹਸਪਤਾਲ ਪੁਸ਼ਟੀ ਕਰ ਸਕੇ।",
+  callBackButton: "ਵਾਪਸ ਫ਼ੋਨ ਕਰਨ ਲਈ ਕਹੋ",
+  callBackReason: "ਕਿਸ ਬਾਰੇ ਹੈ? (ਜ਼ਰੂਰੀ ਨਹੀਂ)",
+  callBackSend: "ਭੇਜੋ",
+  cancel: "ਰੱਦ ਕਰੋ",
+  callBackSent: "{name} ਜਲਦੀ ਤੁਹਾਨੂੰ ਵਾਪਸ ਫ਼ੋਨ ਕਰਨਗੇ।",
+  callBackOpen: "ਤੁਸੀਂ ਵਾਪਸ ਫ਼ੋਨ ਕਰਨ ਲਈ ਕਿਹਾ ਹੈ। {name} ਜਲਦੀ ਤੁਹਾਨੂੰ ਫ਼ੋਨ ਕਰਨਗੇ।",
 };
 
 const ta = {
@@ -1441,6 +1533,16 @@ const ta = {
   voiceFailed: "குரல் ஒலிக்கவில்லை. ஒலி இயக்கத்தில் உள்ளதா எனப் பார்த்து, மீண்டும் முயலுங்கள்.",
   tryAgain: "மீண்டும் முயலுங்கள்",
   cantReadAloud: "இதைப் படித்துக் காட்ட முடியவில்லை.",
+  tellTeam: "உங்கள் கேர் குழுவிடம் சொல்லுங்கள்",
+  arrivedButton: "நாங்கள் மருத்துவமனைக்கு வந்துவிட்டோம்",
+  arrivedSaved: "நன்றி. நீங்கள் செக்-இன் செய்யும்போது மருத்துவமனை உறுதிசெய்யும்.",
+  arrivedReported: "நீங்கள் வந்துவிட்டதாகச் சொன்னீர்கள். மருத்துவமனை உறுதிசெய்ய, வரவேற்பில் கேஸ் ஐடி {id}-ஐக் கொடுங்கள்.",
+  callBackButton: "திரும்ப அழைக்கச் சொல்லுங்கள்",
+  callBackReason: "எதைப் பற்றி? (விருப்பம்)",
+  callBackSend: "அனுப்புங்கள்",
+  cancel: "ரத்துசெய்",
+  callBackSent: "{name} விரைவில் உங்களைத் திரும்ப அழைப்பார்.",
+  callBackOpen: "நீங்கள் திரும்ப அழைக்கச் சொன்னீர்கள். {name} விரைவில் உங்களை அழைப்பார்.",
 };
 
 const te = {
@@ -1578,6 +1680,16 @@ const te = {
   voiceFailed: "గొంతు వినిపించలేదు. సౌండ్ ఆన్‌లో ఉందో చూసి, మళ్ళీ ప్రయత్నించండి.",
   tryAgain: "మళ్ళీ ప్రయత్నించండి",
   cantReadAloud: "దీన్ని చదివి వినిపించలేకపోయాం.",
+  tellTeam: "మీ కేర్ బృందానికి చెప్పండి",
+  arrivedButton: "మేము ఆసుపత్రికి చేరుకున్నాం",
+  arrivedSaved: "ధన్యవాదాలు. మీరు చెక్-ఇన్ చేసినప్పుడు ఆసుపత్రి నిర్ధారిస్తుంది.",
+  arrivedReported: "మీరు చేరుకున్నారని చెప్పారు. ఆసుపత్రి నిర్ధారించడానికి రిసెప్షన్ వద్ద కేసు ఐడి {id} ఇవ్వండి.",
+  callBackButton: "తిరిగి ఫోన్ చేయమని అడగండి",
+  callBackReason: "దేని గురించి? (తప్పనిసరి కాదు)",
+  callBackSend: "పంపండి",
+  cancel: "రద్దు చేయండి",
+  callBackSent: "{name} త్వరలో మీకు తిరిగి ఫోన్ చేస్తారు.",
+  callBackOpen: "మీరు తిరిగి ఫోన్ చేయమని అడిగారు. {name} త్వరలో మీకు ఫోన్ చేస్తారు.",
 };
 
 export const FAMILY_STRINGS = {
