@@ -6,8 +6,10 @@ import HandoffCard from "../components/HandoffCard.jsx";
 import { enumLabel, priorityLabel } from "../components/referralColumns.jsx";
 import { Badge, Button, Card, Icon, Page, PageHeader, Pictogram } from "../components/ui/index.js";
 import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
+import { useAbdm } from "../context/AbdmContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { isHighAcuity, PatientType, Role } from "../domain/enums.js";
+import { buildReferralBundle, fhirExportFileName } from "../domain/fhirExport.js";
 import { getJourneyHeadline, getReferralJourney, JourneyState } from "../domain/landing.js";
 import { getDestination, hasArrivedAtFacility, isFloating } from "../domain/workflow.js";
 
@@ -118,13 +120,28 @@ const HistoryList = ({ items, full = false }) => (
   </ul>
 );
 
+// Saves the referral as a FHIR R4 file, built here in the browser. Nothing is sent anywhere.
+const downloadFhir = (referral, { facilities, abhaLink }) => {
+  const bundle = buildReferralBundle(referral, { facilities, abhaLink, now: new Date().toISOString() });
+  const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/fhir+json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fhirExportFileName(referral);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // After the click has handed the file to the browser; Safari can drop it if revoked in the same task.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+
 const formatVital = (key, value) => (key === "fhr" && /^\d+$/.test(value || "") ? `${value} bpm` : value);
 
 const ReferralDetails = () => {
   const { id } = useParams();
   // Set by the new-referral form, so the case it opens says the referral went out.
   const sentTo = useLocation().state?.sentTo;
-  const { getReferralById, role, setActiveReferralId } = useReferrals();
+  const { facilities, getReferralById, role, setActiveReferralId } = useReferrals();
+  const { abhaFor } = useAbdm();
   const [showAllHistory, setShowAllHistory] = useState(false);
 
   const referral = getReferralById(id);
@@ -178,9 +195,23 @@ const ReferralDetails = () => {
             title={referral.patientName}
             subtitle={[referral.age, referral.id].filter(Boolean).join(" · ")}
             actions={
-              <Badge tone={isHighAcuity(referral.priority) ? "danger" : "neutral"}>
-                {priorityLabel(referral.priority)}
-              </Badge>
+              <>
+                <Badge tone={isHighAcuity(referral.priority) ? "danger" : "neutral"}>
+                  {priorityLabel(referral.priority)}
+                </Badge>
+                {/* Staff only: the file holds the full clinical handover. */}
+                {showHandoff && (
+                  <Button
+                    size="sm"
+                    aria-label="Download FHIR file"
+                    title="Download this referral as a FHIR R4 file"
+                    onClick={() => downloadFhir(referral, { facilities, abhaLink: abhaFor(referral.id) })}
+                  >
+                    <Icon name="download" size="sm" />
+                    <span className="max-sm:hidden">Download FHIR</span>
+                  </Button>
+                )}
+              </>
             }
           />
           <p className="text-sm text-ink break-words">
