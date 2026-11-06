@@ -12,6 +12,7 @@ import { Role } from "../domain/enums.js";
 import { createReferral } from "../domain/models.js";
 import { accountsForReferral, linkAccounts } from "../domain/phoneAccounts.js";
 import { checkRegistration, decideLink, registerAccount, requestLink } from "../domain/selfRegistration.js";
+import { addFamilyTexts } from "../domain/smsTemplates.js";
 import * as workflow from "../domain/workflow.js";
 import { findPhoneAccount, setLinkedPhoneAccounts } from "../services/auth/demoAccounts.js";
 import { createDocSync, httpTransport, startPolling } from "../services/docSync.js";
@@ -38,6 +39,8 @@ const seedShape = () => ({
   notifications: initialNotifications,
   accounts: [],
   linkRequests: [],
+  // Simulated texts to families (FR-45). Never really sent.
+  messages: [],
 });
 
 export const ReferralProvider = ({ children }) => {
@@ -54,6 +57,7 @@ export const ReferralProvider = ({ children }) => {
   const notifications = data.notifications || initialNotifications;
   const accounts = data.accounts || [];
   const linkRequests = data.linkRequests || [];
+  const messages = data.messages || [];
   // Sign-in reads this list while this render runs, so it is handed over here, not in an effect.
   setLinkedPhoneAccounts(accounts);
 
@@ -148,10 +152,14 @@ export const ReferralProvider = ({ children }) => {
     const result = action(target);
     if (result.success) {
       const current = dataRef.current;
-      commit({
-        ...current,
-        referrals: current.referrals.map((r) => (r.id === id ? result.referral : r)),
-      });
+      // SIMULATED SMS: a change the family should know about also adds a text to the outbox.
+      commit(
+        addFamilyTexts(
+          { ...current, referrals: current.referrals.map((r) => (r.id === id ? result.referral : r)) },
+          target,
+          result.referral,
+        ),
+      );
     }
     return result;
   };
@@ -163,8 +171,10 @@ export const ReferralProvider = ({ children }) => {
   const addReferral = (newReferralData) => {
     const formatted = createReferral(newReferralData);
     const current = dataRef.current;
+    // SIMULATED SMS: a referral that goes out straight away texts the family.
+    const withTexts = addFamilyTexts(current, null, formatted);
     commit({
-      ...current,
+      ...withTexts,
       referrals: [formatted, ...current.referrals],
       // The patient's and family's mobiles can now sign in and see this referral.
       accounts: linkAccounts(current.accounts, accountsForReferral(formatted)),
@@ -340,6 +350,7 @@ export const ReferralProvider = ({ children }) => {
         notifications,
         accounts,
         linkRequests,
+        messages,
         checkSelfRegistration,
         registerSelf,
         askToLink,
