@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router";
 import PastRecordsCard from "../components/abdm/PastRecordsCard.jsx";
 import Dialog from "../components/Dialog.jsx";
 import HandoffCard from "../components/HandoffCard.jsx";
+import ReferralSlipDialog from "../components/ReferralSlip.jsx";
 import { enumLabel, priorityLabel } from "../components/referralColumns.jsx";
 import { Badge, Button, Card, Icon, Page, PageHeader, Pictogram } from "../components/ui/index.js";
 import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
@@ -126,6 +127,7 @@ const ReferralDetails = () => {
   const sentTo = useLocation().state?.sentTo;
   const { getReferralById, role, setActiveReferralId } = useReferrals();
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showSlip, setShowSlip] = useState(false);
 
   const referral = getReferralById(id);
 
@@ -178,9 +180,19 @@ const ReferralDetails = () => {
             title={referral.patientName}
             subtitle={[referral.age, referral.id].filter(Boolean).join(" · ")}
             actions={
-              <Badge tone={isHighAcuity(referral.priority) ? "danger" : "neutral"}>
-                {priorityLabel(referral.priority)}
-              </Badge>
+              <>
+                <Badge tone={isHighAcuity(referral.priority) ? "danger" : "neutral"}>
+                  {priorityLabel(referral.priority)}
+                </Badge>
+                {/* Staff hand the slip to the family; the family has their own screens. */}
+                {/* On phones only the icon shows, so the patient's name keeps the room. */}
+                {showHandoff && (
+                  <Button size="sm" onClick={() => setShowSlip(true)} className="max-sm:px-2.5">
+                    <Icon name="qr_code_2" />
+                    <span className="max-sm:sr-only">Referral slip</span>
+                  </Button>
+                )}
+              </>
             }
           />
           <p className="text-sm text-ink break-words">
@@ -364,6 +376,8 @@ const ReferralDetails = () => {
           </div>
         )}
       </div>
+
+      {showSlip && <ReferralSlipDialog referral={referral} onClose={() => setShowSlip(false)} />}
 
       {showAllHistory && (
         <Dialog title="History" onClose={() => setShowAllHistory(false)}>
