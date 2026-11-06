@@ -250,3 +250,36 @@ main:focus,
 @utility bg-row-hover {
   background-color: color-mix(in oklab, rgb(var(--color-muted)) 60%, rgb(var(--color-surface)));
 }
+
+/* The referral slip (components/ReferralSlip.jsx). Its printer copy sits outside the app and shows
+   only on paper, where it is the only thing printed. */
+.slip-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body:has(> .slip-print) {
+    overflow: visible !important;
+    background: none;
+  }
+
+  body:has(> .slip-print) > :not(.slip-print) {
+    display: none !important;
+  }
+
+  .slip-print {
+    display: block;
+    /* Keep the brand mark and the emergency box filled, as on screen. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .slip-print .slip-qr {
+    width: 50mm;
+    height: 50mm;
+  }
+}

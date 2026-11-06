@@ -211,7 +211,7 @@ const PhoneForm = ({ initialPhone, onSignedIn, onSignUp }) => {
 
 // Self-registration for a patient or family member. The referral number is optional: an account
 // with none, or with one whose mobile doesn't match, waits for the care coordinator to link it.
-const SignUpForm = ({ initialPhone, onSignedIn, onBack }) => {
+const SignUpForm = ({ initialPhone, initialReference = "", onSignedIn, onBack }) => {
   const { requestPhoneCode, registerWithPhone } = useAuth();
   const [phone, setPhone] = useState(initialPhone);
   const [sent, setSent] = useState(null);
@@ -219,7 +219,7 @@ const SignUpForm = ({ initialPhone, onSignedIn, onBack }) => {
   const [name, setName] = useState("");
   const [who, setWho] = useState("self");
   const [relation, setRelation] = useState("");
-  const [reference, setReference] = useState("");
+  const [reference, setReference] = useState(initialReference);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -333,7 +333,12 @@ const Login = () => {
   const { goToStep } = useDemoStory();
   const [searchParams] = useSearchParams();
   const prefill = findAccountById(searchParams.get("account"));
-  const [tab, setTab] = useState(searchParams.get("as") === Tab.PHONE || prefill?.phone ? Tab.PHONE : Tab.STAFF);
+  // The referral slip's QR code opens sign-up (signup=1) with its referral number (ref) filled in.
+  const [tab, setTab] = useState(() => {
+    if (searchParams.get("signup") === "1") return Tab.SIGN_UP;
+    return searchParams.get("as") === Tab.PHONE || prefill?.phone ? Tab.PHONE : Tab.STAFF;
+  });
+  const slipReference = (searchParams.get("ref") ?? "").trim().slice(0, 40);
   const [signUpPhone, setSignUpPhone] = useState("");
 
   // Only go back to a page this account may see; anything else goes to its home screen.
@@ -382,7 +387,12 @@ const Login = () => {
           {tab === Tab.STAFF ? (
             <StaffForm initialEmail={prefill?.email ?? ""} onSignedIn={onSignedIn} />
           ) : tab === Tab.SIGN_UP ? (
-            <SignUpForm initialPhone={signUpPhone} onSignedIn={onSignedIn} onBack={() => setTab(Tab.PHONE)} />
+            <SignUpForm
+              initialPhone={signUpPhone}
+              initialReference={slipReference}
+              onSignedIn={onSignedIn}
+              onBack={() => setTab(Tab.PHONE)}
+            />
           ) : (
             <PhoneForm
               initialPhone={prefill?.phone ?? ""}
