@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PatientType } from "./enums.js";
-import { accountsForReferral, linkAccounts, normaliseMobile } from "./phoneAccounts.js";
+import { accountsForReferral, linkAccounts, normaliseMobile, referralIdsForPhone } from "./phoneAccounts.js";
 
 describe("phone accounts for new referrals", () => {
   it("links the patient's and the emergency contact's mobiles", () => {
@@ -40,13 +40,13 @@ describe("phone accounts for new referrals", () => {
     );
   });
 
-  it("moves a number already linked to the newest referral", () => {
-    const old = [{ id: "PH-OLD", phone: "9845012345", referralId: "OLD" }];
-    const linked = linkAccounts(old, [{ id: "PH-NEW", phone: "9845012345", referralId: "NEW" }]);
-    assert.deepEqual(
-      linked.map((a) => a.referralId),
-      ["NEW"],
-    );
+  it("lets one number follow a mother's and her newborn's referrals", () => {
+    const mother = [{ id: "PH-M", phone: "9845012345", referralId: "NX-M" }];
+    const linked = linkAccounts(mother, [{ id: "PH-B", phone: "9845012345", referralId: "NX-B" }]);
+    assert.deepEqual(referralIdsForPhone(linked, "9845012345"), ["NX-B", "NX-M"]);
+    // Linking the same referral again doesn't repeat it.
+    const again = linkAccounts(linked, [{ id: "PH-B2", phone: "9845012345", referralId: "NX-B" }]);
+    assert.equal(again.length, 2);
   });
 
   it("normalises +91 and a leading 0", () => {

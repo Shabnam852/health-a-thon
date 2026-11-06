@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import * as auth from "../services/auth/authService.js";
-import { findAccountById } from "../services/auth/demoAccounts.js";
+import { findAccountById, referralsForPhone } from "../services/auth/demoAccounts.js";
 import { useReferrals } from "./ReferralContext.jsx";
 
 const AuthContext = createContext(null);
@@ -40,10 +40,15 @@ export const AuthProvider = ({ children }) => {
   const account = session?.kind === "phone" ? findAccountById(session.accountId) : null;
   const linkedReferralId = session?.kind === "phone" ? (account?.referralId ?? null) : (session?.referralId ?? null);
 
-  // A patient or family member only ever sees their own case.
+  // Every case this phone follows: usually one, or a mother's and her newborn's (FR-80).
+  const myReferralIds = account?.phone ? referralsForPhone(account.phone) : linkedReferralId ? [linkedReferralId] : [];
+  const myReferralKey = myReferralIds.join(",");
+
+  // A patient or family member only ever sees their own cases.
   useEffect(() => {
-    if (linkedReferralId && activeReferralId !== linkedReferralId) setActiveReferralId(linkedReferralId);
-  }, [linkedReferralId, activeReferralId, setActiveReferralId]);
+    const mine = myReferralKey ? myReferralKey.split(",") : [];
+    if (linkedReferralId && !mine.includes(activeReferralId)) setActiveReferralId(linkedReferralId);
+  }, [myReferralKey, linkedReferralId, activeReferralId, setActiveReferralId]);
 
   const begin = (result) => {
     if (!result.ok) return result;
@@ -60,6 +65,7 @@ export const AuthProvider = ({ children }) => {
     session,
     account,
     linkedReferralId,
+    myReferralIds,
     /**
      * Self-registration: checks the form, then the code, then makes the account and signs in.
      * Returns the sign-in result plus { linked, pending } from the linking rule.

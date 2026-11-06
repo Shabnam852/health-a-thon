@@ -7,6 +7,7 @@
  */
 
 import { RoleId } from "../../config/navigationConfig.js";
+import { referralIdsForPhone } from "../../domain/phoneAccounts.js";
 
 /** Every staff account uses this password in the demo. Shown on the sign-in screen. */
 export const DEMO_PASSWORD = "demo1234";
@@ -108,5 +109,13 @@ export const allPhoneAccounts = () => {
 
 export const findPhoneAccount = (phone) => allPhoneAccounts().find((a) => a.phone === normalisePhone(phone)) ?? null;
 
+// By id over every account, including a seeded one whose number now also follows a newer referral.
 export const findAccountById = (id) =>
-  staffAccounts.find((a) => a.id === id) ?? allPhoneAccounts().find((a) => a.id === id) ?? null;
+  staffAccounts.find((a) => a.id === id) ??
+  linkedPhoneAccounts.find((a) => a.id === id) ??
+  phoneAccounts.find((a) => a.id === id) ??
+  null;
+
+/** Every referral a number follows (FR-80: a mother's and her newborn's), newest first. */
+export const referralsForPhone = (phone) =>
+  referralIdsForPhone([...linkedPhoneAccounts, ...phoneAccounts], normalisePhone(phone));

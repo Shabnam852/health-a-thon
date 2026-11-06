@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import AwaitingLink from "./AwaitingLink.jsx";
 import AssistantLauncher from "./assistant/AssistantLauncher.jsx";
+import CaseSwitcher from "./CaseSwitcher.jsx";
 import { useModalFocus } from "./Dialog.jsx";
 import MobileNav from "./MobileNav";
 import PrivacyNotice from "./PrivacyNotice.jsx";
@@ -131,7 +132,10 @@ const AppShell = ({ children }) => {
           ) : awaitingLink ? (
             <AwaitingLink />
           ) : (
-            children
+            <>
+              {session.kind === "phone" && <CaseSwitcher />}
+              {children}
+            </>
           )}
         </main>
       </div>

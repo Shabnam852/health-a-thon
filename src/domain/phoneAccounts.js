@@ -44,8 +44,16 @@ export const accountsForReferral = (referral) => {
   return accounts;
 };
 
-/** Adds new accounts. A number already linked moves to the newest referral. */
+/**
+ * Adds new accounts, newest first. One number can follow several referrals (a mother's and her
+ * newborn's, FR-80): it keeps one account per referral, and signs in to the newest.
+ */
 export const linkAccounts = (existing, added) => {
-  const phones = new Set(added.map((a) => a.phone));
-  return [...added, ...(existing ?? []).filter((a) => !phones.has(a.phone))];
+  const keys = new Set(added.map((a) => `${a.phone}|${a.referralId}`));
+  return [...added, ...(existing ?? []).filter((a) => !keys.has(`${a.phone}|${a.referralId}`))];
 };
+
+/** Every referral a number follows, newest first, without repeats. */
+export const referralIdsForPhone = (accounts, phone) => [
+  ...new Set((accounts ?? []).filter((a) => a.phone === phone && a.referralId).map((a) => a.referralId)),
+];

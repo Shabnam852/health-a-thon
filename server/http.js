@@ -1,5 +1,8 @@
 // Node request/response plumbing shared by the Vercel functions and the Vite dev server.
 
+import { createNeonCounter, createSharedLimiter } from "./sharedLimit.js";
+import { databaseUrl } from "./state.js";
+
 const MAX_BODY_BYTES = 2_000_000;
 
 // Requests per address per window, by route. Each one can spend paid AI credit, so this caps
@@ -48,6 +51,28 @@ export const releaseRequest = (route, address, now = Date.now()) => {
 };
 
 export const resetRateLimits = () => hits.clear();
+
+// Deployed, the same limits are also counted in Neon so they hold across Vercel instances. Only when
+// the process has a database URL (Vercel does; the dev server and the tests don't, and there one
+// process is all there is).
+let sharedLimiter;
+const getSharedLimiter = () => {
+  if (sharedLimiter !== undefined) return sharedLimiter;
+  const url = databaseUrl(process.env);
+  sharedLimiter = url
+    ? createSharedLimiter(createNeonCounter(url), {
+        perAddress: RATE_LIMITS,
+        global: GLOBAL_LIMITS,
+        windowMs: WINDOW_MS,
+      })
+    : null;
+  return sharedLimiter;
+};
+
+/** For tests: use this limiter (or null for none) instead of the one made from the environment. */
+export const setSharedLimiter = (limiter) => {
+  sharedLimiter = limiter;
+};
 
 // Vercel sets x-vercel-forwarded-for itself, so it can't be faked. The dev server only listens
 // on this computer, so the socket address is enough there.
@@ -114,15 +139,26 @@ export const sendAssistant = async (req, res, handle, route = "ask") => {
   // Counted up front, so a burst of requests can't all slip under the limit at once, and
   // handed back below when the request never reached an AI (bad input, too large, not set up).
   const address = clientAddress(req);
-  if (!allowRequest(route, address)) {
+  const shared = getSharedLimiter();
+  const tooMany = () => {
     res.setHeader("Retry-After", String(WINDOW_MS / 1000));
     return send(res, 429, { error: "Too many requests. Please wait a few minutes and try again.", usedAi: false });
+  };
+  if (!allowRequest(route, address)) return tooMany();
+  if (shared && !(await shared.allow(route, address))) {
+    releaseRequest(route, address);
+    await shared.release(route, address);
+    return tooMany();
   }
+  const handBack = async () => {
+    releaseRequest(route, address);
+    await shared?.release(route, address);
+  };
   let body;
   try {
     body = await readJson(req);
   } catch (error) {
-    releaseRequest(route, address);
+    await handBack();
     return send(res, error.status || 400, {
       error: error.status === 413 ? "That request is too large." : "Bad request.",
       usedAi: false,
@@ -130,7 +166,7 @@ export const sendAssistant = async (req, res, handle, route = "ask") => {
   }
   try {
     const result = await handle(body);
-    if (result.body?.usedAi === false) releaseRequest(route, address);
+    if (result.body?.usedAi === false) await handBack();
     return send(res, result.status, result.body);
   } catch (error) {
     console.error("[assistant] unexpected failure", error);
