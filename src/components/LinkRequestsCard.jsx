@@ -19,7 +19,7 @@ const LinkRequestsCard = () => {
   const decidedBy = session?.name ?? "Care coordinator";
 
   return (
-    <Card as="section" aria-labelledby="link-requests-title" className="space-y-3">
+    <Card as="section" data-tour="link-requests" aria-labelledby="link-requests-title" className="space-y-3">
       <h2 id="link-requests-title" className="font-semibold text-ink flex items-center gap-2">
         <Icon name="person_add" />
         Families asking to be linked ({pending.length})
@@ -51,10 +51,19 @@ const LinkRequestsCard = () => {
                     Call
                   </Button>
                 )}
-                <Button size="sm" onClick={() => decideLinkRequest(request.id, false, decidedBy, DECLINE_REASON)}>
+                <Button
+                  size="sm"
+                  aria-label={`Decline ${request.name}`}
+                  onClick={() => decideLinkRequest(request.id, false, decidedBy, DECLINE_REASON)}
+                >
                   Decline
                 </Button>
-                <Button size="sm" variant="primary" onClick={() => decideLinkRequest(request.id, true, decidedBy)}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  aria-label={`Approve ${request.name}`}
+                  onClick={() => decideLinkRequest(request.id, true, decidedBy)}
+                >
                   Approve
                 </Button>
               </div>
