@@ -19,12 +19,14 @@ import {
   Disclosure,
   Field,
   FilterTabs,
+  Icon,
   Input,
   Page,
   PageHeader,
   Select,
   Textarea,
 } from "../components/ui/index.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { formatMinutes, getResponseClock } from "../domain/alarms.js";
 import { PatientType, ReferralStatus } from "../domain/enums.js";
@@ -167,6 +169,41 @@ const BLANK_FORM = {
   clinicalNotes: "",
 };
 
+// Example details for the judges' quick fill. Made up, like every patient in the demo.
+const exampleArrival = (ward, staffName) => ({
+  arrivalWard: ward,
+  arrivalBed: "4",
+  arrivalIp: "IP/2026/04512",
+  arrivalStaff: staffName || "Kavya Menon",
+  // A doctor signed in receives as the duty doctor, anyone else as the staff nurse.
+  arrivalRole: /^Dr\b/.test(staffName ?? "") ? "Duty doctor" : STAFF_ROLES[0],
+});
+
+const exampleOutcome = (referral) => {
+  const isChild = referral.referralType === PatientType.CHILD;
+  return {
+    clinicianName: "Dr. Rekha Srinivasan",
+    maternalStatus: "STABLE",
+    deliveryType: "SPONTANEOUS_VAGINAL",
+    neonatalStatus: isChild ? "PHOTOTHERAPY_INITIATED" : "STABLE",
+    disposition: "DISCHARGED_HOME",
+    clinicalNotes: isChild
+      ? "Intensive phototherapy for 36 hours. Bilirubin now below threshold. Feeding well. Review at day 7."
+      : "Treated and stable. Blood pressure controlled. Discharged home with medicines and a day 7 check.",
+  };
+};
+
+// A small "Demo only" row at the top of a form, so a judge can fill it in one press.
+const QuickFill = ({ onFill }) => (
+  <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line bg-subtle px-3 py-2">
+    <span className="text-sm text-ink-muted">Demo only: fill this with made-up details.</span>
+    <Button size="sm" onClick={onFill}>
+      <Icon name="edit_note" size="sm" />
+      Example details
+    </Button>
+  </div>
+);
+
 const FacilityDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
@@ -187,6 +224,8 @@ const FacilityDashboard = () => {
   const [saveError, setSaveError] = useState("");
   const { toast, showToast, report } = useToast();
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const fill = (values) => setForm((prev) => ({ ...prev, ...values }));
+  const { session } = useAuth();
 
   // A link can name a hospital. Otherwise this is the hospital chosen last.
   const linkedFacility = facilities.find((f) => f.id === searchParams.get("facility"));
@@ -411,6 +450,7 @@ const FacilityDashboard = () => {
           saveDisabled={!form.arrivalBed.trim() || !form.arrivalStaff.trim()}
           error={saveError}
         >
+          <QuickFill onFill={() => fill(exampleArrival(arrivalWards(modal.referral)[0], session?.name))} />
           <p className="text-sm text-ink-muted">
             {modal.referral.patientName} has reached {currentFacility.name}.
             {modal.referral.toFacility !== currentFacility.name &&
@@ -491,6 +531,7 @@ const FacilityDashboard = () => {
           saveDisabled={!form.clinicianName.trim()}
           error={saveError}
         >
+          <QuickFill onFill={() => fill(exampleOutcome(modal.referral))} />
           <p className="text-sm text-ink-muted">
             {modal.referral.patientName} ({modal.referral.referralType}). Saving starts the 42-day follow-ups.
           </p>

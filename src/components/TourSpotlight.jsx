@@ -37,7 +37,9 @@ const useTargetRect = (target, stepKey) => {
     let frame = 0;
     let last = null;
     const track = () => {
-      const el = findTarget(target);
+      // A dialog covers the page, so the ring would point at something behind it.
+      const covered = Boolean(document.querySelector('dialog[open], [role="dialog"]'));
+      const el = covered ? null : findTarget(target);
       const box = el?.getBoundingClientRect();
       const next =
         box && box.width > 0 && box.height > 0
