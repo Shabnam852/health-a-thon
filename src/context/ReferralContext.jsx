@@ -9,6 +9,7 @@ import {
 } from "../data/seedData.js";
 import { getAlarms } from "../domain/alarms.js";
 import { Role } from "../domain/enums.js";
+import * as familyRequests from "../domain/familyRequests.js";
 import { createReferral } from "../domain/models.js";
 import { accountsForReferral, linkAccounts } from "../domain/phoneAccounts.js";
 import { checkRegistration, decideLink, registerAccount, requestLink } from "../domain/selfRegistration.js";
@@ -338,6 +339,39 @@ export const ReferralProvider = ({ children }) => {
     return true;
   };
 
+  // ==========================================
+  // FAMILY: ARRIVAL REPORT AND CALL BACK (FR-46)
+  // ==========================================
+
+  // Same as reportFromFamily: store the referral, then tell the coordinator.
+  const applyFamilyRequest = (referralId, action) => {
+    const result = applyToReferral(referralId, action);
+    if (!result.success) return result;
+    const current = dataRef.current;
+    const stamp = Date.now();
+    commit({
+      ...current,
+      notifications: [
+        ...result.alerts.map((alert, i) => ({
+          id: `NOTIF-${stamp}-${i}`,
+          timestamp: "Just now",
+          ...alert,
+          link: `/referral/${referralId}`,
+          read: false,
+        })),
+        ...current.notifications,
+      ],
+    });
+    return result;
+  };
+
+  // Evidence only: the hospital still confirms arrival itself.
+  const reportArrivalFromFamily = (referralId, place) =>
+    applyFamilyRequest(referralId, (r) => familyRequests.reportArrival(r, { place }));
+
+  const requestCallBack = (referralId, reason) =>
+    applyFamilyRequest(referralId, (r) => familyRequests.requestCallBack(r, { reason }));
+
   return (
     <ReferralContext.Provider
       value={{
@@ -387,6 +421,9 @@ export const ReferralProvider = ({ children }) => {
         markNotificationRead,
         dismissNotification,
         resetDemoData,
+        // Family: arrival report and call back (FR-46)
+        reportArrivalFromFamily,
+        requestCallBack,
       }}
     >
       {children}
