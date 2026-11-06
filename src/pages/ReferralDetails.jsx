@@ -9,6 +9,7 @@ import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationCo
 import { useReferrals } from "../context/ReferralContext.jsx";
 import { isHighAcuity, PatientType, Role } from "../domain/enums.js";
 import { getJourneyHeadline, getReferralJourney, JourneyState } from "../domain/landing.js";
+import { messagesForReferral, SMS_EVENT_LABELS } from "../domain/smsTemplates.js";
 import { getDestination, hasArrivedAtFacility, isFloating } from "../domain/workflow.js";
 
 // The vitals each patient is expected to have. Shown even when missing, so a gap reads as "Not recorded".
@@ -118,14 +119,39 @@ const HistoryList = ({ items, full = false }) => (
   </ul>
 );
 
+// The newest texts to the family shown on the page; the rest open in a dialog.
+const MESSAGES_SHOWN = 2;
+
+const MessageList = ({ items }) => (
+  <ul className="space-y-3">
+    {items.map((m) => (
+      <li key={m.id} className="space-y-1 text-sm">
+        <span className="flex items-start justify-between gap-3">
+          <span className="font-semibold text-ink">{SMS_EVENT_LABELS[m.event] || "Status update"}</span>
+          <span className="text-xs text-ink-muted shrink-0 tabular-nums">
+            {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </span>
+        <span className="block text-ink-muted break-words">{m.body}</span>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
+          <Badge>{m.templateId}</Badge>
+          <span>Simulated, not sent</span>
+          <span>To {m.to}</span>
+        </span>
+      </li>
+    ))}
+  </ul>
+);
+
 const formatVital = (key, value) => (key === "fhr" && /^\d+$/.test(value || "") ? `${value} bpm` : value);
 
 const ReferralDetails = () => {
   const { id } = useParams();
   // Set by the new-referral form, so the case it opens says the referral went out.
   const sentTo = useLocation().state?.sentTo;
-  const { getReferralById, role, setActiveReferralId } = useReferrals();
+  const { getReferralById, messages, role, setActiveReferralId } = useReferrals();
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showAllMessages, setShowAllMessages] = useState(false);
 
   const referral = getReferralById(id);
 
@@ -154,6 +180,7 @@ const ReferralDetails = () => {
 
   const latest = history.slice(0, HISTORY_SHOWN);
   const canExpandHistory = history.length > HISTORY_SHOWN || latest.some(isClamped);
+  const texts = messagesForReferral(messages, referral.id);
 
   return (
     // On a desktop the whole case fits one screen: no page scroll. Narrow or short screens still scroll.
@@ -341,6 +368,22 @@ const ReferralDetails = () => {
             </Card>
           )}
 
+          <Card as="section" className="sm:!p-4">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-display text-lg font-semibold text-ink">Messages</h2>
+              {texts.length > MESSAGES_SHOWN && (
+                <Button size="sm" variant="link" onClick={() => setShowAllMessages(true)}>
+                  See all {texts.length}
+                </Button>
+              )}
+            </div>
+            {texts.length > 0 ? (
+              <MessageList items={texts.slice(0, MESSAGES_SHOWN)} />
+            ) : (
+              <p className="text-sm text-ink-muted">No texts yet. The family gets a text when the status changes.</p>
+            )}
+          </Card>
+
           {/* Fills the rest of the column, so both columns end at the same line. */}
           <Card as="section" className="sm:!p-4 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -369,6 +412,15 @@ const ReferralDetails = () => {
         <Dialog title="History" onClose={() => setShowAllHistory(false)}>
           <HistoryList items={history} full />
           <Button fullWidth onClick={() => setShowAllHistory(false)}>
+            Close
+          </Button>
+        </Dialog>
+      )}
+
+      {showAllMessages && (
+        <Dialog title="Messages" onClose={() => setShowAllMessages(false)}>
+          <MessageList items={texts} />
+          <Button fullWidth onClick={() => setShowAllMessages(false)}>
             Close
           </Button>
         </Dialog>
