@@ -77,6 +77,7 @@ All application state is consolidated within `src/context/ReferralContext.jsx`, 
    ```
 2. **Persistence Adapter (`src/services/storageAdapter.js`):**
    - Automatically serializes the entire state tree to `localStorage` under `navexa_domain_v6`. Older keys (`navexa_domain_v3` to `v5`) are removed on load.
+   - The same tree (and the ABDM state) is shared through `/api/state`, saved in Neon Postgres (`server/state.js`). `src/services/docSync.js` loads it on start, polls every 3 s while visible, saves with a version number and merges item by item on a conflict.
    - Safely recovers state on page refreshes ($F5$).
    - Provides explicit `resetDemoData()` functionality with confirmation safeguards.
 3. **Immutable Audit Event Mechanism:**

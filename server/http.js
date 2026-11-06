@@ -137,3 +137,52 @@ export const sendAssistant = async (req, res, handle, route = "ask") => {
     return send(res, 500, { error: "Something went wrong. Please try again.", usedAi: false });
   }
 };
+
+// Saved state is read every few seconds by every open tab, so it gets its own, larger limits.
+export const STATE_LIMITS = { read: 1200, write: 600 };
+
+const allowState = (kind, address, now = Date.now()) => {
+  const mine = windowFor(`state-${kind}:${address}`, now);
+  if (mine.count >= STATE_LIMITS[kind]) return false;
+  mine.count += 1;
+  return true;
+};
+
+/** GET or PUT /api/state. handle({ method, query, body }) is server/state.js handleState. */
+export const sendState = async (req, res, handle) => {
+  const method = req.method;
+  if (method !== "GET" && method !== "PUT") {
+    res.setHeader("Allow", "GET, PUT");
+    return send(res, 405, { error: "Use GET or PUT." });
+  }
+  // A read has no body, so only the fetch-site check applies; a write must pass the full check.
+  const site = req.headers["sec-fetch-site"];
+  if (method === "GET" && site && site !== "same-origin" && site !== "none")
+    return send(res, 403, { error: "Not allowed." });
+  if (method === "PUT") {
+    const origin = fromOwnPage(req);
+    if (!origin.ok) return send(res, origin.status, { error: "Not allowed." });
+  }
+  if (!allowState(method === "GET" ? "read" : "write", clientAddress(req))) {
+    res.setHeader("Retry-After", "60");
+    return send(res, 429, { error: "Too many requests." });
+  }
+  const url = new URL(req.url || "/", "http://localhost");
+  const query = Object.fromEntries(url.searchParams);
+  let body;
+  if (method === "PUT") {
+    try {
+      body = await readJson(req);
+    } catch (error) {
+      return send(res, error.status || 400, { error: error.status === 413 ? "Too large." : "Bad request." });
+    }
+  }
+  try {
+    const result = await handle({ method, query, body });
+    if (result.allow) res.setHeader("Allow", result.allow);
+    return send(res, result.status, result.body);
+  } catch (error) {
+    console.error("[state] unexpected failure", error);
+    return send(res, 503, { error: "Saved data isn't available right now." });
+  }
+};

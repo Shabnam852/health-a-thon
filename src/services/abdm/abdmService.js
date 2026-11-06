@@ -82,14 +82,35 @@ const load = () => {
   return seedState();
 };
 
-const save = (state) => {
+const writeLocal = (state) => {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
   } catch {
     // Storage can be refused in a private window; the demo then forgets on reload.
   }
+};
+
+// Told about every save, so AbdmProvider can send it to the server for the other devices.
+let saveListener = null;
+export const setAbdmSaveListener = (listener) => {
+  saveListener = listener;
+};
+
+const save = (state) => {
+  writeLocal(state);
+  saveListener?.(state);
   return state;
 };
+
+/** A usable saved copy (from the server), or null. */
+export const normaliseAbdmState = (doc) =>
+  doc && typeof doc.abhaLinks === "object" && doc.abhaLinks !== null && Array.isArray(doc.consents) ? doc : null;
+
+/** Takes the server's copy, without sending it back. */
+export const replaceAbdmState = (state) => writeLocal(state);
+
+/** A fresh start, as the demo begins. */
+export const freshAbdmState = () => seedState();
 
 /**
  * A granted consent past its delete-by date becomes EXPIRED and its records are deleted.

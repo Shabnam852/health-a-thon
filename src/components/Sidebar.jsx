@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { getActiveNavItem, getNavigationForRole, getRoleDefinition, RoleId } from "../config/navigationConfig.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
-import { phoneAccounts, staffAccounts } from "../services/auth/demoAccounts.js";
+import { allPhoneAccounts, staffAccounts } from "../services/auth/demoAccounts.js";
 import { useFamilyLanguage } from "./assistant/useFamilyLanguage.js";
 import ResetAssistantButton from "./ResetAssistantButton.jsx";
 import ResetDemoButton from "./ResetDemoButton.jsx";
@@ -124,7 +124,7 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
               ))}
             </optgroup>
             <optgroup label="Patients and family">
-              {phoneAccounts.map((a) => (
+              {allPhoneAccounts().map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
                   {a.relation === "self" ? ", patient" : `, ${a.relation.toLowerCase()}`}

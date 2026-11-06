@@ -92,7 +92,21 @@ export const findStaffByEmail = (email) =>
         .toLowerCase(),
   ) ?? null;
 
-export const findPhoneAccount = (phone) => phoneAccounts.find((a) => a.phone === normalisePhone(phone)) ?? null;
+// Numbers linked to referrals made in the app (src/domain/phoneAccounts.js). They live with the
+// referrals, so every device shares them; ReferralProvider hands the current list in here.
+let linkedPhoneAccounts = [];
+
+export const setLinkedPhoneAccounts = (accounts) => {
+  linkedPhoneAccounts = Array.isArray(accounts) ? accounts : [];
+};
+
+/** Linked numbers first: a number on a newer referral signs in to that one. */
+export const allPhoneAccounts = () => {
+  const linkedPhones = new Set(linkedPhoneAccounts.map((a) => a.phone));
+  return [...linkedPhoneAccounts, ...phoneAccounts.filter((a) => !linkedPhones.has(a.phone))];
+};
+
+export const findPhoneAccount = (phone) => allPhoneAccounts().find((a) => a.phone === normalisePhone(phone)) ?? null;
 
 export const findAccountById = (id) =>
-  staffAccounts.find((a) => a.id === id) ?? phoneAccounts.find((a) => a.id === id) ?? null;
+  staffAccounts.find((a) => a.id === id) ?? allPhoneAccounts().find((a) => a.id === id) ?? null;

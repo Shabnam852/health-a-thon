@@ -8,6 +8,7 @@ import {
 } from "../config/navigationConfig.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import AwaitingLink from "./AwaitingLink.jsx";
 import AssistantLauncher from "./assistant/AssistantLauncher.jsx";
 import { useModalFocus } from "./Dialog.jsx";
 import MobileNav from "./MobileNav";
@@ -41,7 +42,7 @@ const MobileDrawer = ({ onClose }) => {
 const AppShell = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { role, storyStep } = useReferrals();
-  const { session, privacyAccepted, signInAsDemoRole } = useAuth();
+  const { session, privacyAccepted, signInAsDemoRole, linkedReferralId } = useAuth();
   const location = useLocation();
 
   // The drawer is phone-only: it must not stay open, and keep the page locked, behind a new screen
@@ -73,6 +74,8 @@ const AppShell = ({ children }) => {
   const requiredRoleDef = getRoleDefinition(primaryRoleForRoute);
   // A patient or family member reads the privacy notice once. The guided demo skips it.
   const needsPrivacy = session?.role === "patient" && !privacyAccepted && storyStep === null;
+  // A self-registered account sees no case until it is linked to one.
+  const awaitingLink = session?.kind === "phone" && !linkedReferralId;
 
   if (!session) {
     return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
@@ -125,13 +128,15 @@ const AppShell = ({ children }) => {
             </div>
           ) : needsPrivacy ? (
             <PrivacyNotice />
+          ) : awaitingLink ? (
+            <AwaitingLink />
           ) : (
             children
           )}
         </main>
       </div>
 
-      {isAllowed && !needsPrivacy && <AssistantLauncher />}
+      {isAllowed && !needsPrivacy && !awaitingLink && <AssistantLauncher />}
       <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />
       <StoryBar />
     </div>

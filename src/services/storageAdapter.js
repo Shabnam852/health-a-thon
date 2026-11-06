@@ -25,18 +25,23 @@ const mergeWithSeed = (parsed, seedData) => {
   return merged;
 };
 
+/**
+ * Checks a saved copy (from this browser or the server) and returns it merged with the seed, or
+ * null when it holds no usable referral. One bad record must not cost the others.
+ */
+export const normaliseDomain = (parsed, seedData) => {
+  const usable = Array.isArray(parsed?.referrals) ? parsed.referrals.filter(isUsableReferral) : [];
+  return usable.length > 0 ? mergeWithSeed({ ...parsed, referrals: usable }, seedData) : null;
+};
+
 export const StorageAdapter = {
   loadData(seedData) {
     try {
       for (const key of OLD_STORAGE_KEYS) localStorage.removeItem(key);
       const serialized = localStorage.getItem(STORAGE_KEY);
       if (serialized) {
-        const parsed = JSON.parse(serialized);
-        // One bad record must not cost the others.
-        const usable = Array.isArray(parsed?.referrals) ? parsed.referrals.filter(isUsableReferral) : [];
-        if (usable.length > 0) {
-          return mergeWithSeed({ ...parsed, referrals: usable }, seedData);
-        }
+        const usable = normaliseDomain(JSON.parse(serialized), seedData);
+        if (usable) return usable;
       }
     } catch (e) {
       console.warn("StorageAdapter: Failed to load cached data. Reverting to initial seed.", e);

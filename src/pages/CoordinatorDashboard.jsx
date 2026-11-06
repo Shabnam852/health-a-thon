@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
+import LinkRequestsCard from "../components/LinkRequestsCard.jsx";
 import RecordChoiceDialog from "../components/RecordChoiceDialog.jsx";
 import {
   actionsColumn,
@@ -173,6 +174,7 @@ const CoordinatorDashboard = () => {
           </Button>
         }
       />
+      <LinkRequestsCard />
       <section className="space-y-2">
         <DataTable
           label="To do"
