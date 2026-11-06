@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import { BrandMark, Button, Card, Field, FilterTabs, Icon, Input, Select } from "../components/ui/index.js";
 import { useDemoStory } from "../components/useDemoStory.js";
+import { demoStorySteps } from "../config/demoStory.js";
 import { getRoleDefinition, isRouteAllowedForRole } from "../config/navigationConfig.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
@@ -330,7 +331,7 @@ const SignUpForm = ({ initialPhone, initialReference = "", onSignedIn, onBack })
 const Login = () => {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const { goToStep } = useDemoStory();
+  const { goToStep, step: storyStep } = useDemoStory();
   const [searchParams] = useSearchParams();
   const prefill = findAccountById(searchParams.get("account"));
   // The referral slip's QR code opens sign-up (signup=1) with its referral number (ref) filled in.
@@ -348,7 +349,8 @@ const Login = () => {
     return path && isRouteAllowedForRole(s.role, path.split("?")[0]) ? path : getRoleDefinition(s.role).homePath;
   };
 
-  if (session) return <Navigate to={destinationFor(session)} replace />;
+  // Starting the guided demo signs in and opens its first step in one go; that step wins over home.
+  if (session) return <Navigate to={storyStep ? storyStep.path : destinationFor(session)} replace />;
 
   const onSignedIn = (s) => navigate(destinationFor(s), { replace: true });
 
@@ -370,7 +372,7 @@ const Login = () => {
           </p>
           <Button onClick={() => goToStep(0)}>
             <Icon name="play_arrow" />
-            Watch the 5-step demo
+            Watch the {demoStorySteps.length}-step demo
           </Button>
         </header>
 

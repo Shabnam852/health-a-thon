@@ -49,7 +49,13 @@ const FamilyRequestsCard = ({ referral, t, onResult }) => {
       {(showArrivalButton || showCallBackButton) && (
         <div className="flex flex-wrap gap-2">
           {showArrivalButton && (
-            <Button variant="primary" wrap className="w-full sm:w-auto" onClick={reportArrival}>
+            <Button
+              variant="primary"
+              wrap
+              data-tour="family-arrived"
+              className="w-full sm:w-auto"
+              onClick={reportArrival}
+            >
               <Icon name="where_to_vote" />
               {t.arrivedButton}
             </Button>

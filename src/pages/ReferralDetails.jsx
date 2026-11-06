@@ -247,7 +247,7 @@ const ReferralDetails = () => {
                 {/* Staff hand the slip to the family; the family has their own screens. */}
                 {/* On phones only the icon shows, so the patient's name keeps the room. */}
                 {showHandoff && (
-                  <Button size="sm" onClick={() => setShowSlip(true)} className="max-sm:px-2.5">
+                  <Button size="sm" data-tour="slip" onClick={() => setShowSlip(true)} className="max-sm:px-2.5">
                     <Icon name="qr_code_2" />
                     <span className="max-sm:sr-only">Referral slip</span>
                   </Button>
@@ -307,7 +307,7 @@ const ReferralDetails = () => {
         className={`grid grid-cols-1 gap-4 lg:flex-1 lg:min-h-0 ${showHandoff ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]" : ""}`}
       >
         <div className="flex flex-col gap-4 min-w-0">
-          <Card as="section" className="space-y-3 sm:!p-4">
+          <Card as="section" data-tour="journey" className="space-y-3 sm:!p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-display text-lg font-semibold text-ink">{getJourneyHeadline(referral)}</h2>
               {!referral.arrival && !arrived && role === Role.FACILITY && (
@@ -439,7 +439,7 @@ const ReferralDetails = () => {
             </Card>
           )}
 
-          <Card as="section" className="sm:!p-4">
+          <Card as="section" data-tour="messages" className="sm:!p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h2 className="font-display text-lg font-semibold text-ink">Messages</h2>
               {texts.length > MESSAGES_SHOWN && (
