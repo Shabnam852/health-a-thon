@@ -24,7 +24,7 @@ export const staffAccounts = [
     id: "STAFF-KAVYA",
     email: "kavya@sanjeevani.demo",
     name: "Dr Kavya Menon",
-    jobTitle: "Neonatologist",
+    jobTitle: "Obstetrician",
     role: RoleId.FACILITY,
     facilityId: "FAC-SANJEEVANI",
     // Healthcare Professionals Registry ID. Made up; ABDM puts it on every request for records.

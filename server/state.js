@@ -14,8 +14,10 @@ import { cleanAbdmDoc, cleanDomainDoc } from "../src/domain/stateShape.js";
 /** The documents the app keeps. Anything else is refused. */
 export const STATE_KEYS = ["domain", "abdm"];
 
-// Vercel's Neon integration names it DATABASE_URL, or STORAGE_URL with the prefix we chose.
-export const databaseUrl = (env = process.env) => env.DATABASE_URL || env.STORAGE_URL || env.POSTGRES_URL || "";
+// Vercel's Neon integration names it DATABASE_URL, or <PREFIX>_DATABASE_URL with a custom prefix. Ours
+// is STORAGE, and production has STORAGE_DATABASE_URL (not STORAGE_URL), so that name is read too.
+export const databaseUrl = (env = process.env) =>
+  env.DATABASE_URL || env.STORAGE_DATABASE_URL || env.STORAGE_URL || env.POSTGRES_URL || "";
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS navexa_docs (
   key text PRIMARY KEY,

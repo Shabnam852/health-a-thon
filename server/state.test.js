@@ -46,6 +46,8 @@ describe("/api/state", () => {
   it("reads the database URL under either name the Neon integration uses", () => {
     assert.equal(databaseUrl({ DATABASE_URL: "a", STORAGE_URL: "b" }), "a");
     assert.equal(databaseUrl({ STORAGE_URL: "b" }), "b");
+    // The name production actually has: the integration's STORAGE prefix on DATABASE_URL.
+    assert.equal(databaseUrl({ STORAGE_DATABASE_URL: "c", STORAGE_URL: "b" }), "c");
     assert.equal(databaseUrl({}), "");
   });
 
