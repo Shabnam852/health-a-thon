@@ -222,10 +222,10 @@ export const handleAsk = async (body, providers) => {
     const emergency = looksLikeEmergency(question) || Boolean(reply.emergency);
     const report = reply.refused ? null : cleanReport(reply.report);
 
-    // 4. Speak it. Text still reaches the family if the voice fails.
+    // 4. Speak it. Text still reaches the family if the voice fails, or isn't set up (no Sarvam key).
     let audio = null;
     try {
-      const data = await sarvam.speak({ text: answer, languageCode });
+      const data = sarvam ? await sarvam.speak({ text: answer, languageCode }) : null;
       if (data) audio = { data, mimeType: "audio/mpeg" };
     } catch (error) {
       if (!(error instanceof ProviderError)) throw error;

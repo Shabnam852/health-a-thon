@@ -184,12 +184,15 @@ export const createSarvam = ({ apiKey }) => {
   };
 };
 
-/** The real providers, or a reason they can't be made. */
+/**
+ * The providers whose keys are set, and the names of the keys that aren't. Each key stands alone:
+ * with only ANTHROPIC_API_KEY the typed AI features work and voice is off (server/routes.js).
+ */
 export const createProviders = (env = process.env) => {
   const missing = ["ANTHROPIC_API_KEY", "SARVAM_API_KEY"].filter((k) => !env[k]);
-  if (missing.length > 0) return { missing };
   return {
-    claude: createClaude({ apiKey: env.ANTHROPIC_API_KEY }),
-    sarvam: createSarvam({ apiKey: env.SARVAM_API_KEY }),
+    ...(env.ANTHROPIC_API_KEY && { claude: createClaude({ apiKey: env.ANTHROPIC_API_KEY }) }),
+    ...(env.SARVAM_API_KEY && { sarvam: createSarvam({ apiKey: env.SARVAM_API_KEY }) }),
+    ...(missing.length > 0 && { missing }),
   };
 };
