@@ -184,10 +184,50 @@ describe("handleSpeak", () => {
 });
 
 describe("runRoute", () => {
-  it("says it isn't set up when a key is missing, without calling anything", async () => {
-    const res = await runRoute("ask", { brief, text: "hi" }, () => ({ missing: ["SARVAM_API_KEY"] }));
+  it("says it isn't set up when no key is set, without calling anything", async () => {
+    const none = () => ({ missing: ["ANTHROPIC_API_KEY", "SARVAM_API_KEY"] });
+    for (const [route, body] of [
+      ["ask", { brief, text: "hi" }],
+      ["speak", { text: "hi", languageCode: "hi-IN" }],
+      ["handoff", {}],
+      ["draft", { text: "hi" }],
+    ]) {
+      const res = await runRoute(route, body, none);
+      assert.equal(res.status, 503, route);
+      assert.equal(res.body.usedAi, false, route);
+    }
+  });
+
+  it("answers a typed question in text with only the Claude key", async () => {
+    const { providers, calls } = fakes();
+    const res = await runRoute("ask", { brief, text: "hi" }, () => ({
+      claude: providers.claude,
+      missing: ["SARVAM_API_KEY"],
+    }));
+    assert.equal(res.status, 200);
+    assert.equal(res.body.answer, "Your van is on the way.");
+    assert.equal(res.body.audio, null);
+    assert.equal(calls.speak.length, 0);
+  });
+
+  it("turns voice away without the Sarvam key, without calling Claude", async () => {
+    const { providers, calls } = fakes();
+    const claudeOnly = () => ({ claude: providers.claude, missing: ["SARVAM_API_KEY"] });
+    const spoken = await runRoute("ask", { brief, audio: { data: "QUFB", mimeType: "audio/webm" } }, claudeOnly);
+    assert.equal(spoken.status, 503);
+    assert.equal(spoken.body.error, "Voice isn't set up yet.");
+    const readAloud = await runRoute("speak", { text: "hi", languageCode: "hi-IN" }, claudeOnly);
+    assert.equal(readAloud.status, 503);
+    assert.equal(calls.claude.length, 0);
+  });
+
+  it("needs Claude for anything but reading aloud", async () => {
+    const { providers } = fakes();
+    const sarvamOnly = () => ({ sarvam: providers.sarvam, missing: ["ANTHROPIC_API_KEY"] });
+    const res = await runRoute("ask", { brief, text: "hi" }, sarvamOnly);
     assert.equal(res.status, 503);
-    assert.equal(res.body.usedAi, false);
+    assert.equal(res.body.error, "AI isn't set up yet.");
+    assert.equal((await runRoute("speak", { text: "hi", languageCode: "hi-IN" }, sarvamOnly)).status, 200);
   });
 
   it("refuses an unknown route", async () => {

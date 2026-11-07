@@ -26,7 +26,7 @@ A bar at the bottom of the screen moves you through it with **Back** and **Next*
 
 ## AI features
 
-All three need API keys (see [Set up](#set-up)). Without them they show "AI isn't set up yet." and the rest of the app works as normal.
+They need API keys (see [Set up](#set-up)), and each key works on its own. Without any keys they show "AI isn't set up yet." and the rest of the app works as normal.
 
 - **Fill with AI** (Hospital, on **New referral**). Type a note, record speech or photograph a paper referral slip, in any mix. The AI fills the empty fields and shows the exact words each value came from. It never overwrites what you typed: if it reads something different it offers "Use this" or "Keep mine". It never sets how urgent the referral is, and you must tick that you checked every field before sending.
 - **Handoff summary** (staff, on any case page). The AI writes a short summary for the receiving hospital. Names, phone numbers and addresses are taken out before the AI sees the case. Hospital staff sign it off with their name.
@@ -36,15 +36,26 @@ The demo allows 20 AI uses per browser. Each one calls Claude (Anthropic); speec
 
 ## Set up
 
-You need Node.js 24 or later.
+You need Node.js 24 or later. No keys or accounts are needed to run it:
 
 ```bash
 npm install
-cp .env.example .env    # then add your keys to .env
 npm run dev             # http://localhost:5173
 ```
 
-`.env` holds `ANTHROPIC_API_KEY` and `SARVAM_API_KEY`, plus `DATABASE_URL` for Neon, used only once deployed. `npm run dev` keeps the shared data in memory so local work never changes the live demo; set `DEV_DATABASE_URL` to a separate Neon branch to test against a real database. They are used only by the server code and never reach the browser. `.env` is git-ignored: never commit it. Restart `npm run dev` after changing it.
+With no `.env` at all, everything except the AI works: every role, the guided demo, referrals, transport, follow-up, the FHIR export and the referral slip. Tabs on your machine share one copy of the data, kept in memory, so it starts fresh each time you restart `npm run dev`. **Reset demo** in the sidebar brings back the sample patients.
+
+To turn on more, copy `.env.example` to `.env`, fill in any of these and restart `npm run dev`:
+
+| Variable            | What it turns on                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | Fill with AI (typed notes and photos), Handoff summary, and typed questions to the Family assistant      |
+| `SARVAM_API_KEY`    | Voice: spoken notes and questions, and reading answers aloud. Spoken input also needs `ANTHROPIC_API_KEY` |
+| `DEV_DATABASE_URL`  | Saves the data in a Neon Postgres database instead of memory, so it survives a restart                   |
+
+`DATABASE_URL` is read only by the deployed site: `npm run dev` never uses it, so local work can't change a live demo. The keys are used only by the server code and never reach the browser. `.env` is git-ignored: never commit it.
+
+If the server can't be reached or has no database, each browser keeps working from its own saved copy (`localStorage`) and syncs again when the server is back.
 
 ## Commands
 
@@ -69,7 +80,9 @@ npm run dev             # http://localhost:5173
 
 ## Deploying
 
-Pushes to `main` deploy to production on Vercel, and other branches get a preview, through GitHub Actions after tests, lint and a secret scan pass. Add the two API keys to the Vercel project's environment variables. Details are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+In the team's repo, pushes to `main` deploy to production on Vercel, and other branches get a preview, through GitHub Actions after tests, lint and a secret scan pass. In any other copy the deploy step is skipped and only the checks run.
+
+To put your own copy online, import the repo into Vercel (it finds the Vite settings itself). It runs with no environment variables; add `ANTHROPIC_API_KEY` and `SARVAM_API_KEY` for the AI, and connect Neon Postgres from the Vercel Marketplace (it sets `DATABASE_URL`) so every device shares one copy of the data. Without a database each browser keeps its own copy. Details are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## More documents
 
