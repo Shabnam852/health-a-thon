@@ -1,17 +1,18 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import {
-  getActiveNavItem,
-  getNavigationForRole,
-  getRoleDefinition,
-  roleDefinitions,
-} from "../config/navigationConfig.js";
+import { Link, useLocation, useNavigate } from "react-router";
+import { getActiveNavItem, getNavigationForRole, getRoleDefinition, RoleId } from "../config/navigationConfig.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { phoneAccounts, staffAccounts } from "../services/auth/demoAccounts.js";
+import { useFamilyLanguage } from "./assistant/useFamilyLanguage.js";
+import ResetAssistantButton from "./ResetAssistantButton.jsx";
 import ResetDemoButton from "./ResetDemoButton.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
-import { Button, Field, Icon, Select } from "./ui/index.js";
+import { BrandMark, Button, Field, Icon, Select } from "./ui/index.js";
 
 const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
-  const { role, setRole } = useReferrals();
+  const { role } = useReferrals();
+  const { session, signInAsDemoAccount, signOut } = useAuth();
+  const isPhone = session?.kind === "phone";
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -19,16 +20,30 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
   const roleDef = getRoleDefinition(currentRole);
   const navItems = getNavigationForRole(currentRole);
   const activeItem = getActiveNavItem(navItems, location.pathname, location.search);
+  // Only the patient's menu follows the family's language; staff menus stay English.
+  const { t, lang } = useFamilyLanguage();
+  const isPatient = currentRole === RoleId.PATIENT;
+  const itemTitle = (item) => (isPatient && item.titleKey ? t[item.titleKey] : item.title);
 
-  const handleRoleChange = (e) => {
-    const newRole = e.target.value;
-    setRole(newRole);
-    const targetDef = roleDefinitions[newRole];
-    if (targetDef?.homePath) {
-      navigate(targetDef.homePath);
-      if (onNavigate) onNavigate();
-    }
+  // Demo only: jump to another made-up account without typing a password or code.
+  const handleAccountChange = (e) => {
+    const result = signInAsDemoAccount(e.target.value);
+    if (!result.ok) return;
+    navigate(getRoleDefinition(result.session.role).homePath);
+    if (onNavigate) onNavigate();
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    if (onNavigate) onNavigate();
+    navigate("/login");
+  };
+
+  const signedInAs = session
+    ? session.relation && session.relation !== "self"
+      ? `${session.relation}, family`
+      : session.jobTitle || roleDef.title
+    : "";
 
   const handleItemClick = () => {
     if (onNavigate) onNavigate();
@@ -40,10 +55,8 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
         <div className="px-5 py-4 bg-surface border-b border-line">
           <div className="flex items-center justify-between">
             <Link to={roleDef.homePath} onClick={handleItemClick} className="flex items-center gap-3 group">
-              <div className="w-9 h-9 rounded-control bg-brand flex items-center justify-center text-on-fill font-bold text-lg">
-                N
-              </div>
-              <span className="font-display text-base text-ink tracking-tight font-bold">Navexa Health</span>
+              <BrandMark />
+              <span className="font-display text-base text-ink font-bold">Navexa Health</span>
             </Link>
 
             {isMobileDrawer && (
@@ -54,7 +67,11 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
           </div>
         </div>
 
-        <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+        <nav
+          aria-label="Main"
+          lang={isPatient ? lang : undefined}
+          className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+        >
           {navItems.map((item) => {
             const isActive = item === activeItem;
 
@@ -64,14 +81,14 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
                 to={item.path}
                 aria-current={isActive ? "page" : undefined}
                 onClick={handleItemClick}
-                className={`flex items-center gap-3 px-3 min-h-control rounded-control transition-colors duration-fast text-sm ${
+                className={`flex items-center gap-3 px-3 min-h-control rounded-control text-sm ${
                   isActive
                     ? "bg-accent-soft text-accent font-semibold"
                     : "text-ink-muted font-medium hover:bg-subtle hover:text-ink"
                 }`}
               >
                 <Icon name={item.icon} filled={isActive} className="shrink-0" />
-                <span className="truncate flex-1">{item.title}</span>
+                <span className="truncate flex-1">{itemTitle(item)}</span>
               </Link>
             );
           })}
@@ -83,20 +100,44 @@ const Sidebar = ({ onNavigate, isMobileDrawer = false, onClose }) => {
           <div className="flex-1 min-w-0">
             <ThemeToggle fullWidth />
           </div>
-          <ResetDemoButton />
+          <ResetAssistantButton />
+          {/* Reset clears everyone's shared data, so only the care team has it. */}
+          {!isPhone && <ResetDemoButton />}
         </div>
-        <Field label="Demo only: view as">
-          <Select value={currentRole} onChange={handleRoleChange}>
-            {Object.values(roleDefinitions).map((def) => (
-              <option key={def.id} value={def.id}>
-                {def.title}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Button as={Link} to="/" variant="link" fullWidth onClick={handleItemClick}>
-          Back to start
-        </Button>
+        {session && (
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-ink truncate">{session.name}</span>
+              <span className="block text-xs text-ink-muted truncate">{signedInAs}</span>
+            </span>
+            <Button size="sm" variant="ghost" onClick={handleSignOut}>
+              <Icon name="logout" />
+              Sign out
+            </Button>
+          </div>
+        )}
+        {/* A family member can't jump to other accounts; they sign out to switch. */}
+        {!isPhone && (
+          <Field label="Demo only: sign in as">
+            <Select value={session?.accountId ?? ""} onChange={handleAccountChange}>
+              <optgroup label="Care team">
+                {staffAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}, {a.jobTitle}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Patients and family">
+                {phoneAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.relation === "self" ? ", patient" : `, ${a.relation.toLowerCase()}`}
+                  </option>
+                ))}
+              </optgroup>
+            </Select>
+          </Field>
+        )}
       </div>
     </div>
   );

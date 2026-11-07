@@ -1,8 +1,8 @@
 import { Button, Card, Icon } from "./ui/index.js";
 
 /** An embedded map of the hospital, with a link that opens turn-by-turn directions. */
-const HospitalMap = ({ map }) => (
-  <Card title="Getting to the hospital" className="space-y-3">
+const HospitalMap = ({ map, title = "Getting to the hospital" }) => (
+  <Card title={title} className="space-y-3">
     <p className="text-sm font-semibold text-ink break-words">{map.name}</p>
     <iframe
       key={map.embedUrl}

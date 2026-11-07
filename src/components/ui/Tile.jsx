@@ -3,7 +3,7 @@ const Tile = ({ className = "", children, ...props }) => (
   <button
     type="button"
     {...props}
-    className={`block w-full text-left bg-surface text-ink border border-line rounded-card shadow-card p-4 sm:p-5 transition-colors duration-fast hover:border-line-strong ${className}`}
+    className={`block w-full text-left bg-surface text-ink border border-line rounded-card p-5 sm:p-6 hover:border-line-strong/60 ${className}`}
   >
     {children}
   </button>

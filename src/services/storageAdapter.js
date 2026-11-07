@@ -3,7 +3,8 @@
  * Encapsulates browser storage with versioning, fallback, validation, and safe migrations.
  */
 
-import { ReferralStatus, Role } from "../domain/enums.js";
+import { Role } from "../domain/enums.js";
+import { cleanDomainDoc } from "../domain/stateShape.js";
 
 const STORAGE_KEY = "navexa_domain_v6";
 const OLD_STORAGE_KEYS = ["navexa_domain_v3", "navexa_domain_v4", "navexa_domain_v5"];
@@ -14,8 +15,6 @@ const ACTIVE_REFERRAL_KEY = "navexa_active_referral";
 const ACTIVE_FACILITY_KEY = "navexa_active_facility";
 const DEFAULT_ROLE = Role.COORDINATOR;
 
-const isUsableReferral = (r) => Boolean(r?.id) && Object.values(ReferralStatus).includes(r.status);
-
 // Keeps saved values only where they have the expected shape, and seeds the rest.
 const mergeWithSeed = (parsed, seedData) => {
   const merged = { ...seedData };
@@ -25,18 +24,23 @@ const mergeWithSeed = (parsed, seedData) => {
   return merged;
 };
 
+/**
+ * Checks a saved copy (from this browser or the server) and returns it merged with the seed, or
+ * null when it holds no usable referral. One bad record must not cost the others.
+ */
+export const normaliseDomain = (parsed, seedData) => {
+  const clean = cleanDomainDoc(parsed);
+  return clean ? mergeWithSeed(clean, seedData) : null;
+};
+
 export const StorageAdapter = {
   loadData(seedData) {
     try {
       for (const key of OLD_STORAGE_KEYS) localStorage.removeItem(key);
       const serialized = localStorage.getItem(STORAGE_KEY);
       if (serialized) {
-        const parsed = JSON.parse(serialized);
-        // One bad record must not cost the others.
-        const usable = Array.isArray(parsed?.referrals) ? parsed.referrals.filter(isUsableReferral) : [];
-        if (usable.length > 0) {
-          return mergeWithSeed({ ...parsed, referrals: usable }, seedData);
-        }
+        const usable = normaliseDomain(JSON.parse(serialized), seedData);
+        if (usable) return usable;
       }
     } catch (e) {
       console.warn("StorageAdapter: Failed to load cached data. Reverting to initial seed.", e);

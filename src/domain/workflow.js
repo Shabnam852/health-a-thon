@@ -7,6 +7,7 @@
 
 import {
   AuditRole,
+  BARRIER_CATEGORY_LABELS,
   BarrierCategory,
   BarrierStatus,
   CarePlanStatus,
@@ -22,6 +23,7 @@ import {
   createClinicalOutcome,
   createFollowUpPlan,
   createTransportRequest,
+  generateId,
 } from "./models.js";
 import {
   validateBarrierTransition,
@@ -95,6 +97,8 @@ export const rejectReferral = (
         rejectionReason: reason,
         declinedBy: [...(referral.declinedBy || []), referral.toFacility],
         patientChoice: null,
+        // The handoff summary was for the hospital that declined. The next one drafts its own.
+        handoff: null,
       },
       {
         timeline: [
@@ -135,6 +139,8 @@ export const redirectReferral = (
         ...referral,
         toFacility,
         status: ReferralStatus.SENT, // Resubmitted to new destination
+        // A handoff summary checked by the old hospital is not one the new hospital checked.
+        handoff: null,
         redirectHistory: [
           ...(referral.redirectHistory || []),
           { divertedFrom: referral.toFacility, divertedTo: toFacility, date: now, reason, actor },
@@ -262,6 +268,7 @@ export const confirmArrival = (referral, arrivalPayload = {}, now = nowIso()) =>
         status: ReferralStatus.ARRIVAL_CONFIRMED,
         toFacility: hospital,
         arrival,
+        handoff: wentElsewhere ? null : referral.handoff,
         transit: closeTransitOnArrival(referral.transit, now),
         redirectHistory: wentElsewhere
           ? [
@@ -467,6 +474,21 @@ export const hasArrivedAtFacility = (referral) =>
     referral.status,
   );
 
+/**
+ * Reception looks up a patient by case ID: one who walked in at a hospital they weren't
+ * sent to, or a floating patient who came here without choosing first.
+ */
+export const findCaseAtReception = (referrals, caseId) => {
+  const wanted = String(caseId || "").trim();
+  if (!wanted) return fail("Enter the case ID.");
+  const found = referrals.find((r) => r.id.toLowerCase() === wanted.toLowerCase());
+  if (!found) return fail(`No case with ID ${wanted}.`);
+  if (hasArrivedAtFacility(found)) return fail(`${found.patientName} has already arrived at ${found.toFacility}.`);
+  const check = validateReferralTransition(found.status, ReferralStatus.ARRIVAL_CONFIRMED);
+  if (!check.valid) return fail(`${found.patientName}'s referral hasn't been sent yet, so arrival can't be confirmed.`);
+  return { success: true, referral: found };
+};
+
 // No vehicle is needed once the patient is at the hospital, or if the referral was declined.
 const isTransportClosed = (referral) => hasArrivedAtFacility(referral) || referral.status === ReferralStatus.REJECTED;
 
@@ -531,6 +553,9 @@ export const dispatchTransport = (referral, dispatchPayload, now = nowIso()) => 
 
   const transit = {
     ...(referral.transit || createTransportRequest({ referralId: referral.id })),
+    // A new trip must not inherit the times of an earlier trip that failed.
+    pickedUpAt: null,
+    arrivedAt: null,
     ...dispatchPayload,
     status: TransportStatus.DISPATCHED,
     dispatchedAt: now,
@@ -716,7 +741,7 @@ export const recordContactAttempt = (
       ...referral,
       contactLogs: [
         ...(referral.contactLogs || []),
-        { id: `CNT-${Date.now()}`, date: now, method, outcome, notes, actor },
+        { id: generateId("CNT"), date: now, method, outcome, notes, actor },
       ],
     },
     {
@@ -732,3 +757,243 @@ export const recordContactAttempt = (
     },
   ),
 });
+
+// ==========================================
+// REPORTS FROM THE FAMILY'S ASSISTANT
+// ==========================================
+
+export const FAMILY_VIA_ASSISTANT = "Family, via assistant";
+const MAX_QUOTE_CHARS = 200;
+
+/**
+ * What the family's assistant passes on to their care navigator: a possible danger sign
+ * (their own words, quoted), and a practical problem raised as a barrier. Nothing is
+ * diagnosed; staff call the family to check. Returns { success, referral, alerts } where
+ * alerts are the notifications to show staff.
+ */
+export const recordFamilyReport = (
+  referral,
+  { question = "", emergency = false, report = null } = {},
+  now = nowIso(),
+) => {
+  const quote = String(question).trim().slice(0, MAX_QUOTE_CHARS);
+  const timeline = [];
+  const audit = [];
+  const alerts = [];
+  let barriers = referral.barriers || [];
+  let transitBarrier = referral.transitBarrier;
+
+  if (emergency && quote) {
+    timeline.push({
+      status: TimelineEvent.DANGER_SIGN_REPORTED,
+      date: now,
+      notes: `Family told the assistant: "${quote}". They were told to call 108. Call the family now.`,
+    });
+    audit.push(
+      createAuditEvent({
+        actor: FAMILY_VIA_ASSISTANT,
+        role: AuditRole.PATIENT,
+        action: "DANGER_SIGN_REPORTED",
+        details: `Possible danger sign in the family's words: "${quote}".`,
+        timestamp: now,
+      }),
+    );
+    alerts.push({
+      type: "CRITICAL",
+      title: "Possible danger sign reported",
+      message: `${referral.patientName}'s family wrote: "${quote}". Call them now.`,
+    });
+  }
+
+  const category = report && Object.values(BarrierCategory).includes(report.category) ? report.category : null;
+  const alreadyOpen = barriers.some((b) => b.category === category && b.status !== BarrierStatus.RESOLVED);
+  if (category && !alreadyOpen) {
+    const summary = String(report.summary || "")
+      .trim()
+      .slice(0, MAX_QUOTE_CHARS);
+    const barrier = createBarrier({
+      category,
+      title: `${BARRIER_CATEGORY_LABELS[category]} (raised by family)`,
+      description: `${summary} Source: ${FAMILY_VIA_ASSISTANT}. Call to confirm.`,
+      identifiedAt: now,
+    });
+    barriers = [...barriers, barrier];
+    transitBarrier = transitBarrier || category === BarrierCategory.TRANSPORT;
+    timeline.push({
+      status: TimelineEvent.BARRIER_FLAGGED,
+      date: now,
+      notes: `Barrier Flagged: ${barrier.title}. ${summary}`,
+    });
+    audit.push(
+      createAuditEvent({
+        actor: FAMILY_VIA_ASSISTANT,
+        role: AuditRole.PATIENT,
+        action: "BARRIER_IDENTIFIED",
+        details: `Raised from the assistant chat: ${summary}`,
+        timestamp: now,
+      }),
+    );
+    alerts.push({
+      type: "WARNING",
+      title: `${BARRIER_CATEGORY_LABELS[category]} barrier raised by family`,
+      message: `${referral.patientName}: ${summary}`,
+    });
+  }
+
+  if (alerts.length === 0) return fail("Nothing to report.");
+  return {
+    success: true,
+    alerts,
+    referral: withEvents({ ...referral, barriers, transitBarrier }, { timeline, audit }),
+  };
+};
+
+// ==========================================
+// HANDOFF SUMMARY
+// ==========================================
+
+/** Stores an AI-drafted handoff. It is a draft until a person confirms it. */
+export const saveHandoff = (referral, summary, now = nowIso()) => {
+  if (!summary?.situation) return fail("The summary is empty.");
+  return {
+    success: true,
+    referral: withEvents(
+      {
+        ...referral,
+        handoff: { ...summary, forFacility: referral.toFacility, draftedAt: now, confirmedBy: null, confirmedAt: null },
+      },
+      {
+        audit: [
+          createAuditEvent({
+            actor: "AI draft",
+            role: AuditRole.SYSTEM,
+            action: "HANDOFF_DRAFTED",
+            details: "Handoff summary drafted by AI from the referral record. Not yet checked.",
+            timestamp: now,
+          }),
+        ],
+      },
+    ),
+  };
+};
+
+/**
+ * A named clinician at the receiving hospital confirms they checked the drafted handoff
+ * against the record. The sending hospital, or one the case has moved away from, can't.
+ */
+export const confirmHandoff = (referral, { confirmedBy, facility } = {}, now = nowIso()) => {
+  const name = String(confirmedBy || "").trim();
+  if (!referral.handoff) return fail("There is no handoff summary to confirm.");
+  if (!name) return fail("Enter who checked the summary.");
+  if (facility !== referral.toFacility) return fail(`Only ${referral.toFacility} can check this summary.`);
+  if (referral.handoff.forFacility && referral.handoff.forFacility !== referral.toFacility)
+    return fail(`This summary was written for ${referral.handoff.forFacility}. Draft it again.`);
+  if (referral.handoff.confirmedAt) return fail("This summary is already confirmed.");
+  return {
+    success: true,
+    referral: withEvents(
+      { ...referral, handoff: { ...referral.handoff, confirmedBy: name, confirmedAt: now } },
+      {
+        timeline: [
+          { status: TimelineEvent.HANDOFF_CONFIRMED, date: now, notes: `Handoff summary checked by ${name}.` },
+        ],
+        audit: [
+          createAuditEvent({
+            actor: name,
+            role: AuditRole.RECEIVING_FACILITY,
+            action: "HANDOFF_CONFIRMED",
+            details: "Checked the AI-drafted handoff summary against the record.",
+            timestamp: now,
+          }),
+        ],
+      },
+    ),
+  };
+};
+
+// Words in a name that say who someone is to the patient, not who they are.
+const NOT_NAME_WORDS = new Set([
+  "baby",
+  "of",
+  "the",
+  "mother",
+  "father",
+  "spouse",
+  "husband",
+  "wife",
+  "son",
+  "daughter",
+]);
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Phone numbers: 8 or more digits, with spaces or dashes between. Dates and times are kept.
+const PHONE = /\+?\d[\d\s-]{6,}\d/g;
+const DATE_TIME = /\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z?)?/g;
+const HELD = "";
+
+/**
+ * Notes can name the patient or caregiver and give their numbers. Returns a function that
+ * replaces those words before anything leaves the app: the whole name, any one part of it
+ * ("Ananya" alone), in any case, and a caregiver written as "Shalini Naidu (Mother)".
+ */
+export const scrubIdentifiers = (referral) => {
+  const people = [
+    [referral.patientName, "the patient"],
+    [referral.caregiverName, "the caregiver"],
+    // "Tariq Ahmed (Spouse) - +91 90000 29014": the name is the part before the note or number.
+    [String(referral.caregiverContact || "").split(/\s+-\s+|\d/)[0], "the caregiver"],
+  ];
+  const swaps = [];
+  for (const [raw, stand] of people) {
+    const name = String(raw || "")
+      .replace(/\(.*?\)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (name.length < 2) continue;
+    swaps.push([name, stand]);
+    for (const part of name.split(" ")) {
+      if (part.length > 2 && !NOT_NAME_WORDS.has(part.toLowerCase())) swaps.push([part, stand]);
+    }
+  }
+  // Longest first, so a whole name is replaced before its parts.
+  const patterns = swaps
+    .sort((a, b) => b[0].length - a[0].length)
+    .map(([name, stand]) => [new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}])`, "giu"), stand]);
+  return (text) => {
+    const held = [];
+    const out = patterns
+      .reduce((acc, [pattern, stand]) => acc.replace(pattern, stand), String(text || ""))
+      .replace(DATE_TIME, (d) => `${HELD}${held.push(d) - 1}${HELD}`)
+      .replace(PHONE, "[number]");
+    return out.replace(new RegExp(`${HELD}(\\d+)${HELD}`, "g"), (_, i) => held[Number(i)]);
+  };
+};
+
+/**
+ * The parts of a referral the handoff summary may see: clinical facts only. No name,
+ * phone, address, record number or caregiver, so no identifying details leave the app.
+ */
+export const handoffRecord = (referral) => {
+  const scrub = scrubIdentifiers(referral);
+  return {
+    patientType: referral.referralType,
+    age: referral.age,
+    gestationalAge: referral.gestationalAge,
+    parity: referral.parity,
+    priority: referral.priority,
+    status: referral.status,
+    fromFacility: referral.fromFacility,
+    toFacility: referral.toFacility,
+    department: referral.department,
+    vitals: referral.vitals || {},
+    interpreterNeeded: Boolean(referral.interpreterNeeded),
+    language: referral.language,
+    needsTransport: Boolean(referral.transitBarrier),
+    openBarriers: (referral.barriers || [])
+      .filter((b) => b.status !== BarrierStatus.RESOLVED)
+      .map((b) => BARRIER_CATEGORY_LABELS[b.category] || b.category),
+    reasonForReferral: scrub(referral.reason || referral.condition),
+    timeline: (referral.timeline || [])
+      .slice(-12)
+      .map((t) => ({ date: t.date, event: t.status, notes: scrub(t.notes) })),
+  };
+};

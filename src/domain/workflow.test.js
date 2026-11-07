@@ -289,6 +289,21 @@ describe("Transport actions", () => {
     }
   });
 
+  it("starts a re-dispatch after a failed trip without the old trip's pickup and arrival times", () => {
+    const failed = withTransit(TransportStatus.FAILED);
+    failed.transit = {
+      ...failed.transit,
+      pickedUpAt: "2026-11-01T08:00:00.000Z",
+      arrivedAt: "2026-11-01T08:30:00.000Z",
+    };
+    const r = applied(workflow.dispatchTransport(failed, { vehicle: "Van", driver: "D" }, NOW));
+    assert.equal(r.transit.pickedUpAt, null);
+    assert.equal(r.transit.arrivedAt, null);
+    // Arrival then stamps the new trip's pickup, not the failed one's.
+    const arrived = applied(workflow.confirmArrival(r, {}, "2026-11-01T11:00:00.000Z"));
+    assert.equal(arrived.transit.pickedUpAt, "2026-11-01T11:00:00.000Z");
+  });
+
   it("refuses to dispatch a vehicle already moving or arrived", () => {
     for (const status of [TransportStatus.DISPATCHED, TransportStatus.PICKED_UP, TransportStatus.ARRIVED]) {
       rejected(workflow.dispatchTransport(withTransit(status), { vehicle: "Van" }, NOW), /Cannot dispatch/);
@@ -576,5 +591,134 @@ describe("UI bug regressions", () => {
       still.barriers.map((b) => b.status),
       ["IN_PROGRESS"],
     );
+  });
+});
+
+describe("recordFamilyReport", () => {
+  it("quotes a danger sign and asks staff to call, without diagnosing", () => {
+    const result = workflow.recordFamilyReport(makeReferral(), { question: "She is bleeding a lot", emergency: true });
+    assert.ok(result.success);
+    assert.equal(result.alerts[0].type, "CRITICAL");
+    assert.match(result.alerts[0].message, /"She is bleeding a lot"/);
+    assert.equal(result.referral.timeline.at(-1).status, TimelineEvent.DANGER_SIGN_REPORTED);
+  });
+
+  it("raises a barrier from the family once per category", () => {
+    const report = { category: BarrierCategory.FINANCIAL, summary: "No money for the bus." };
+    const first = workflow.recordFamilyReport(makeReferral(), { question: "no money", report });
+    assert.ok(first.success);
+    const barrier = first.referral.barriers.at(-1);
+    assert.equal(barrier.category, BarrierCategory.FINANCIAL);
+    assert.match(barrier.description, /Family, via assistant/);
+    const again = workflow.recordFamilyReport(first.referral, { question: "still no money", report });
+    assert.equal(again.success, false);
+  });
+
+  it("puts a transport problem on the transport board", () => {
+    const report = { category: BarrierCategory.TRANSPORT, summary: "No way to get there." };
+    const result = workflow.recordFamilyReport(makeReferral({ transitBarrier: false }), { question: "no bus", report });
+    assert.equal(result.referral.transitBarrier, true);
+  });
+
+  it("ignores an unknown category or an empty report", () => {
+    assert.equal(workflow.recordFamilyReport(makeReferral(), { question: "hi" }).success, false);
+    const odd = { category: "MAGIC", summary: "x" };
+    assert.equal(workflow.recordFamilyReport(makeReferral(), { question: "hi", report: odd }).success, false);
+  });
+});
+
+describe("handoff summary", () => {
+  const summary = { situation: "Mother, 36 weeks.", background: "", referrerAssessment: "", request: "", missing: [] };
+
+  it("is a draft until a named person confirms it", () => {
+    const saved = workflow.saveHandoff(makeReferral(), summary);
+    assert.ok(saved.success);
+    assert.equal(saved.referral.handoff.confirmedAt, null);
+    assert.equal(saved.referral.handoff.forFacility, "Sanjeevani");
+    const at = { facility: "Sanjeevani" };
+    assert.equal(workflow.confirmHandoff(saved.referral, { ...at, confirmedBy: "  " }).success, false);
+    const confirmed = workflow.confirmHandoff(saved.referral, { ...at, confirmedBy: "Dr. Rao" });
+    assert.equal(confirmed.referral.handoff.confirmedBy, "Dr. Rao");
+    assert.equal(confirmed.referral.timeline.at(-1).status, TimelineEvent.HANDOFF_CONFIRMED);
+    assert.equal(workflow.confirmHandoff(confirmed.referral, { ...at, confirmedBy: "Dr. Rao" }).success, false);
+  });
+
+  it("can only be checked by the receiving hospital", () => {
+    const saved = applied(workflow.saveHandoff(makeReferral(), summary));
+    rejected(
+      workflow.confirmHandoff(saved, { confirmedBy: "Anitha Joseph", facility: "Kaveri" }),
+      /Only Sanjeevani can check/,
+    );
+    rejected(workflow.confirmHandoff(saved, { confirmedBy: "Anitha Joseph" }), /Only Sanjeevani can check/);
+  });
+
+  it("is dropped when the case moves to another hospital, so the new one drafts and checks its own", () => {
+    const sent = makeReferral({ status: ReferralStatus.SENT });
+    const checked = applied(
+      workflow.confirmHandoff(applied(workflow.saveHandoff(sent, summary)), {
+        confirmedBy: "Dr. Rao",
+        facility: "Sanjeevani",
+      }),
+    );
+    const declined = applied(workflow.rejectReferral(checked, { reason: "No NICU bed" }, NOW));
+    assert.equal(declined.handoff, null);
+    const redirected = applied(workflow.redirectReferral(checked, { toFacility: "Karuna" }, NOW));
+    assert.equal(redirected.handoff, null);
+    const walkedIn = applied(workflow.confirmArrival(checked, { atFacility: "Karuna", verifiedBy: "Nurse" }, NOW));
+    assert.equal(walkedIn.handoff, null);
+    const arrived = applied(workflow.confirmArrival(checked, { verifiedBy: "Nurse" }, NOW));
+    assert.equal(arrived.handoff.confirmedBy, "Dr. Rao");
+    // An older summary written for another hospital can't be checked here.
+    const stale = { ...checked, handoff: { ...checked.handoff, forFacility: "Kaveri", confirmedAt: null } };
+    rejected(workflow.confirmHandoff(stale, { confirmedBy: "Dr. Rao", facility: "Sanjeevani" }), /written for Kaveri/);
+  });
+
+  it("sends no name, phone or address to the AI", () => {
+    const referral = makeReferral({
+      patientName: "Sunita Devi",
+      patientPhone: "+91 90000 11111",
+      patientAddress: "12 MG Road",
+      reason: "Sunita Devi has high BP; call +91 90000 11111",
+      timeline: [{ status: "SENT", date: "2026-11-04T10:00:00Z", notes: "Sent for Sunita Devi" }],
+    });
+    const sent = JSON.stringify(workflow.handoffRecord(referral));
+    assert.equal(sent.includes("Sunita"), false);
+    assert.equal(sent.includes("90000"), false);
+    assert.equal(sent.includes("MG Road"), false);
+    assert.match(sent, /high BP/);
+  });
+
+  it("finds a patient at reception by case ID, at any hospital", () => {
+    const floating = makeReferral({ id: "NX-1", status: ReferralStatus.REJECTED });
+    const done = makeReferral({ id: "NX-2", status: ReferralStatus.COMPLETED });
+    const draft = makeReferral({ id: "NX-3", status: ReferralStatus.CREATED });
+    const list = [floating, done, draft];
+    assert.equal(workflow.findCaseAtReception(list, " nx-1 ").referral, floating);
+    rejected(workflow.findCaseAtReception(list, "NX-9"), /No case with ID NX-9/);
+    rejected(workflow.findCaseAtReception(list, "NX-2"), /already arrived/);
+    rejected(workflow.findCaseAtReception(list, "NX-3"), /hasn't been sent/);
+    rejected(workflow.findCaseAtReception(list, "  "), /Enter the case ID/);
+  });
+
+  it("also removes first names, any case, and a caregiver written with who they are", () => {
+    const referral = makeReferral({
+      patientName: "Baby of Shalini Naidu",
+      caregiverName: "Shalini Naidu (Mother)",
+      caregiverContact: "Karthik Reddy (Father) - +91 90000 22222",
+      reason: "SHALINI reports poor feeding. Karthik says the baby is drowsy. Seen 2026-11-04, call 080-2345 6789.",
+      timeline: [{ status: "SENT", date: "2026-11-04T10:00:00Z", notes: "Naidu family told at 2026-11-04T09:30:00Z" }],
+    });
+    const scrub = workflow.scrubIdentifiers(referral);
+    const record = workflow.handoffRecord(referral);
+    const sent = JSON.stringify(record);
+    for (const word of ["Shalini", "SHALINI", "Naidu", "Karthik", "Reddy", "2345"]) {
+      assert.equal(sent.includes(word), false, `${word} was sent`);
+    }
+    // Dates and clinical words stay; "Baby" is not a name.
+    assert.match(record.reasonForReferral, /Seen 2026-11-04, call \[number\]/);
+    assert.match(record.reasonForReferral, /the baby is drowsy/);
+    assert.match(record.timeline[0].notes, /2026-11-04T09:30:00Z/);
+    // Part of a longer word is left alone.
+    assert.equal(scrub("Naiduville clinic"), "Naiduville clinic");
   });
 });

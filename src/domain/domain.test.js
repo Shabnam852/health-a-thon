@@ -13,7 +13,7 @@ import {
   TransportStatus,
   UrgencyLevel,
 } from "./enums.js";
-import { createBarrier, createClinicalOutcome, createFollowUpPlan, createReferral } from "./models.js";
+import { createBarrier, createClinicalOutcome, createFollowUpPlan, createReferral, generateId } from "./models.js";
 import {
   validateBarrierTransition,
   validateFollowUpTransition,
@@ -22,6 +22,17 @@ import {
 } from "./transitions.js";
 
 describe("Domain Enums & Models", () => {
+  it("never hands out the same id twice, even in the same millisecond", (t) => {
+    // The second draw repeats the first, as two ids made in the same instant can.
+    const draws = [0.5, 0.5, 0.6];
+    t.mock.method(Math, "random", () => draws.shift());
+    t.mock.method(Date, "now", () => 1_700_000_000_000);
+    const first = generateId("TSK");
+    const second = generateId("TSK");
+    assert.notEqual(first, second);
+    assert.match(second, /^TSK-\d{4}-\d{4}$/);
+  });
+
   it("creates a maternal referral with valid defaults", () => {
     const ref = createReferral({
       patientName: "Fathima Begum",

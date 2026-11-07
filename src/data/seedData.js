@@ -677,7 +677,7 @@ export const initialNotifications = [
     type: "CRITICAL",
     title: "Overdue Arrival Alert",
     message: "Baby of Shalini Naidu is 85 mins overdue at Sanjeevani NICU. Transit barrier flagged.",
-    link: "/barriers",
+    link: "/patients?show=blocked",
     read: false,
   },
   {

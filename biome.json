@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -12,7 +12,8 @@
       "!package-lock.json",
       "!NAVEXA_SYSTEM_SUMMARY.json",
       "!docs/stitch-source",
-      "!docs/diagrams/page.template.html"
+      "!docs/diagrams",
+      "!.claude"
     ]
   },
   "formatter": {

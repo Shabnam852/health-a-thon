@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { actionsColumn } from "../components/referralColumns.jsx";
 import { Badge, Button, DataTable, FilterSelect, Icon, Page, PageHeader } from "../components/ui/index.js";
 import { isRouteAllowedForRole } from "../config/navigationConfig.js";
@@ -7,6 +7,7 @@ import { useReferrals } from "../context/ReferralContext.jsx";
 import { formatMinutes } from "../domain/alarms.js";
 import { telHref } from "../domain/contact.js";
 import { PATIENT_TYPE_LABELS, PatientType, UrgencyLevel } from "../domain/enums.js";
+import { getReferralDestinations } from "../domain/hospitalChoice.js";
 import {
   CARE_LEVEL_LABELS,
   fitsNeeds,
@@ -17,7 +18,8 @@ import {
 } from "../domain/network.js";
 
 const PRESSURE = {
-  [Pressure.OPEN]: { bar: "bg-accent", text: "text-accent", label: "" },
+  // The bar uses the bright accent (not the button fill), so it stands out from its track in both themes.
+  [Pressure.OPEN]: { bar: "bg-[rgb(var(--color-accent))]", text: "text-accent", label: "" },
   [Pressure.BUSY]: { bar: "bg-warning", text: "text-warning", label: "Busy" },
   [Pressure.FULL]: { bar: "bg-danger", text: "text-danger", label: "Nearly full" },
 };
@@ -78,11 +80,17 @@ const BOARD_COLUMNS = [
     cell: ({ row: { original: h }, table }) => (
       <div>
         <span className="font-semibold text-ink">{h.name}</span>
-        {table.options.meta.hasNeeds && h.fits && (
-          <Badge tone="accent" className="ml-2">
-            Fits
-          </Badge>
-        )}
+        {table.options.meta.hasNeeds &&
+          (h.fits ? (
+            <Badge tone="accent" className="ml-2">
+              Fits
+            </Badge>
+          ) : (
+            // Said in words, never by fading the row: faded text loses its contrast.
+            <Badge tone="neutral" className="ml-2">
+              Doesn't fit these needs
+            </Badge>
+          ))}
       </div>
     ),
   },
@@ -178,16 +186,17 @@ const BOARD_COLUMNS = [
     meta: { hidden: true },
   },
   actionsColumn(({ row: { original: h }, table }) => {
-    const { canOpenFacility, canCreate } = table.options.meta;
+    const { canOpenFacility, destinations, canCreate } = table.options.meta;
     return (
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-start md:justify-end gap-2">
         {canOpenFacility && (
-          <Button as={Link} to={`/facility?facility=${h.id}`} size="sm">
+          <Button aria-label={`Intake for ${h.name}`} as={Link} to={`/facility?facility=${h.id}`} size="sm">
             Intake
           </Button>
         )}
-        {canCreate && (
-          <Button as={Link} to="/create" size="sm" variant="primary">
+        {/* The new-referral form can only send to these hospitals, so offer Refer for no other. */}
+        {canCreate && destinations.includes(h.name) && (
+          <Button aria-label={`Refer for ${h.name}`} as={Link} to={`/create?to=${h.id}`} size="sm" variant="primary">
             Refer
           </Button>
         )}
@@ -196,9 +205,39 @@ const BOARD_COLUMNS = [
   }),
 ];
 
+const nicuText = (h) => (h.nicuLevel ? CARE_LEVEL_LABELS[h.nicuLevel].replace("Level ", "") : "–");
+
+/** On phones: one hospital at a time, its services as a wrapped list, so nothing is pinned over them. */
+const ServicesList = ({ rows, highlight }) => (
+  <ul className="md:hidden space-y-3">
+    {rows.map((h) => (
+      <li key={h.id} className="bg-surface border border-line rounded-card p-4 space-y-2 text-sm">
+        <p className="font-semibold text-ink">{h.name}</p>
+        <p className="text-ink-muted">NICU level: {nicuText(h)}</p>
+        {h.services.length === 0 ? (
+          <p className="text-ink-muted">No listed services</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2" aria-label={`Services at ${h.name}`}>
+            {SERVICES.filter((s) => h.services.includes(s.id)).map((s) => (
+              <li
+                key={s.id}
+                className={`inline-flex items-center gap-1 rounded-pill border px-3 py-1 ${s.id === highlight ? "border-accent bg-accent-soft font-semibold text-accent" : "border-line text-ink"}`}
+              >
+                {s.id === highlight && <Icon name="check" size="sm" />}
+                {s.label}
+                {s.id === highlight && <span className="sr-only"> (needed)</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </li>
+    ))}
+  </ul>
+);
+
 /** Which hospital offers which service. The service a coordinator is looking for is highlighted. */
 const ServicesGrid = ({ rows, highlight }) => (
-  <div className="bg-surface border border-line rounded-card shadow-card overflow-x-auto">
+  <div className="hidden md:block bg-surface border border-line rounded-card overflow-x-auto">
     <table className="text-sm">
       <caption className="sr-only">Services by hospital</caption>
       <thead className="bg-muted text-ink-muted">
@@ -226,9 +265,7 @@ const ServicesGrid = ({ rows, highlight }) => (
             <th scope="row" className="sticky left-0 bg-surface px-3 py-2 text-left font-semibold text-ink">
               {h.name}
             </th>
-            <td className="px-3 py-2 text-center tabular-nums">
-              {h.nicuLevel ? CARE_LEVEL_LABELS[h.nicuLevel].replace("Level ", "") : "–"}
-            </td>
+            <td className="px-3 py-2 text-center tabular-nums">{nicuText(h)}</td>
             {SERVICES.map((s) => {
               const has = h.services.includes(s.id);
               return (
@@ -257,7 +294,7 @@ const ServicesGrid = ({ rows, highlight }) => (
 );
 
 const NetworkView = () => {
-  const { facilities, referrals, role, now } = useReferrals();
+  const { facilities, activeFacility, referrals, role, now } = useReferrals();
   const [needs, setNeeds] = useState({ referralType: "", priority: "", service: "" });
   const [onlyFits, setOnlyFits] = useState(false);
 
@@ -277,6 +314,7 @@ const NetworkView = () => {
   const context = {
     hasNeeds,
     canOpenFacility: isRouteAllowedForRole(role, "/facility"),
+    destinations: getReferralDestinations(facilities, activeFacility.name),
     canCreate: isRouteAllowedForRole(role, "/create"),
   };
 
@@ -334,11 +372,11 @@ const NetworkView = () => {
         emptyText="No hospital fits these needs right now."
         noMatchText="No hospital matches that search."
         initialSorting={[{ id: "beds", desc: true }]}
-        getRowClassName={(h) => (hasNeeds && !h.fits ? "opacity-50" : "")}
         // The grid gets the rows the board's own search and Level filter leave, so both agree.
         renderBelow={(visible) => (
           <section className="space-y-3 pt-3">
             <h2 className="font-display text-base font-semibold text-ink">Services</h2>
+            <ServicesList rows={visible} highlight={needs.service} />
             <ServicesGrid rows={visible} highlight={needs.service} />
           </section>
         )}

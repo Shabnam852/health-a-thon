@@ -16,17 +16,18 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
       - run: npm run lint
-      - run: npm run diagrams:check
+      # Every package in the lockfile must be at least 14 days old (see .npmrc).
+      - run: npm run deps:age
       - run: npm run build
 
   gitleaks:
@@ -36,11 +37,11 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@v3
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Keep any found secret out of PR comments and downloadable artifacts.
@@ -49,8 +50,8 @@ jobs:
 
   deploy:
     needs: [check, gitleaks]
-    # Only the main repo holds the Vercel secrets, so forks skip this job.
-    if: github.event_name != 'pull_request' && github.repository == 'Shabnam852/health-a-thon'
+    # Only the team fork holds the Vercel secrets, so every other copy skips this job.
+    if: github.event_name != 'pull_request' && github.repository == 'Bougerous/health-a-thon'
     runs-on: ubuntu-latest
     # Let a running production deploy finish, so main never ends up half released.
     concurrency:
@@ -63,10 +64,10 @@ jobs:
       TARGET: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
       PROD_FLAG: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
       - name: Install Vercel CLI

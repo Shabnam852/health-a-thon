@@ -6,6 +6,7 @@
 
 import { isHighAcuity, PatientType } from "./enums.js";
 import { getDirectionsUrl } from "./hospitalMap.js";
+import { getOccupancy } from "./network.js";
 
 // A mother and baby referred together need a hospital that treats them both.
 const treatsCase = (hospital, referralType) =>
@@ -23,15 +24,21 @@ export const getReferralDestinations = (facilities = [], fromFacility = "") =>
     .filter((hospital) => hospital.takesUrgent && hospital.name !== fromFacility)
     .map((hospital) => hospital.name);
 
-/** Hospitals to offer a floating patient: not one that declined, with a free bed, most beds first. */
-export const getHospitalOptions = (referral, facilities = []) =>
+/**
+ * Hospitals to offer a floating patient: not one that declined, with a bed free once the
+ * referrals already coming to it are counted (as the network board does), most beds first.
+ * Pass every referral so held beds are counted; without them only the listed figure is known.
+ * bedsAvailable on each option is that free count.
+ */
+export const getHospitalOptions = (referral, facilities = [], allReferrals = []) =>
   facilities
     .filter(
       (hospital) =>
         !(referral.declinedBy || []).includes(hospital.name) &&
         hospital.name !== referral.fromFacility &&
-        hospital.bedsAvailable > 0 &&
         canTakeCase(hospital, referral),
     )
+    .map((hospital) => ({ ...hospital, bedsAvailable: getOccupancy(hospital, allReferrals).freeAfterArrivals }))
+    .filter((hospital) => hospital.bedsAvailable > 0)
     .sort((a, b) => b.bedsAvailable - a.bedsAvailable)
     .map((hospital) => ({ ...hospital, directionsUrl: getDirectionsUrl(hospital) }));

@@ -46,6 +46,49 @@ describe("hospital network", () => {
     assert.equal(getOccupancy(hospital(), completed).freeAfterArrivals, 5);
   });
 
+  it("keeps the bed held while the arrived patient's assessment is recorded", () => {
+    const assessed = [referral(ReferralStatus.CLINICAL_ASSESSMENT_RECORDED)];
+    assert.equal(getInboundLoad(hospital(), assessed).inCare, 1);
+    assert.equal(getOccupancy(hospital(), assessed).freeAfterArrivals, 4);
+  });
+
+  it("times a reply from the hospital that holds the case, not one that accepted and then withdrew", () => {
+    const withdrew = referral(ReferralStatus.ARRIVAL_CONFIRMED, {
+      timeline: [
+        { status: ReferralStatus.SENT, date: "2026-10-31T08:00:00Z" },
+        { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T08:05:00Z" },
+        { status: ReferralStatus.REJECTED, date: "2026-10-31T08:30:00Z" },
+        { status: ReferralStatus.SENT, date: "2026-10-31T09:00:00Z" },
+        { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T09:20:00Z" },
+      ],
+    });
+    assert.equal(getMedianReplyMinutes(hospital(), [withdrew]), 20);
+  });
+
+  it("gives no reply time to a hospital that hasn't answered, when an earlier one had accepted", () => {
+    // Hospital A accepted, then declined; the patient chose H, which hasn't replied yet.
+    const waiting = referral(ReferralStatus.SENT, {
+      timeline: [
+        { status: ReferralStatus.SENT, date: "2026-10-31T08:00:00Z" },
+        { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T08:05:00Z" },
+        { status: ReferralStatus.REJECTED, date: "2026-10-31T08:30:00Z" },
+        { status: ReferralStatus.REDIRECTED, date: "2026-10-31T09:00:00Z" },
+        { status: ReferralStatus.SENT, date: "2026-10-31T09:00:00Z" },
+      ],
+    });
+    assert.equal(getMedianReplyMinutes(hospital(), [waiting]), null);
+    // The patient was accepted at A but walked in at H: A's acceptance is not H's reply.
+    const walkedIn = referral(ReferralStatus.ARRIVAL_CONFIRMED, {
+      timeline: [
+        { status: ReferralStatus.SENT, date: "2026-10-31T08:00:00Z" },
+        { status: ReferralStatus.ACKNOWLEDGED, date: "2026-10-31T08:05:00Z" },
+        { status: ReferralStatus.ARRIVAL_CONFIRMED, date: "2026-10-31T10:00:00Z" },
+      ],
+      redirectHistory: [{ divertedFrom: "A", divertedTo: "H", date: "2026-10-31T10:00:00Z" }],
+    });
+    assert.equal(getMedianReplyMinutes(hospital(), [walkedIn]), null);
+  });
+
   it("holds a bed for each accepted patient on the way", () => {
     const refs = [referral(ReferralStatus.ACKNOWLEDGED), referral(ReferralStatus.ACKNOWLEDGED)];
     assert.equal(getOccupancy(hospital(), refs).freeAfterArrivals, 3);

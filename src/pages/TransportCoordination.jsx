@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { FormDialog } from "../components/Dialog.jsx";
 import {
   actionsColumn,
@@ -17,11 +17,13 @@ import {
   DetailRow,
   Field,
   FilterTabs,
+  Icon,
   Page,
   PageHeader,
   Textarea,
 } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { telHref } from "../domain/contact.js";
 import { TransportStatus } from "../domain/enums.js";
 import { getVanStatuses } from "../domain/fleet.js";
 import {
@@ -34,25 +36,50 @@ import {
 
 const isArrived = (r) => r.transit?.status === TransportStatus.ARRIVED || hasArrivedAtFacility(r);
 
-const TransportDetail = ({ r }) => (
-  <>
-    <DetailRow label="Pickup">{r.patientAddress || "Residence on file"}</DetailRow>
-    <DetailRow label="Destination">{getDestination(r)}</DetailRow>
-    <DetailRow label="Family phone">{r.caregiverContact || r.patientPhone}</DetailRow>
-    {r.transit?.driver && (
-      <DetailRow label="Driver">
-        {r.transit.driver}
-        {r.transit.driverPhone && `, ${r.transit.driverPhone}`}
+// A number staff can tap to call; plain text when the field holds no number.
+const PhoneLink = ({ contact, label }) => {
+  const href = telHref(contact);
+  if (!href) return contact || null;
+  return (
+    <a
+      href={href}
+      aria-label={`${label}, ${contact}`}
+      className="inline-flex min-h-control-sm items-center font-semibold text-accent underline"
+    >
+      {contact}
+    </a>
+  );
+};
+
+const TransportDetail = ({ r }) => {
+  const family = r.caregiverContact || r.patientPhone;
+  return (
+    <>
+      <DetailRow label="Pickup">{r.patientAddress || "Residence on file"}</DetailRow>
+      <DetailRow label="Destination">{getDestination(r)}</DetailRow>
+      <DetailRow label="Family phone">
+        <PhoneLink contact={family} label={`Call family of ${r.patientName}`} />
       </DetailRow>
-    )}
-    <DetailRow label="Case">
-      {r.id}, {r.referralType}
-    </DetailRow>
-    <Button as={Link} to={`/referral/${r.id}`} variant="link" size="flush">
-      Open case
-    </Button>
-  </>
-);
+      {r.transit?.driver && (
+        <DetailRow label="Driver">
+          {r.transit.driver}
+          {r.transit.driverPhone && (
+            <>
+              {", "}
+              <PhoneLink contact={r.transit.driverPhone} label={`Call driver ${r.transit.driver}`} />
+            </>
+          )}
+        </DetailRow>
+      )}
+      <DetailRow label="Case">
+        {r.id}, {r.referralType}
+      </DetailRow>
+      <Button as={Link} to={`/referral/${r.id}`} variant="link" size="flush">
+        Open case
+      </Button>
+    </>
+  );
+};
 
 const STAGES = ["Needs a van", "On the way", "Waiting for the patient to choose", "Arrived"];
 
@@ -65,7 +92,7 @@ const RIDE_COLUMNS = [
     id: "stage",
     header: "Stage",
     accessorKey: "stage",
-    sortingFn: (a, b) => STAGES.indexOf(a.original.stage) - STAGES.indexOf(b.original.stage),
+    sortFn: (a, b) => STAGES.indexOf(a.original.stage) - STAGES.indexOf(b.original.stage),
     meta: { filter: true, className: "whitespace-nowrap" },
     cell: ({ getValue }) => <Badge tone={getValue() === STAGES[0] ? "danger" : "neutral"}>{getValue()}</Badge>,
   },
@@ -97,19 +124,24 @@ const RIDE_COLUMNS = [
     const dispatched = status === TransportStatus.DISPATCHED;
     const moving = dispatched || status === TransportStatus.PICKED_UP;
     return (
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-start md:justify-end gap-2">
         {canDispatchTransport(r) && (
-          <Button size="sm" variant="primary" onClick={() => onSendVan(r)}>
+          <Button
+            aria-label={`Send a van for ${r.patientName}`}
+            size="sm"
+            variant="primary"
+            onClick={() => onSendVan(r)}
+          >
             Send a van
           </Button>
         )}
         {dispatched && (
-          <Button size="sm" variant="primary" onClick={() => onPickup(r)}>
+          <Button aria-label={`Picked up for ${r.patientName}`} size="sm" variant="primary" onClick={() => onPickup(r)}>
             Picked up
           </Button>
         )}
         {moving && (
-          <Button size="sm" onClick={() => onReport(r)}>
+          <Button aria-label={`Report problem for ${r.patientName}`} size="sm" onClick={() => onReport(r)}>
             Report problem
           </Button>
         )}
@@ -166,41 +198,57 @@ const TransportCoordination = () => {
 
   const handleConfirmFailure = () => {
     report(
-      recordTransportFailure(failing.id, failureReason || "Mechanical breakdown / patient unable to travel"),
+      recordTransportFailure(failing.id, failureReason.trim() || "Mechanical breakdown / patient unable to travel"),
       `Problem recorded for ${failing.patientName} and sent to the coordinator.`,
     );
     closeFailure();
   };
 
+  const viewTabs = (
+    <FilterTabs
+      label="Transport view"
+      items={[
+        { id: "active", label: "Active", count: active.length },
+        { id: "arrived", label: "Arrived", count: arrived.length },
+        { id: "vehicles", label: "Vehicles", count: vans.length },
+      ]}
+      selected={view}
+      onSelect={setView}
+    />
+  );
+
   return (
     <Page width="full">
       <Toast toast={toast} />
-      <PageHeader title="Transport" />
-
-      <FilterTabs
-        label="Transport view"
-        items={[
-          { id: "active", label: "Active", count: active.length },
-          { id: "arrived", label: "Arrived", count: arrived.length },
-          { id: "vehicles", label: "Vehicles", count: vans.length },
-        ]}
-        selected={view}
-        onSelect={setView}
+      {/* The 108 fallback sits in the header, so the tabs line up with every other screen. */}
+      <PageHeader
+        title="Transport"
+        subtitle="Patient can't wait for a van, or the van broke down? Call the 108 ambulance."
+        actions={
+          <Button as="a" href="tel:108" variant="danger" aria-label="Call 108 (ambulance)">
+            <Icon name="call" />
+            {/* Short on phones, so it fits beside the title. */}
+            <span className="sm:hidden">108</span>
+            <span className="max-sm:hidden">Call 108 (ambulance)</span>
+          </Button>
+        }
       />
 
       {view === "vehicles" ? (
         <DataTable
           key="vehicles"
           label="Vehicles"
+          tabs={viewTabs}
           data={vans}
           columns={VAN_COLUMNS}
-          search={false}
+          searchPlaceholder="Search van, driver or kit"
           emptyText="No vehicles."
         />
       ) : (
         <DataTable
           key={view}
           label={view === "active" ? "Active rides" : "Arrived"}
+          tabs={viewTabs}
           data={view === "active" ? active : arrived}
           columns={RIDE_COLUMNS}
           context={{ onSendVan: setSendingVanFor, onPickup: handlePickup, onReport: setFailing }}

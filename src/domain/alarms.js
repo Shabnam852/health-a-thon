@@ -54,9 +54,15 @@ export const getResponseClock = (referral, now = Date.now()) => {
 export const getFollowUpState = (task, now = Date.now()) => {
   if (task.status === FollowUpStatus.COMPLETED) return FollowUpStatus.COMPLETED;
 
-  // A due date is a local calendar day, so the day starts at local midnight.
-  const dueDayStart = new Date(`${task.dueDate.slice(0, 10)}T00:00:00`).getTime();
-  const daysLate = Math.floor((toTime(now) - dueDayStart) / MS_PER_DAY);
+  // A due date is a local calendar day. Count calendar days, not 24-hour blocks,
+  // so a clock change cannot move the day boundary by an hour.
+  const dueDay = new Date(`${task.dueDate.slice(0, 10)}T00:00:00`);
+  const today = new Date(now);
+  const daysLate = Math.round(
+    (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) -
+      Date.UTC(dueDay.getFullYear(), dueDay.getMonth(), dueDay.getDate())) /
+      MS_PER_DAY,
+  );
   if (daysLate < 0) return FollowUpStatus.PLANNED;
   if (daysLate >= FOLLOW_UP_ESCALATED_AFTER_DAYS) return FollowUpStatus.ESCALATED;
   if (daysLate >= FOLLOW_UP_MISSED_AFTER_DAYS) return FollowUpStatus.MISSED;

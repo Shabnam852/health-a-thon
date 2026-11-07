@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { acuityRank, PATIENT_TYPE_LABELS, UrgencyLevel } from "../domain/enums.js";
+import { Link } from "react-router";
+import { acuityRank, PATIENT_TYPE_LABELS, ReferralStatus, UrgencyLevel } from "../domain/enums.js";
 import { getDestination } from "../domain/workflow.js";
 import { Badge } from "./ui/index.js";
 
@@ -29,6 +29,21 @@ const PRIORITY_TONES = {
   [UrgencyLevel.ROUTINE]: "neutral",
 };
 
+// Stored values are upper-case enums; people read sentence case. Real acronyms stay upper case.
+const ACRONYMS = new Set(["STAT", "NICU", "SNCU", "PICU", "ICU", "OPD", "ASHA", "ANM", "PHC", "CHC", "ID"]);
+export const enumLabel = (value) => {
+  if (value == null || value === "") return "";
+  const words = String(value).replace(/_/g, " ").split(/\s+/).filter(Boolean);
+  return words
+    .map((w, i) => {
+      if (ACRONYMS.has(w.toUpperCase())) return w.toUpperCase();
+      const lower = w.toLowerCase();
+      return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(" ");
+};
+export const priorityLabel = enumLabel;
+
 // The row's place in the list as it is sorted and filtered now.
 export const serialColumn = () => ({
   id: "serial",
@@ -49,13 +64,9 @@ export const priorityColumn = () => ({
   id: "priority",
   header: "Priority",
   accessorKey: "priority",
-  sortingFn: (a, b) => acuityRank(a.original.priority) - acuityRank(b.original.priority),
-  meta: { filter: true },
-  cell: ({ getValue }) => (
-    <Badge tone={PRIORITY_TONES[getValue()] || "neutral"} className="uppercase">
-      {getValue()}
-    </Badge>
-  ),
+  sortFn: (a, b) => acuityRank(a.original.priority) - acuityRank(b.original.priority),
+  meta: { filter: true, label: priorityLabel },
+  cell: ({ getValue }) => <Badge tone={PRIORITY_TONES[getValue()] || "neutral"}>{priorityLabel(getValue())}</Badge>,
 });
 
 export const typeColumn = () => ({
@@ -71,6 +82,12 @@ export const conditionColumn = () => ({
   header: "Condition",
   accessorFn: (r) => r.condition || r.reason || "",
   meta: { className: "min-w-48 text-ink-muted" },
+  // Two lines at most, so every row keeps one height. The full text is in the tooltip.
+  cell: ({ getValue }) => (
+    <span className="line-clamp-2" title={getValue()}>
+      {getValue()}
+    </span>
+  ),
 });
 
 export const fromColumn = () => ({
@@ -95,4 +112,19 @@ export const actionsColumn = (cell) => ({
   enableGlobalFilter: false,
   meta: { srOnly: true, sticky: true, className: "text-right" },
   cell,
+});
+
+const STATUS_LABELS = {
+  [ReferralStatus.SENT]: "Sent",
+  [ReferralStatus.ACKNOWLEDGED]: "Accepted",
+  [ReferralStatus.ARRIVAL_CONFIRMED]: "Arrived",
+  [ReferralStatus.REJECTED]: "Floating: patient choosing",
+};
+export const statusLabel = (status) => STATUS_LABELS[status] || enumLabel(status);
+
+export const statusColumn = () => ({
+  id: "status",
+  header: "Status",
+  accessorFn: (r) => statusLabel(r.status),
+  meta: { filter: true, className: "font-semibold text-ink min-w-28" },
 });

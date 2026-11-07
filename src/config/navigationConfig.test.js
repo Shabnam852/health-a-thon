@@ -21,11 +21,11 @@ describe("Role-Based Navigation Configuration", () => {
 
   test("Coordinator navigation contains only coordinator-appropriate items", () => {
     const items = getNavigationForRole(RoleId.COORDINATOR);
-    assert.ok(items.length >= 6);
+    assert.equal(items.length, 5);
 
     const paths = items.map((i) => i.path);
     assert.ok(paths.includes("/coordinator"));
-    assert.ok(paths.includes("/barriers"));
+    assert.ok(paths.includes("/patients"));
     assert.ok(paths.includes("/transport"));
     assert.ok(paths.includes("/network"));
     assert.ok(paths.includes("/continuity"));
@@ -64,10 +64,14 @@ describe("Role-Based Navigation Configuration", () => {
     assert.ok(!paths.includes("/network"));
   });
 
-  test("Coordinator keeps the caseload screen", () => {
+  test("Queue, Caseload and Barriers are one Patients screen", () => {
     const paths = getNavigationForRole(RoleId.COORDINATOR).map((i) => i.path);
-    assert.ok(paths.includes("/navigator"));
+    for (const old of ["/navigator", "/barriers", "/coordinator?view=queue"]) assert.ok(!paths.includes(old));
+    // Old links still belong to the coordinator, so they can redirect.
     assert.equal(getPrimaryRoleForRoute("/navigator"), RoleId.COORDINATOR);
+    assert.equal(getPrimaryRoleForRoute("/patients"), RoleId.COORDINATOR);
+    assert.equal(isRouteAllowedForRole(RoleId.COORDINATOR, "/patients"), true);
+    assert.equal(isRouteAllowedForRole(RoleId.FACILITY, "/patients"), false);
   });
 
   test("Only a hospital makes referrals", () => {
@@ -111,6 +115,7 @@ describe("Role-Based Navigation Configuration", () => {
   test("Each role can reach exactly its own workspaces", () => {
     const ROUTES = [
       "/coordinator",
+      "/patients",
       "/navigator",
       "/referral",
       "/referrals",
@@ -125,6 +130,7 @@ describe("Role-Based Navigation Configuration", () => {
     const EXPECTED = {
       [RoleId.COORDINATOR]: [
         "/coordinator",
+        "/patients",
         "/navigator",
         "/referral",
         "/referrals",
@@ -191,7 +197,7 @@ describe("Role-Based Navigation Configuration", () => {
     assert.equal(getActiveNavItem(items, "/", ""), null);
 
     const coordinator = getNavigationForRole(RoleId.COORDINATOR);
-    assert.equal(getActiveNavItem(coordinator, "/referrals", "").title, "Queue");
+    assert.equal(getActiveNavItem(coordinator, "/patients", "?show=blocked").title, "Patients");
   });
 
   test("getPrimaryRoleForRoute identifies correct role owner", () => {

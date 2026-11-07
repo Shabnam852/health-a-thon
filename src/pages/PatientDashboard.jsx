@@ -1,80 +1,101 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
+import { ASSISTANT_PATH } from "../components/assistant/AssistantLauncher.jsx";
+import ListenButton from "../components/assistant/ListenButton.jsx";
+import { useFamilyLanguage } from "../components/assistant/useFamilyLanguage.js";
+import { usePatientCase } from "../components/assistant/usePatientCase.js";
+import FamilyRequestsCard from "../components/FamilyRequestsCard.jsx";
+import { familyDateLocale, fill, fillParts } from "../components/familyStrings.js";
 import HospitalChoice from "../components/HospitalChoice.jsx";
 import HospitalMap from "../components/HospitalMap.jsx";
 import Toast, { useToast } from "../components/Toast.jsx";
-import { Badge, Button, Card, EmptyState, Field, Icon, Page, PageHeader, Select } from "../components/ui/index.js";
+import { Button, Card, EmptyState, Field, Icon, Page, PageHeader, Pictogram, Select } from "../components/ui/index.js";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import { getScreenSummary } from "../domain/assistant.js";
 import { telHref } from "../domain/contact.js";
-import { PatientType, ReferralStatus, TransportStatus, UrgencyLevel } from "../domain/enums.js";
+import { TransportStatus, UrgencyLevel } from "../domain/enums.js";
 import { getHospitalMap } from "../domain/hospitalMap.js";
-import { hasArrivedAtFacility, isFloating, isRideMoving } from "../domain/workflow.js";
+import { getPatientJourney } from "../domain/patientJourney.js";
+import { messagesForReferral } from "../domain/smsTemplates.js";
 import { StorageAdapter } from "../services/storageAdapter.js";
 
 const PATIENT_VIEWS = ["transit", "checklist", "support"];
 
-// How far along the ride is, for the stages on the ride screen.
-const RIDE_STAGES = ["Ride requested", "Ride on the way", "Picked up", "Arrived at hospital"];
-const RIDE_STAGE_BY_STATUS = {
-  [TransportStatus.REQUESTED]: 1,
-  [TransportStatus.ASSIGNED]: 1,
-  [TransportStatus.DISPATCHED]: 2,
-  [TransportStatus.PICKED_UP]: 3,
-  [TransportStatus.ARRIVED]: 4,
+// Matches BRING_LIST (and the family strings' bring list), item by item.
+const BRING_PICTOGRAMS = ["id", "health-card", "medicines", "phone"];
+
+// A contact with no number in it would be a dead link, so show nothing.
+const CallLink = ({ phone, children }) => {
+  const href = telHref(phone);
+  if (!href) return null;
+  return (
+    <Button as="a" href={href} variant="primary" className="w-full sm:w-auto">
+      <Icon name="call" />
+      {children}
+    </Button>
+  );
 };
 
-const CHECKLIST_ITEMS = [
-  { id: 1, text: "Photo ID (Aadhaar, Voter ID or Passport)" },
-  { id: 2, text: "Health card (Ayushman Bharat or ABHA), if you have one" },
-  { id: 3, text: "Mother and baby (MCP) card, and any medicines" },
-  { id: 4, text: "Slippers and a phone charger" },
-];
+// A driver is only worth calling while the van is theirs for this patient: not after a failed or cancelled ride.
+const DRIVER_STATUSES = [TransportStatus.ASSIGNED, TransportStatus.DISPATCHED, TransportStatus.PICKED_UP];
 
-const CallLink = ({ phone, children }) => (
-  <Button as="a" href={telHref(phone)} variant="primary" className="w-full sm:w-auto">
-    <Icon name="call" />
-    {children}
-  </Button>
+// A standard stepper: one status circle per step and a line joining them. Done is a filled circle
+// with a tick, the current step a ring, later steps an empty circle. The words say the same thing.
+const StepMarker = ({ done, now }) => (
+  <span
+    aria-hidden="true"
+    className={`relative z-10 w-6 h-6 shrink-0 rounded-full flex items-center justify-center ${
+      done
+        ? "bg-accent text-on-fill"
+        : now
+          ? "border-2 border-accent bg-surface"
+          : "border-2 border-line-strong bg-surface"
+    }`}
+  >
+    {done ? <Icon name="check" size="sm" /> : now ? <span className="w-2.5 h-2.5 rounded-full bg-accent" /> : null}
+  </span>
 );
 
-const StepList = ({ steps }) => (
+const StepList = ({ steps, t }) => (
   <ol>
     {steps.map((step, index) => {
       const isLast = index === steps.length - 1;
-      const nextIsDone = steps[index + 1]?.done;
       return (
         <li
           key={step.label}
           aria-current={step.isNow ? "step" : undefined}
-          className={`relative flex items-center gap-3 ${isLast ? "" : "pb-5"}`}
+          className={`relative flex items-start gap-3 ${isLast ? "" : "pb-5"}`}
         >
           {!isLast && (
             <span
               aria-hidden="true"
-              className={`absolute left-3.5 -translate-x-1/2 top-7 bottom-0 w-0.5 ${nextIsDone ? "bg-accent" : "bg-subtle"}`}
+              className={`absolute left-3 -translate-x-1/2 top-6 bottom-0 w-0.5 ${step.done ? "bg-accent" : "bg-line"}`}
             />
           )}
-          <span
-            className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center ${step.done ? "bg-accent text-on-fill" : "bg-subtle"}`}
-          >
-            <Icon name={step.done ? "check" : ""} size="sm" />
+          <StepMarker done={step.done} now={Boolean(step.isNow)} />
+          <span className="min-w-0 flex-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm leading-6">
+            <span className={step.isNow ? "font-semibold text-ink" : step.done ? "text-ink" : "text-ink-muted"}>
+              {step.label}
+            </span>
+            <span className={`text-xs font-semibold ${step.isNow ? "text-accent" : "text-ink-muted"}`}>
+              {step.done ? t.done : step.isNow || t.notYet}
+            </span>
           </span>
-          <span
-            className={`text-sm ${step.isNow ? "font-semibold text-ink" : step.done ? "text-ink" : "text-ink-muted"}`}
-          >
-            {step.label}
-            <span className="sr-only">{step.done ? " (done)" : " (not yet)"}</span>
-          </span>
-          {step.isNow && (
-            <Badge tone="highlight" className="ml-auto">
-              {step.isNow}
-            </Badge>
-          )}
         </li>
       );
     })}
   </ol>
 );
+
+// "Priya Raman, MSW" -> "PR": the first letters of the name before any title.
+const initials = (name = "") =>
+  name
+    .split(",")[0]
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
 
 const DetailList = ({ rows }) => (
   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -90,40 +111,59 @@ const DetailList = ({ rows }) => (
 );
 
 const PatientDashboard = () => {
-  const {
-    referrals,
-    facilities,
-    activeReferralId,
-    setActiveReferralId,
-    recordPatientChoice,
-    recordPatientGoingElsewhere,
-  } = useReferrals();
+  const { referrals, messages, setActiveReferralId, recordPatientChoice, recordPatientGoingElsewhere } = useReferrals();
+  const { referral, facilities } = usePatientCase();
   const { toast, report } = useToast();
   const [searchParams] = useSearchParams();
+  const [savedChecklists, setSavedChecklists] = useState(() => StorageAdapter.getChecklists());
+  const { t, lang } = useFamilyLanguage();
 
-  const referral =
-    referrals.find((r) => r.id === activeReferralId) ||
-    referrals.find((r) => r.patientName?.includes("Fathima")) ||
-    referrals[0];
+  // Every hook is above, so an empty case list can bail out safely.
+  if (!referral) {
+    return (
+      <Page width="md" lang={lang}>
+        <PageHeader title={t.yourCare} />
+        <EmptyState pictogram="clipboard">{t.noCase}</EmptyState>
+      </Page>
+    );
+  }
 
+  const journey = getPatientJourney(referral, facilities);
+  const { isChild, tr, nav, floating, hospital, hospitalPhone, isRideFailed } = journey;
+  const { steps, nextStep, rideStage, rideSummaryKey, showEta } = journey;
+  // The journey's words come from the domain in English; the screen shows them in the family's language.
+  const rideSummary = rideSummaryKey ? t[rideSummaryKey] : t.rideStages[rideStage - 1];
+  const nextText = fill(t[nextStep.nextKey], {
+    ...nextStep.nextVars,
+    name: nextStep.nextVars?.name || t.yourCareNavigator,
+  });
   // A newborn's page is read by the parent, so greet the parent and not "Baby".
-  const isChild = referral?.referralType === PatientType.CHILD;
   const greetedName = isChild ? referral?.caregiverName : referral?.patientName;
-  const patientFirstName = greetedName?.split(" ")[0] || "there";
-  const tr = referral?.transit;
-  const nav = referral?.navigator;
-  const floating = referral ? isFloating(referral) : false;
-  // A hospital that declined is not where the patient is going.
-  const hospital = floating ? null : referral?.toFacility;
-  const hospitalPhone = facilities.find((f) => f.name === hospital)?.phone;
+  const patientFirstName = greetedName?.split(" ")[0];
+
+  // A number the family can tap to call; plain text if the field holds no number.
+  const hospitalTel = telHref(hospitalPhone);
+  const hospitalPhoneLink = hospitalTel ? (
+    <a
+      href={hospitalTel}
+      aria-label={fill(t.callHospitalAria, { hospital: hospital || t.theHospital, phone: hospitalPhone })}
+      className="inline-flex min-h-control-sm items-center text-accent underline"
+    >
+      {hospitalPhone}
+    </a>
+  ) : (
+    hospitalPhone
+  );
 
   const viewFromUrl = searchParams.get("view");
   const view = PATIENT_VIEWS.includes(viewFromUrl) ? viewFromUrl : "overview";
 
-  const [savedChecklists, setSavedChecklists] = useState(() => StorageAdapter.getChecklists());
-  const checklist = CHECKLIST_ITEMS.map((item) => ({
-    ...item,
-    checked: Boolean(savedChecklists[referral?.id]?.[item.id]),
+  // The checklist shows the same items the assistant reads out, in the family's language.
+  const checklist = t.bring.map((text, index) => ({
+    id: index + 1,
+    text,
+    pictogram: BRING_PICTOGRAMS[index],
+    checked: Boolean(savedChecklists[referral?.id]?.[index + 1]),
   }));
   const packedCount = checklist.filter((item) => item.checked).length;
 
@@ -137,73 +177,37 @@ const PatientDashboard = () => {
     StorageAdapter.saveChecklists(next);
   };
 
-  // Progress comes from the real referral and ride status.
-  const status = referral?.status;
-  const isArrivalConfirmed = referral ? hasArrivedAtFacility(referral) : false;
-  const isTransitActive = isRideMoving(tr);
-  const hasOwnTransport = !tr && !referral?.transitBarrier;
-  const isRideFailed = tr?.status === TransportStatus.FAILED && !isArrivalConfirmed;
+  const isArrivalConfirmed = journey.isArrivalConfirmed;
   const hospitalMap = getHospitalMap(referral, facilities);
-  const who = isChild ? "your baby" : "you";
+  const listen = <ListenButton referral={referral} text={getScreenSummary(view, referral, facilities)} />;
 
-  const steps = [
-    {
-      label: "Doctor sent the referral",
-      done: status !== ReferralStatus.CREATED,
-      next: "The doctor is sending your referral.",
-    },
-    {
-      label: "Hospital is ready for you",
-      done: status === ReferralStatus.ACKNOWLEDGED || isArrivalConfirmed,
-      next: floating ? "Choose a hospital to go to." : "The hospital is checking your referral.",
-    },
-    {
-      label: "Ride to the hospital",
-      done: tr?.status === TransportStatus.ARRIVED || isArrivalConfirmed,
-      next: isTransitActive
-        ? "Be ready at the door and keep your phone with you."
-        : isRideFailed
-          ? `${nav?.name?.split(",")[0] || "Your care navigator"} is arranging another ride.`
-          : hasOwnTransport
-            ? "Travel with your own transport. Tell your care navigator if that changes."
-            : "Your ride is being arranged.",
-    },
-    {
-      label: "Check in at the hospital",
-      done: isArrivalConfirmed,
-      next: `At the hospital, give case ID ${referral?.id} at the reception desk.`,
-    },
-    {
-      label: "Care and follow-up",
-      done: status === ReferralStatus.COMPLETED,
-      next: `The care team will look after ${who}. Follow-up visits are planned before you go home.`,
-    },
-  ];
-  const nextStep = steps.find((s) => !s.done) || steps[steps.length - 1];
+  const finishChoice = (res, message) => report(res, message, t.somethingWrong);
+  const familyRequests = <FamilyRequestsCard referral={referral} t={t} onResult={finishChoice} />;
 
-  const rideStage = isArrivalConfirmed ? RIDE_STAGES.length : RIDE_STAGE_BY_STATUS[tr?.status] || 0;
-  const rideSummary =
-    !tr && !isArrivalConfirmed
-      ? "No ride booked yet"
-      : isRideFailed
-        ? "Your ride had a problem"
-        : RIDE_STAGES[rideStage - 1] || "Your ride is being arranged";
-  const showEta = tr?.eta && !isArrivalConfirmed && !isRideFailed;
-
-  const finishChoice = (res, message) => report(res, message, "Something went wrong");
+  // The simulated texts sent about this case, newest first.
+  const texts = messagesForReferral(messages, referral.id);
+  const textTime = (iso) =>
+    new Date(iso).toLocaleString(familyDateLocale(lang), {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   const chooser = floating && (
-    <Card title="Choose a hospital" className="space-y-4">
+    <Card title={t.chooseHospital} className="space-y-4">
       <p className="text-sm text-ink">
-        {referral.toFacility} can't take {who} right now. It's your choice where to go next.
+        {fill(isChild ? t.cantTakeBaby : t.cantTakeYou, { hospital: referral.toFacility })}
       </p>
       <HospitalChoice
         referral={referral}
+        strings={t}
+        noOptionsText={t.noOptions}
         onChoose={(name) =>
-          finishChoice(recordPatientChoice(referral.id, name), `${name} has been told you're coming.`)
+          finishChoice(recordPatientChoice(referral.id, name), fill(t.toldComing, { hospital: name }))
         }
         onElsewhere={(place) =>
-          finishChoice(recordPatientGoingElsewhere(referral.id, place), `Saved. Give your case ID at ${place}.`)
+          finishChoice(recordPatientGoingElsewhere(referral.id, place), fill(t.savedElsewhere, { place }))
         }
       />
     </Card>
@@ -221,145 +225,202 @@ const PatientDashboard = () => {
               type="checkbox"
               checked={item.checked}
               onChange={() => toggleChecklistItem(item.id)}
-              className="w-5 h-5 rounded accent-control shrink-0"
+              className="w-5 h-5 rounded-sm accent-control shrink-0"
             />
+            <Pictogram name={item.pictogram} tone={item.checked ? "neutral" : "ink"} size="sm" bare />
             <span className={item.checked ? "line-through text-ink-muted" : ""}>{item.text}</span>
           </label>
         ))}
       </div>
       <p className="text-xs text-ink-muted">
-        {packedCount} of {checklist.length} packed. At {hospital || "the hospital"}, give case ID{" "}
-        <strong className="text-ink">{referral?.id}</strong> at the reception desk.
+        {fillParts(t.packed, {
+          packed: packedCount,
+          total: checklist.length,
+          hospital: hospital || t.theHospital,
+          id: (
+            <strong key="id" className="text-ink">
+              {referral?.id}
+            </strong>
+          ),
+        })}
       </p>
     </>
   );
 
   return (
-    <Page width="md">
+    <Page width="md" lang={lang}>
       <Toast toast={toast} />
-      <PageHeader
-        title={`Hello, ${patientFirstName}`}
-        actions={
-          <Field label="Patient" className="w-full sm:w-auto sm:max-w-xs">
-            <Select value={referral?.id} onChange={(e) => setActiveReferralId(e.target.value)}>
-              {referrals.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.patientName}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        }
-      />
+      <PageHeader title={patientFirstName ? fill(t.hello, { name: patientFirstName }) : t.helloNoName} />
+      {/* Under the title, not beside it: a labelled field is taller than the header's one row. */}
+      <Field label={t.patient} className="w-full sm:max-w-xs">
+        <Select value={referral?.id} onChange={(e) => setActiveReferralId(e.target.value)}>
+          {referrals.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.patientName}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
       <section
         id="emergency"
         className="bg-danger-soft text-danger-strong rounded-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
       >
-        <p className="text-sm font-semibold">
-          {floating && referral.priority === UrgencyLevel.STAT
-            ? "This is an emergency. Call 108 now, and choose a hospital after."
-            : "Severe bleeding, vision changes, intense constant pain, or reduced baby movement? Do not wait."}
+        <p className="flex items-start gap-3 text-sm font-semibold">
+          <Icon name="emergency" className="mt-0.5 shrink-0" />
+          <span>{floating && referral.priority === UrgencyLevel.STAT ? t.emergencyStat : t.emergencySigns}</span>
         </p>
         {/* The label is long: let it wrap on the narrowest phones instead of overflowing. */}
         <Button as="a" href="tel:108" variant="danger" wrap className="shrink-0">
           <Icon name="call" />
-          Call 108 (emergency services)
+          {t.call108}
         </Button>
       </section>
 
       {view === "overview" && (
         <>
           {chooser || (
-            <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6 space-y-3">
-              <h2 className="font-display text-xl sm:text-2xl font-bold">{rideSummary}</h2>
-              {showEta && <p className="text-lg font-semibold tabular-nums">Arrives in {tr.eta}</p>}
+            <section className="rounded-card bg-brand text-on-fill p-4 sm:p-6 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="font-display text-xl sm:text-2xl font-semibold break-words">{rideSummary}</h2>
+                  {showEta && (
+                    <p className="text-lg font-semibold tabular-nums mt-1">{fill(t.arrivesInEta, { eta: tr.eta })}</p>
+                  )}
+                </div>
+                <Pictogram name={isArrivalConfirmed ? "hospital" : "van"} tone="on-fill" size="lg" className="-my-1" />
+              </div>
               <p className="text-sm border-t border-on-fill/20 pt-3">
-                <span className="font-semibold">Next:</span> {nextStep.next}
+                <span className="font-semibold">{t.next}</span> {nextText}
               </p>
             </section>
           )}
 
-          <Card title="Your journey">
-            <StepList steps={steps.map((s) => ({ ...s, isNow: s === nextStep && !s.done ? "Next" : "" }))} />
+          <div className="flex flex-wrap items-center gap-2">
+            {listen}
+            <Button as={Link} to={ASSISTANT_PATH} size="sm" className="lg:hidden">
+              <Icon name="support_agent" size="sm" />
+              {t.askQuestion}
+            </Button>
+          </div>
+
+          {familyRequests}
+
+          <Card title={t.yourJourney}>
+            <StepList
+              t={t}
+              steps={steps.map((s, index) => ({
+                ...s,
+                label: t.steps[index] ?? s.label,
+                isNow: s === nextStep && !s.done ? t.nextLabel : "",
+              }))}
+            />
           </Card>
+
+          {texts.length > 0 && (
+            <Card title={t.textsSent} className="space-y-3">
+              <p className="text-xs text-ink-muted">{t.textsNotReallySent}</p>
+              <ul className="divide-y divide-line">
+                {texts.map((text) => (
+                  <li key={text.id} className="py-3 first:pt-0 last:pb-0 text-sm">
+                    <p className="text-ink break-words">{text.body}</p>
+                    <p className="text-xs text-ink-muted tabular-nums mt-0.5">{textTime(text.createdAt)}</p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </>
       )}
 
       {view === "transit" && (
         <>
-          <section className="rounded-card bg-brand text-on-fill p-5 sm:p-6">
-            {showEta ? (
-              <>
-                <p className="text-sm text-on-fill-muted">Arrives in</p>
-                <p className="font-display text-5xl font-extrabold tabular-nums mt-1">{tr.eta}</p>
-              </>
-            ) : (
-              <h2 className="font-display text-2xl font-bold">{rideSummary}</h2>
-            )}
-            <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || "No hospital chosen yet"}</p>
+          <section className="rounded-card bg-brand text-on-fill p-4 sm:p-6 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {showEta ? (
+                <>
+                  <p className="text-sm text-on-fill-muted">{t.arrivesIn}</p>
+                  <p className="font-display text-4xl font-semibold tabular-nums mt-1">{tr.eta}</p>
+                </>
+              ) : (
+                <h2 className="font-display text-2xl font-semibold">{rideSummary}</h2>
+              )}
+              <p className="text-sm text-on-fill-muted mt-2 break-words">{hospital || t.noHospitalYet}</p>
+            </div>
+            <Pictogram name="van" tone="on-fill" size="lg" />
           </section>
+
+          <div>{listen}</div>
 
           {isRideFailed && (
             <p role="alert" className="p-4 rounded-card bg-danger-soft text-danger-strong text-sm">
-              <strong>Your ride had a problem.</strong> {tr.failedReason} Your care navigator is arranging another one.
+              <strong>{t.rideFailed}</strong> {tr.failedReason} {t.rideFailedAfter}
             </p>
           )}
 
           {chooser ||
             (hospitalMap ? (
-              <HospitalMap map={hospitalMap} />
+              <HospitalMap map={hospitalMap} title={t.gettingThere} />
             ) : (
-              <EmptyState>The way to the hospital will appear here once a hospital is confirmed.</EmptyState>
+              <EmptyState pictogram="route">{t.mapLater}</EmptyState>
             ))}
 
           {!tr && !isArrivalConfirmed ? (
-            <EmptyState>If you need a free ride, your care navigator will arrange it.</EmptyState>
+            <EmptyState pictogram="van">{t.freeRideOffer}</EmptyState>
           ) : (
-            <Card title="Progress">
+            <Card title={t.progress}>
               <StepList
-                steps={RIDE_STAGES.map((label, index) => ({
-                  label,
-                  done: index < rideStage,
-                  isNow: index === rideStage - 1 && !isRideFailed ? "Now" : "",
-                }))}
+                t={t}
+                steps={t.rideStages.map((label, index) => {
+                  // The stage reached last is still happening, until the patient has arrived.
+                  const isNow = index === rideStage - 1 && !isRideFailed && rideStage < t.rideStages.length;
+                  return { label, done: index < rideStage && !isNow, isNow: isNow ? t.nowLabel : "" };
+                })}
               />
             </Card>
           )}
 
-          {tr?.driver && !isArrivalConfirmed && (
-            <Card title="Your driver" className="space-y-3">
+          {tr?.driver && DRIVER_STATUSES.includes(tr.status) && !isArrivalConfirmed && (
+            <Card title={t.yourDriver} className="space-y-3">
               <div className="flex items-center gap-3">
                 <span
                   aria-hidden="true"
-                  className="w-12 h-12 shrink-0 rounded-full bg-subtle-strong text-ink flex items-center justify-center text-lg font-bold"
+                  className="w-12 h-12 shrink-0 rounded-full bg-subtle-strong text-ink flex items-center justify-center text-lg font-semibold"
                 >
                   {tr.driver[0]}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-bold text-ink break-words">{tr.driver}</p>
+                  <p className="font-semibold text-ink break-words">{tr.driver}</p>
                   {tr.vehicle && <p className="text-xs text-ink-muted break-words">{tr.vehicle}</p>}
                 </div>
               </div>
-              {tr.driverPhone && <CallLink phone={tr.driverPhone}>Call driver</CallLink>}
+              {tr.driverPhone && <CallLink phone={tr.driverPhone}>{t.callDriver}</CallLink>}
             </Card>
           )}
 
           {tr && (
-            <Card title="Trip" className="space-y-3">
+            <Card title={t.trip} className="space-y-3">
               <dl className="space-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-ink-muted">From</dt>
-                  <dd className="font-semibold text-ink break-words">{tr.pickupAddress || referral?.patientAddress}</dd>
+                <div className="flex items-start gap-3">
+                  <Icon name="home" className="text-ink-muted mt-0.5" />
+                  <div className="min-w-0">
+                    <dt className="text-xs text-ink-muted">{t.from}</dt>
+                    <dd className="font-semibold text-ink break-words">
+                      {tr.pickupAddress || referral?.patientAddress}
+                    </dd>
+                  </div>
                 </div>
-                <div>
-                  <dt className="text-xs text-ink-muted">To</dt>
-                  <dd className="font-semibold text-ink break-words">{hospital || "Not chosen yet"}</dd>
+                <div className="flex items-start gap-3">
+                  <Icon name="local_hospital" className="text-ink-muted mt-0.5" />
+                  <div className="min-w-0">
+                    <dt className="text-xs text-ink-muted">{t.to}</dt>
+                    <dd className="font-semibold text-ink break-words">{hospital || t.notChosen}</dd>
+                  </div>
                 </div>
               </dl>
               <p className="flex items-center gap-2 text-sm font-semibold text-accent">
                 <Icon name="check_circle" />
-                This ride is free
+                {t.rideFree}
               </p>
             </Card>
           )}
@@ -367,36 +428,56 @@ const PatientDashboard = () => {
       )}
 
       {view === "checklist" && (
-        <Card title="What to bring" className="space-y-3">
+        <Card title={t.whatToBring} className="space-y-3">
+          {listen}
           {bring}
         </Card>
       )}
 
       {view === "support" && (
         <>
+          <Card title={t.askTitle} className="space-y-3">
+            <p className="text-sm text-ink">{t.askBody}</p>
+            <p className="flex items-start gap-2 text-sm text-ink">
+              <Icon name="forward_to_inbox" className="text-accent shrink-0" />
+              <span>
+                <strong>{t.stoppingTitle}</strong> {t.stoppingBody}
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button as={Link} to={ASSISTANT_PATH} variant="primary">
+                <Icon name="support_agent" />
+                {t.askQuestion}
+              </Button>
+              {listen}
+            </div>
+          </Card>
+          {familyRequests}
           {nav && (
-            <Card title="Your care navigator" className="space-y-3">
+            <Card title={t.yourCareNavigator} className="space-y-3">
               <div className="flex items-center gap-3">
-                <img
-                  className="w-12 h-12 rounded-full object-cover shrink-0"
-                  alt=""
-                  src={nav.avatar || "/images/avatar-priya-raman.svg"}
-                />
+                {/* Initials in theme colours, so they keep their contrast in both themes. */}
+                <span
+                  aria-hidden="true"
+                  className="w-12 h-12 rounded-full bg-brand text-on-fill font-semibold inline-flex items-center justify-center shrink-0"
+                >
+                  {initials(nav.name)}
+                </span>
                 <div className="min-w-0">
-                  <p className="font-bold text-ink">{nav.name}</p>
-                  <p className="text-xs text-ink-muted">Here for rides, childcare and language help.</p>
+                  <p className="font-semibold text-ink">{nav.name}</p>
+                  <p className="text-xs text-ink-muted">{t.navigatorRole}</p>
                 </div>
               </div>
-              {nav.phone && <CallLink phone={nav.phone}>Call {nav.phone}</CallLink>}
+              {nav.phone && <CallLink phone={nav.phone}>{fill(t.callNumber, { phone: nav.phone })}</CallLink>}
             </Card>
           )}
-          <Card title="Your hospital">
+          <Card title={t.yourHospital}>
             <DetailList
               rows={[
-                ["Hospital", hospital || "Not chosen yet"],
-                ["Hospital phone", hospitalPhone],
-                ["Your language", referral?.language],
-                ["Interpreter", referral?.interpreterNeeded ? "Requested for your visit" : "Not requested"],
+                [t.hospitalLabel, hospital || t.notChosen],
+                [t.hospitalPhone, hospitalPhoneLink],
+                [t.yourLanguage, referral?.language],
+                [t.interpreter, referral?.interpreterNeeded ? t.interpreterRequested : t.interpreterNot],
               ]}
             />
           </Card>

@@ -1,7 +1,8 @@
 # Navexa Health — Hackathon Readiness & Technical Jury Evaluation
 
 **Document:** `docs/HACKATHON_READINESS_REPORT.md`  
-**Version:** 3.0.0  
+**Version:** 3.1.0  
+**Updated:** November 04, 2026 (AI features noted; storage key and scenarios updated)  
 **Audit & Remediation Date:** November 01, 2026  
 **Auditor:** Hackathon Technical Evaluator & Multidisciplinary Review Panel  
 **Evaluation Standard:** Production-Ready Hackathon Architecture
@@ -10,7 +11,7 @@
 
 ## 1. Overall Hackathon Readiness Score: **95 / 100** (Exceptional / Ready to Win)
 
-> **Note:** these scores are a self-assessment made before a later audit found workflow bugs and tests that did not exercise the app (since fixed, see `docs/TESTING_REPORT.md`). They have not been re-scored, so treat them as estimates.
+> **Note:** these scores are a self-assessment made before a later audit found workflow bugs and tests that did not exercise the app (since fixed, see `docs/TESTING_REPORT.md`). They have not been re-scored, so treat them as estimates. Since they were made, three AI features have been added (family assistant, Fill with AI on New referral, and the handoff summary). They have only been run against fake AI replies, not live AI, and are not part of these scores.
 
 ### 1.1 Category Scoring Breakdown (Post-Remediation)
 
@@ -40,7 +41,7 @@
 - **Major Leaps (+33 Points Total):**
   - **End-to-End Workflow (50 ➔ 95):** The system now traces every referral completely from creation, acknowledgment, barrier mitigation, transit dispatch, physical arrival verification, structured clinical assessment, to 42-day continuing postpartum surveillance.
   - **Clinical Workflow Accuracy (48 ➔ 95):** Strict separation of concerns between maternal and neonatal entities (e.g. Baby of Shalini Naidu displays TSB and infant weight, never maternal systolic BP or cervical dilation). Arrival is distinguished from treatment, and referral closure does not terminate continuous care.
-  - **Technical Robustness (45 ➔ 96):** Fragmented component state eliminated. `ReferralContext` serves as the single source of truth, backed by `storageAdapter.js` under `navexa_domain_v4`. Automated tests are listed in `docs/TESTING_REPORT.md`.
+  - **Technical Robustness (45 ➔ 96):** Fragmented component state eliminated. `ReferralContext` serves as the single source of truth, backed by `storageAdapter.js` under `navexa_domain_v6`. Automated tests are listed in `docs/TESTING_REPORT.md`.
   - **Security & Privacy Awareness (35 ➔ 92):** Removed misleading marketing claims ("HIPAA Audit Compliant", "Epic CareLink Connected"). Added transparent synthetic PHI indicators and demonstration guardrails.
 
 ---
@@ -68,7 +69,7 @@ Previously, judges would lose confidence when seeing broken transit payloads (`u
 ### 4. What questions could a healthcare expert ask that the system cannot answer?
 
 - _"If Sanjeevani's NICU is full, how does the triage nurse redirect this baby?"_  
-  **Answer:** Fully implemented via the **"Redirect Referral"** modal on `FacilityDashboard.jsx`, re-routing to Vidyaranya Institute or Karuna Women & Children's with clinical notes and automated intake queue transfers.
+  **Answer:** The hospital declines with a reason on `FacilityDashboard.jsx`. The referral then floats, and the coordinator records the hospital the family chooses, such as Vidyaranya Institute or Karuna Women & Children's. The chosen hospital's queue receives the referral at once.
 - _"When you click 'Record Outcome', where do you document delivery mode and neonatal status?"_  
   **Answer:** Fully implemented via the **Structured Clinical Outcome Modal**, with separate schemas for maternal delivery/BP and neonatal TSB/APGAR/weight.
 - _"How does a community health worker verify a home visit on Day 3 postpartum?"_  
@@ -79,18 +80,18 @@ Previously, judges would lose confidence when seeing broken transit payloads (`u
 Navexa demonstrates **six complete, end-to-end clinical scenarios**:
 1. Severe Preeclampsia Emergency (Ananya Reddy).
 2. Neonatal Hyperbilirubinemia & Phototherapy (Baby of Shalini Naidu).
-3. Transit Disruption & Fleet Reschedule (Baby of Selvi Murugan).
-4. Regional Hospital Capacity Redirection (Sunita Yadav).
+3. Declined referral and the patient's choice of another hospital (Baby of Selvi Murugan).
+4. Regional hospital capacity: a hospital declines, then the family chooses another (Sunita Yadav).
 5. Socioeconomic & Language Barrier Mitigation (Anjali Gowda).
 6. 42-Day Postpartum Continuity & Well-Baby Handoff (Meera Devi).
 
 ### 6. What is currently just a visual demonstration?
 
-Only capabilities outside the reasonable scope of a frontend hackathon (such as physical Bluetooth BLE beacon hardware, cellular SMS gateway towers, and production hospital EHR servers) are simulated. The entire user-facing coordination workflow, state machine, data persistence, and UI reactivity are genuine, functional software.
+Only capabilities outside the reasonable scope of a frontend hackathon (such as physical Bluetooth BLE beacon hardware, cellular SMS gateway towers, and production hospital EHR servers) are simulated. The entire user-facing coordination workflow, state machine, data persistence, and UI reactivity are genuine, functional software. The three AI features are built, but live AI has not been checked: no API keys are set up, so their tests use fake AI replies.
 
 ### 7. What is the biggest technical weakness?
 
-**Single-Browser Persistence:** The application currently relies on browser `localStorage` (`navexa_domain_v4`). In production, this would be backed by a HIPAA-compliant cloud database (e.g. PostgreSQL with RLS or Google Cloud Healthcare API). However, for a hackathon presentation, the local persistence is faultless, retaining state through browser refreshes ($F5$) and offering an instant demo reset.
+**Single-Browser Persistence:** The application currently relies on browser `localStorage` (`navexa_domain_v6`). In production, this would be backed by a HIPAA-compliant cloud database (e.g. PostgreSQL with RLS or Google Cloud Healthcare API). However, for a hackathon presentation, the local persistence is faultless, retaining state through browser refreshes ($F5$) and offering an instant demo reset.
 
 ### 8. What is the biggest product weakness?
 
@@ -98,15 +99,15 @@ Only capabilities outside the reasonable scope of a frontend hackathon (such as 
 
 ### 9. What would prevent this project from winning?
 
-With the automated tests passing, 3 dedicated new operational workspaces (`/transport`, `/continuity`, `/navigator`), and reactive UI state across desktop and mobile, the main remaining limit is that the app runs entirely in the browser, with no server-side access control.
+With the automated tests passing, 3 dedicated new operational workspaces (`/transport`, `/continuity`, and the Patients page at `/patients`), and reactive UI state across desktop and mobile, the main remaining limit is that the role screens have no access control. The AI routes run on the server, but they have no login either.
 
 ---
 
 ## 3. The 5 Remediated Problems (Verification Status)
 
-1. **Broken Transit Dispatch in `BarrierResolution.jsx`:**  
+1. **Broken Transit Dispatch in `BarrierResolution.jsx` (page since removed):**  
    **RESOLVED.** Signature normalized in `ReferralContext.jsx`; `BarrierResolution.jsx` now passes complete structured vehicle payloads (`{ vehicle, driver, driverPhone, eta, requiresNeonatalKit }`).
-2. **Disconnected Cases in `BarrierResolution.jsx`:**  
+2. **Disconnected Cases in `BarrierResolution.jsx` (page since removed):**  
    **RESOLVED.** Isolated component arrays deleted; all 7 clinical cases unified in `src/data/seedData.js` and loaded dynamically via `useReferrals()`.
 3. **Static Patient Roadmap in `PatientDashboard.jsx`:**  
    **RESOLVED.** Static HTML replaced with a dynamic reactive timeline calculating active and completed states from `referral.status` and `referral.transit`. Live vehicle driver and ETA display automatically.

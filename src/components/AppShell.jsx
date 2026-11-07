@@ -1,14 +1,19 @@
-import { useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, Navigate, useLocation } from "react-router";
 import {
   getPrimaryRoleForRoute,
   getRoleDefinition,
   isKnownRoute,
   isRouteAllowedForRole,
 } from "../config/navigationConfig.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import { useReferrals } from "../context/ReferralContext.jsx";
+import AwaitingLink from "./AwaitingLink.jsx";
+import AssistantLauncher from "./assistant/AssistantLauncher.jsx";
+import CaseSwitcher from "./CaseSwitcher.jsx";
 import { useModalFocus } from "./Dialog.jsx";
 import MobileNav from "./MobileNav";
+import PrivacyNotice from "./PrivacyNotice.jsx";
 import Sidebar from "./Sidebar";
 import StoryBar from "./StoryBar";
 import TopHeader from "./TopHeader";
@@ -37,16 +42,45 @@ const MobileDrawer = ({ onClose }) => {
 
 const AppShell = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { role, setRole, storyStep } = useReferrals();
+  const { role, storyStep } = useReferrals();
+  const { session, privacyAccepted, signInAsDemoRole, linkedReferralId } = useAuth();
   const location = useLocation();
 
+  // The drawer is phone-only: it must not stay open, and keep the page locked, behind a new screen
+  // (Back button) or once the window grows to the desktop layout (a rotated tablet).
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = (e) => e.matches && setMobileMenuOpen(false);
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, [mobileMenuOpen]);
+  const [menuPath, setMenuPath] = useState(location.pathname);
+  if (menuPath !== location.pathname) {
+    setMenuPath(location.pathname);
+    setMobileMenuOpen(false);
+  }
+
   const currentRole = role || "coordinator";
+  // Room at the bottom so the last content can scroll clear of what floats over it: the phone tabs,
+  // the family's Ask button (patients only) and the guided demo bar.
+  const asks = currentRole === "patient";
+  const bottomRoom =
+    storyStep !== null ? (asks ? "pb-72 lg:pb-44" : "pb-56 lg:pb-28") : asks ? "pb-40 lg:pb-24" : "pb-20 lg:pb-0";
   const roleDef = getRoleDefinition(currentRole);
   // Unknown paths fall through to the 404 page instead of the access-denied screen.
   const isAllowed = !isKnownRoute(location.pathname) || isRouteAllowedForRole(currentRole, location.pathname);
 
   const primaryRoleForRoute = getPrimaryRoleForRoute(location.pathname);
   const requiredRoleDef = getRoleDefinition(primaryRoleForRoute);
+  // A patient or family member reads the privacy notice once. The guided demo skips it.
+  const needsPrivacy = session?.role === "patient" && !privacyAccepted && storyStep === null;
+  // A self-registered account sees no case until it is linked to one.
+  const awaitingLink = session?.kind === "phone" && !linkedReferralId;
+
+  if (!session) {
+    return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col">
@@ -63,7 +97,7 @@ const AppShell = ({ children }) => {
       </a>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:flex fixed inset-y-0 left-0 w-sidebar z-30 bg-surface border-r border-line shadow-card flex-col justify-between">
+      <div className="hidden lg:flex fixed inset-y-0 left-0 w-sidebar z-30 bg-surface border-r border-line flex-col justify-between">
         <Sidebar />
       </div>
 
@@ -75,28 +109,38 @@ const AppShell = ({ children }) => {
         <main
           id="main-content"
           tabIndex={-1}
-          className={`flex-1 pt-header bg-canvas min-h-screen w-full ${storyStep !== null ? "pb-56 lg:pb-28" : "pb-20 lg:pb-0"}`}
+          className={`flex-1 pt-header bg-canvas min-h-screen w-full ${bottomRoom}`}
         >
           {!isAllowed ? (
             <div className="w-full max-w-lg mx-auto py-16 px-4 sm:px-6 text-center space-y-4">
               <Icon name="lock" size="xl" className="text-danger" />
-              <h1 className="font-display text-2xl font-bold text-ink tracking-tight">For {requiredRoleDef.title}</h1>
-              <p className="text-sm text-ink-muted">You are viewing as {roleDef.title}.</p>
+              <h1 className="font-display text-2xl font-semibold text-ink">For {requiredRoleDef.title}</h1>
+              <p className="text-sm text-ink-muted">
+                You are signed in as {session.name}, {roleDef.title}.
+              </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button as={Link} to={roleDef.homePath}>
                   Back to my screens
                 </Button>
-                <Button variant="primary" onClick={() => setRole(requiredRoleDef.id)}>
-                  Switch to {requiredRoleDef.shortTitle}
+                <Button variant="primary" onClick={() => signInAsDemoRole(requiredRoleDef.id)}>
+                  Demo only: sign in as {requiredRoleDef.shortTitle}
                 </Button>
               </div>
             </div>
+          ) : needsPrivacy ? (
+            <PrivacyNotice />
+          ) : awaitingLink ? (
+            <AwaitingLink />
           ) : (
-            children
+            <>
+              {session.kind === "phone" && <CaseSwitcher />}
+              {children}
+            </>
           )}
         </main>
       </div>
 
+      {isAllowed && !needsPrivacy && !awaitingLink && <AssistantLauncher />}
       <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />
       <StoryBar />
     </div>

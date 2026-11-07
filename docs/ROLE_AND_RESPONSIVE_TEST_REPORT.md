@@ -2,57 +2,57 @@
 
 **Document:** `docs/ROLE_AND_RESPONSIVE_TEST_REPORT.md`  
 **Version:** 3.1.0  
-**Test Date:** November 01, 2026  
+**Test Date:** November 01, 2026 (original run). `npm test` and `npm run lint` re-run November 04, 2026.  
 **Auditor / QA Specialist:** Lead Frontend Architect & QA Automation Engineer
 
 ---
 
 ## 1. Executive Test Summary
 
-| Dimension                          | Verification Target                                            | Result                                          | Status   |
-| :--------------------------------- | :------------------------------------------------------------- | :---------------------------------------------- | :------- |
-| **Role-Specific Navigation Suite** | 7 automated tests in `navigationConfig.test.js`                | 7 passed ($100\%$)                              | **PASS** |
-| **Domain & Workflow Suites**       | See `docs/TESTING_REPORT.md` for the current suites and counts | All passing                                     | **PASS** |
-| **Total Automated Tests**          | 20 unit and integration tests                                  | 20 passed in $300\text{ms}$                     | **PASS** |
-| **Static Code Quality**            | `eslint src` (ESLint v10)                                      | 0 errors, 0 warnings                            | **PASS** |
-| **Production Vite Build**          | `vite build`                                                   | 56 modules transformed, built in $2.78\text{s}$ | **PASS** |
-| **Desktop Layout Geometry**        | Fix $576\text{px}$ double-padding bug                          | Resolved; content starts at $270\text{px}$      | **PASS** |
-| **Cross-Role Route Boundaries**    | Patient $\rightarrow$ Coordinator / Facility blocking          | Intercepted with Role Boundary modal            | **PASS** |
+| Dimension                          | Verification Target                                            | Result                                                                   | Status            |
+| :--------------------------------- | :------------------------------------------------------------- | :----------------------------------------------------------------------- | :---------------- |
+| **Role-Specific Navigation Suite** | 14 automated tests in `src/config/navigationConfig.test.js`    | 14 passed (re-run November 04, 2026)                                     | **PASS**          |
+| **Domain & Workflow Suites**       | See `docs/TESTING_REPORT.md` for the current suites and counts | All passing (re-run November 04, 2026, as part of `npm test`)            | **PASS**          |
+| **Total Automated Tests**          | 211 unit and integration tests in 44 suites                    | 211 passed in about $1.0\text{s}$ (re-run November 04, 2026)             | **PASS**          |
+| **Static Code Quality**            | `npm run lint` (oxlint and Biome)                              | Passed with no warnings (re-run November 04, 2026)                       | **PASS**          |
+| **Production Vite Build**          | `npm run build` (`vite build`)                                 | Not re-tested. Last run November 01, 2026: 56 modules                    | **Not re-tested** |
+| **Desktop Layout Geometry**        | Sidebar and content start at $270\text{px}$                    | Not re-tested. Sidebar width is `w-sidebar` ($16.875\text{rem}$) in code | **Not re-tested** |
+| **Cross-Role Route Boundaries**    | Patient $\rightarrow$ Coordinator / Facility blocking          | Role boundary screen, in code and unit tests. Not re-tested in a browser | **Not re-tested** |
 
 ---
 
 ## 2. Role-Specific Navigation Test Results
 
+The navigation items below were checked against `src/config/navigationConfig.js` on November 04, 2026. The browser steps were not re-tested unless marked as checked.
+
 ### 2.1 Care Coordinator (`role === "coordinator"`)
 
 - **Observed Navigation Items:**
-  1. Coordinator Command Center (`/coordinator`)
-  2. Priority Referral Queue (`/coordinator?view=queue`)
-  3. Barrier Resolution Desk (`/barriers`)
-  4. Care Navigator Caseload (`/navigator`)
-  5. Transport Operations Desk (`/transport`)
-  6. Regional Facility Grid (`/network`)
-  7. 42-Day Continuity of Care (`/continuity`)
-  8. Initiate New Referral (`/create`)
+  1. Dashboard (`/coordinator`)
+  2. Patients (`/patients`), with filter tabs All, Mothers, Newborns, Needs transport, No reply yet, Blocked and Barriers solved (`?show=`)
+  3. Transport (`/transport`)
+  4. Hospitals (`/network`)
+  5. 42-day follow-up (`/continuity`)
 - **Verification:**
-  - Patient personal lifeline (`/patient`) is completely hidden from the sidebar.
-  - Active route highlighting works correctly with Stitch primary filled state.
-  - Switching view tabs between `queue`, `network`, and `staff` synchronizes with URL query parameter `?view=`.
+  - Patient personal lifeline (`/patient`) is not in the coordinator's navigation. Checked in code. Not re-tested in a browser.
+  - The Queue, Caseload and Barriers screens are now the Patients screen. `/coordinator?view=queue`, `/navigator` and `/barriers` redirect there. Not re-tested in a browser.
+  - Active route highlighting: the current item gets `aria-current="page"` and the accent fill. Not re-tested.
 
 ### 2.2 Receiving Healthcare Facility (`role === "facility"`)
 
 - **Observed Navigation Items:**
-  1. Facility Operations Hub (`/facility`)
-  2. Pending Intake Queue (`/facility?tab=pending`)
-  3. In-Transit Patient Transfers (`/facility?tab=intransit`)
-  4. Physical Arrivals & Intake (`/facility?tab=arrived`)
-  5. Clinical Outcomes & Handover (`/facility?tab=completed`)
-  6. Diverted / Declined Cases (`/facility?tab=redirected`)
-  7. Regional Care Capacity Grid (`/network`)
+  1. Intake (`/facility`)
+  2. Hospitals (`/network`)
+- **Intake tabs (on the screen, not in the navigation):**
+  - To acknowledge (`/facility?tab=pending`)
+  - On the way (`?tab=intransit`)
+  - Arrived (`?tab=arrived`)
+  - Done (`?tab=completed`)
+  - Declined (`?tab=declined`)
 - **Verification:**
-  - Coordinator Command Center (`/coordinator`), Barrier Desk (`/barriers`), and Fleet Dispatch (`/transport`) are completely absent from the sidebar.
-  - Clicking "Pending Intake Queue" activates the pending tab in `FacilityDashboard.jsx`.
-  - Clicking "Clinical Outcomes & Handover" switches to completed cases.
+  - Coordinator Dashboard, Patients and Transport are not in the hospital navigation. Checked in code.
+  - "Patient is here" on a row opens the "Confirm arrival" dialog with Ward, Bed number, IP number (optional), Received by and Role. Not re-tested.
+  - New referral (`/create`) is a header button, shown to the Hospital role only. Checked in `TopHeader.jsx`. Not re-tested.
 
 ### 2.3 Patient & Family (`role === "patient"`)
 
@@ -61,129 +61,104 @@
   2. Live Transport & Ride Status (`/patient?view=transit`)
   3. What to Bring Checklist (`/patient?view=checklist`)
   4. 42-Day Postpartum Plan (`/continuity`)
-  5. Support & Emergency Help (`/patient?view=support`)
+  5. Get Help (`/patient?view=support`). The family assistant is at `/patient/assistant` and is shown under this item.
 - **Verification:**
-  - Zero clinical jargon, barrier resolution desks, or administrative triage consoles are visible.
-  - Clicking "Live Transport & Ride Status" scrolls smoothly to the vehicle dispatch card.
-  - Clicking "Support & Emergency Help" anchors to the Care Navigator phone link and 108 banner.
-  - "New Referral" button in header is automatically hidden for patients.
+  - No clinical or triage screens are in the patient navigation. Checked in code. Not re-tested in a browser.
+  - "My ride" opens the transit tab (`?view=transit`). Not re-tested.
+  - "Get help" shows "Ask about your visit" and the 108 call button. Not re-tested.
+  - A floating assistant button shows on the other patient screens: a link to the full screen on phones, and a chat panel on desktop. Not re-tested.
+  - New referral is not shown to patients. Checked in `TopHeader.jsx`. Not re-tested.
 
-### 2.4 Care Navigator (`role === "navigator"`)
+### 2.4 Care Navigator (removed)
 
-- **Observed Navigation Items:**
-  1. Navigator Caseload Desk (`/navigator`)
-  2. Barrier Resolution Desk (`/barriers`)
-  3. Transport Fleet Dispatch (`/transport`)
-  4. 42-Day Postpartum Touchpoints (`/continuity`)
-  5. Regional Facility Grid (`/network`)
-- **Verification:**
-  - Hospital intake controls (`/facility`) and patient smartphone views are excluded.
-  - Outreach loggers and certified interpreter requests are immediately accessible.
+- The navigator role is no longer in `roleDefinitions`. Its screens are now part of the Coordinator's Patients, Transport, 42-day follow-up and Hospitals screens. Not re-tested.
 
 ---
 
 ## 3. Route Boundary & Access Control Tests
 
-| Role Attempting Access | Target URL                  | Expected Result               | Actual Result                                                | Status   |
-| :--------------------- | :-------------------------- | :---------------------------- | :----------------------------------------------------------- | :------- |
-| **Patient**            | `/coordinator`              | Blocked: Role Boundary Screen | Renders "Restricted to Care Coordinator" with one-tap switch | **PASS** |
-| **Patient**            | `/facility`                 | Blocked: Role Boundary Screen | Renders "Restricted to Receiving Healthcare Facility"        | **PASS** |
-| **Patient**            | `/barriers`                 | Blocked: Role Boundary Screen | Renders Role Boundary notice                                 | **PASS** |
-| **Facility**           | `/coordinator`              | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub                   | **PASS** |
-| **Facility**           | `/patient`                  | Blocked: Role Boundary Screen | Intercepted; offers return to Facility Hub                   | **PASS** |
-| **Coordinator**        | `/coordinator`              | Allowed                       | Renders Coordinator Command Center                           | **PASS** |
-| **Coordinator**        | `/referral/REF-2024-8821`   | Allowed                       | Renders Ananya Reddy case chart                              | **PASS** |
-| **Any Role**           | `/referral/NON-EXISTENT-ID` | Referral Not Found            | Renders 404 referral card with return button                 | **PASS** |
-| **Any Role**           | `/random-unknown-path`      | 404 Page Not Found            | Renders NotFound.jsx with return to workspace button         | **PASS** |
+Rules checked in code on November 04, 2026. The screens were not re-tested in a browser. The rules behind these rows are covered by unit tests in `navigationConfig.test.js` (`isRouteAllowedForRole`, `isKnownRoute`).
+
+| Role Attempting Access | Target URL                  | Expected Result               | Actual Result (from code)                                                                                                      | Status            |
+| :--------------------- | :-------------------------- | :---------------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :---------------- |
+| **Patient**            | `/coordinator`              | Blocked: Role Boundary Screen | Heading "For Care Coordinator", "You are viewing as Patient Journey", buttons "Back to my screens" and "Switch to Coordinator" | **Not re-tested** |
+| **Patient**            | `/facility`                 | Blocked: Role Boundary Screen | Heading "For Hospital", with the same two buttons                                                                              | **Not re-tested** |
+| **Patient**            | `/barriers`                 | Redirect, then blocked        | Redirects to `/patients?show=blocked`, which the Coordinator boundary then blocks                                              | **Not re-tested** |
+| **Facility**           | `/coordinator`              | Blocked: Role Boundary Screen | Heading "For Care Coordinator"; "Back to my screens" returns to `/facility`                                                    | **Not re-tested** |
+| **Facility**           | `/patient`                  | Blocked: Role Boundary Screen | Heading "For Patient & Family", with "Switch to Patient Journey"                                                               | **Not re-tested** |
+| **Coordinator**        | `/coordinator`              | Allowed                       | Renders the Coordinator Dashboard                                                                                              | **Not re-tested** |
+| **Coordinator**        | `/referral/REF-2024-8821`   | Allowed                       | Renders the case chart for Ananya Reddy (seed data)                                                                            | **Not re-tested** |
+| **Any Role**           | `/referral/NON-EXISTENT-ID` | Referral Not Found            | Heading "Referral not found", with a return button                                                                             | **Not re-tested** |
+| **Any Role**           | `/random-unknown-path`      | 404 Page Not Found            | Renders `NotFound.jsx` with "Back to my screens"                                                                               | **Not re-tested** |
 
 ---
 
 ## 4. Responsive Viewport Inspection Results
 
+The layout rules below were checked in code on November 04, 2026. None of the viewport checks were re-run in a browser on that date.
+
 ### 4.1 Desktop Viewports ($1440 \times 900$, $1366 \times 768$, $1280 \times 800$)
 
-- **Sidebar:** Fixed at `270px` on the left. Does not scroll away with page content.
-- **Header:** Sticky at top with `lg:left-[270px]`. Aligns with workspace down to the pixel.
-- **Horizontal Alignment:** The main workspace starts at exactly $270\text{px}$. The previous double-padding offset ($576\text{px}$) is completely gone.
-- **Container Sizing:** `max-w-[1600px] w-full` allows the dashboard to utilize all available width.
-- **KPI Ribbon:** Reflows into 6 spacious cards (`xl:grid-cols-6`). No cramped text or truncated metrics.
-- **Split Work Queue:** 8:4 ratio on 1280px-1440px monitors; 9:3 ratio on 1536px+ ultrawide displays.
+- **Sidebar:** Fixed on the left at `w-sidebar` ($270\text{px}$). Not re-tested.
+- **Header:** Fixed at the top, 64px tall, with `lg:left-sidebar`. Not re-tested.
+- **Horizontal alignment:** Content is offset by `lg:pl-sidebar`. The 2026-11-01 run fixed a $576\text{px}$ double-padding offset. Not re-tested.
+- **Content column:** `Page` with a width of sm, md, lg or full. Not re-tested.
+- **Coordinator layout:** The KPI ribbon and split work queue described in the 2026-11-01 run are not re-tested. The dashboard layout has changed since then.
 
 ### 4.2 Tablet Viewport ($768 \times 1024$ iPad Portrait)
 
-- **Sidebar:** Hidden by default. Opens as an accessible slide-over drawer when the hamburger icon is tapped.
-- **Navigation Drawer:** Backdrop covers screen (`bg-black/50`); body scroll is locked. Closes on link selection, backdrop tap, or `Escape` key.
-- **Workspaces:** KPI ribbon collapses cleanly into a 3-column $\times$ 2-row grid.
-- **Tables:** Priority queue table encased in `overflow-x-auto` with `min-w-[700px]`; smooth horizontal touch scroll without page overflow.
+- **Sidebar:** Hidden below $1024\text{px}$. The header's menu button opens it as a drawer (`MobileDrawer`), with a backdrop. Not re-tested.
+- **Work lists:** `DataTable` scrolls inside its own box, not the page. Not re-tested.
 
 ### 4.3 Mobile Viewports ($430 \times 932$, $390 \times 844$, $375 \times 812$)
 
-- **Top Header:** Clean, compact top bar with hamburger menu, live search input, notification bell, and persona badge.
-- **Drawer Navigation:** Renders role-specific links with generous $\ge 48\text{px}$ touch targets.
-- **Patient Dashboard:** Reflows into a single-column vertical timeline. 1-touch telephone links (`tel:108`, `tel:navigator`) work instantly.
-- **No Page Blowout:** Zero horizontal page scrolling on the outer body canvas.
+- **Top header:** Menu button, alerts bell, and "New referral" (Hospital role only). The search box from the 2026-11-01 run has been removed. Checked in `TopHeader.jsx`.
+- **Navigation:** Bottom tabs (`MobileNav`) show up to five items. The drawer holds the rest. Not re-tested.
+- **Patient dashboard:** One column. The "Call 108 (emergency services)" link (`tel:108`) is in the emergency section. Not re-tested.
+- **No page blowout:** The page never pans sideways. `html` and `body` use `overflow-x: clip` (`src/index.css`). Not re-tested at 320px or 390px.
 
 ---
 
 ## 5. Automated Test Suite Execution Log
 
-Command: `npm test`  
-Runner: Node.js 24 Native Test Runner (`node --test`)
+Command: `npm test` (`node --test src/**/*.test.js server/*.test.js`)  
+Runner: Node.js native test runner (`node --test`)  
+Run: November 04, 2026
 
 ```text
-▶ Role-Based Navigation Configuration
-  ✔ defines all 4 expected primary operational roles (3.75ms)
-  ✔ Coordinator navigation contains only coordinator-appropriate items (0.99ms)
-  ✔ Facility navigation contains only facility-appropriate intake items (0.45ms)
-  ✔ Patient navigation contains only patient-facing journey items (0.43ms)
-  ✔ Navigator navigation contains community outreach and barrier items (3.88ms)
-  ✔ Route access boundaries enforce role isolation (0.90ms)
-  ✔ getPrimaryRoleForRoute identifies correct role owner (0.30ms)
-✔ Role-Based Navigation Configuration (15.43ms)
-
-▶ Integrated Referral Workflow Engine
-  ✔ processes Scenario A: Maternal Referral end-to-end with care continuity (14.67ms)
-  ✔ processes Scenario B: Neonatal Referral with appropriate neonatal vitals and care plan (1.92ms)
-  ✔ processes Scenario C: Failed Transport & Escalation (0.63ms)
-  ✔ processes Scenario D: Facility Rejection and Redirection (0.33ms)
-✔ Integrated Referral Workflow Engine (22.25ms)
-
-▶ Domain Enums & Models
-  ✔ creates a maternal referral with valid defaults (5.50ms)
-  ✔ creates a neonatal referral without maternal vitals (0.35ms)
-  ✔ creates a structured clinical outcome (0.30ms)
-  ✔ generates 42-day postpartum continuing care plan with 4 touchpoints (0.55ms)
-✔ Domain Enums & Models (10.47ms)
-
-▶ Domain State Transitions
-  ✔ allows valid referral progression SENT -> ACKNOWLEDGED -> ARRIVAL_CONFIRMED (0.31ms)
-  ✔ blocks invalid direct leap from SENT to COMPLETED (0.20ms)
-  ✔ allows facility rejection and redirection (0.29ms)
-  ✔ validates transport lifecycle and prevents invalid jump (0.51ms)
-  ✔ validates barrier resolution lifecycle (0.65ms)
-✔ Domain State Transitions (2.69ms)
-
-ℹ tests 20
-ℹ suites 4
-ℹ pass 20
+ℹ tests 211
+ℹ suites 44
+ℹ pass 211
 ℹ fail 0
-ℹ duration_ms 300.73
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1045
 ```
+
+Navigation suite alone (`node --test src/config/navigationConfig.test.js`, November 04, 2026): 14 tests, 14 passed, 0 failed.
+
+The per-test log from the November 01, 2026 run (20 tests in 4 suites) used test names that are no longer in the suite. It is not repeated here.
 
 ---
 
 ## 6. Static Code Analysis & Production Build Logs
 
-### 6.1 ESLint Log
+### 6.1 Lint Log
+
+Run November 04, 2026. The lint command was `oxlint` and Biome; the older ESLint step is no longer used.
 
 ```bash
 $ npm run lint
 > health-a-thon@0.0.0 lint
-> eslint src
+> oxlint --deny-warnings && biome check --error-on-warnings .
+Checked 147 files in 215ms. No fixes applied.
 # Exit code: 0
 ```
 
 ### 6.2 Production Build Log
+
+Not re-tested on November 04, 2026. The log below is from the November 01, 2026 run.
 
 ```bash
 $ npm run build
