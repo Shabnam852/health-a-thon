@@ -36,6 +36,8 @@ const maternalVitals = [
 ];
 // Other vitals a referral can carry. Anything recorded is shown, so nothing measured is hidden.
 const extraVitals = {
+  // Only reached when "hr" isn't an expected vital, i.e. a mother-only referral: it's her pulse, not a baby's.
+  hr: ["Heart rate", "heart", "mother"],
   membranes: ["Membranes", "pregnant", "mother"],
   infantWeight: ["Baby's weight", "weight", "baby"],
   infantTemp: ["Baby's temperature", "temperature", "baby"],
